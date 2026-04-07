@@ -1,1 +1,1210 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bejaan Hotel — Project Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f7f5;--surface: #ffffff;--surface2: #f0f4f1;--border: #dde8e2;
+  --green: #4caf7d;--green-light: #7dd4a8;--green-dim: #2d8a5e;--green-bg: rgba(76,175,125,.08);
+  --text: #111c17;--text-muted: #5a7066;--text-dim: #8aaa9e;
+  --red: #e05c5c;--blue: #3a86c8;--orange: #e08a4c;--radius: 8px;--radius-lg: 12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px;}
+.sidebar{width:220px;min-height:100vh;background:#111c17;border-right:1px solid #1e2e26;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid #1e2e26;}
+.sidebar-logo h1{font-family:'Playfair Display',serif;font-size:16px;color:var(--green);line-height:1.3;}
+.sidebar-logo p{font-size:11px;color:#5a7a6a;margin-top:2px;}
+.sidebar-section{padding:12px 0;}
+.sidebar-label{font-size:10px;font-weight:600;letter-spacing:.1em;color:#3a5a4a;text-transform:uppercase;padding:0 16px 6px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;color:#8aaa9e;font-size:13px;transition:all .15s;border-left:2px solid transparent;}
+.nav-item:hover{color:#fff;background:rgba(76,175,125,.1);}
+.nav-item.active{color:var(--green);background:rgba(76,175,125,.12);border-left-color:var(--green);}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid #1e2e26;font-size:11px;color:#3a5a4a;}
+.main{margin-left:220px;flex:1;padding:24px;min-height:100vh;}
+.page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--text);}
+.page-subtitle{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;}
+.btn-primary{background:var(--green);color:#fff;}
+.btn-primary:hover{background:var(--green-dim);}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+.btn-secondary:hover{border-color:var(--green-dim);color:var(--green-dim);}
+.btn-danger{background:rgba(224,92,92,.1);color:var(--red);border:1px solid rgba(224,92,92,.25);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.section{display:none;}.section.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;}
+.card-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;}
+.stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;}
+.stat-value{font-size:24px;font-weight:600;color:var(--text);margin:4px 0;}
+.stat-sub{font-size:11px;color:var(--text-dim);}
+.stat-card.gold .stat-value,.stat-card.green .stat-value{color:var(--green);}
+.stat-card.red .stat-value{color:var(--red);}
+.stat-card.blue .stat-value{color:var(--blue);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+@media(max-width:1100px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group label{font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;}
+.form-group input,.form-group select,.form-group textarea{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;transition:border-color .15s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green);}
+.form-group textarea{resize:vertical;min-height:70px;}
+.form-group select option{background:var(--surface);}
+.form-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--green-bg);}
+.empty-row td{text-align:center;color:var(--text-dim);padding:32px;font-style:italic;}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:500;}
+.badge-green{background:rgba(76,175,125,.12);color:var(--green-dim);}
+.badge-red{background:rgba(224,92,92,.12);color:#c04040;}
+.badge-blue{background:rgba(58,134,200,.12);color:#2a66a0;}
+.badge-orange{background:rgba(224,138,76,.12);color:#b06030;}
+.badge-gray{background:rgba(90,112,102,.1);color:var(--text-muted);}
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);margin-bottom:10px;font-size:13px;}
+.alert-warning{background:rgba(224,138,76,.08);border:1px solid rgba(224,138,76,.2);color:#b06030;}
+.alert-danger{background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.2);color:#c04040;}
+.alert-info{background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.2);color:var(--green-dim);}
+.progress-bar{background:var(--border);border-radius:10px;height:6px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:10px;background:var(--green);transition:width .3s;}
+.progress-fill.green{background:var(--green);}.progress-fill.red{background:var(--red);}
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);gap:10px;}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-container{position:fixed;top:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;}
+.toast{padding:12px 16px;border-radius:var(--radius);font-size:13px;min-width:220px;animation:slideIn .2s ease;box-shadow:0 4px 12px rgba(0,0,0,.1);}
+.toast-success{background:#e8f5ee;border:1px solid #b0ddc0;color:#2d6a4a;}
+.toast-error{background:#fdf0f0;border:1px solid #f0c0c0;color:#c04040;}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.chart-container{position:relative;height:220px;}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:32px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-muted);}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--green);background:var(--green-bg);}
+.drop-zone-icon{font-size:28px;margin-bottom:8px;}
+.overdue{color:var(--red)!important;}
+.conn-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#5a7a6a;}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:#3a5a4a;}
+.conn-dot.connected{background:var(--green);}.conn-dot.error{background:var(--red);}
+
+/* WORKFLOW */
+.wf-canvas-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;min-height:520px;}
+#workflow-svg{display:block;}
+.wf-node{cursor:pointer;}
+.wf-node:hover rect{filter:brightness(1.1);}
+.wf-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--text-muted);}
+.wf-legend-item{display:flex;align-items:center;gap:6px;}
+.wf-legend-dot{width:12px;height:12px;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo"><h1>Bejaan Hotel</h1><p>Project Dashboard</p></div>
+  <nav style="overflow-y:auto;flex:1;">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Main</div>
+      <div class="nav-item active" onclick="showSection('overview')"><span class="nav-icon">📊</span>Overview</div>
+      <div class="nav-item" onclick="showSection('alerts')"><span class="nav-icon">🔔</span>Alerts <span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tracking</div>
+      <div class="nav-item" onclick="showSection('vendors')"><span class="nav-icon">🤝</span>Vendors</div>
+      <div class="nav-item" onclick="showSection('wip')"><span class="nav-icon">🔧</span>Work in Progress</div>
+      <div class="nav-item" onclick="showSection('workflow')"><span class="nav-icon">🔀</span>Workflow</div>
+      <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🛋️</span>Inventory</div>
+      <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
+      <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
+      <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Management</div>
+      <div class="nav-item" onclick="showSection('contacts')"><span class="nav-icon">👥</span>Team & Contacts</div>
+      <div class="nav-item" onclick="showSection('meetings')"><span class="nav-icon">📝</span>Meeting Log</div>
+      <div class="nav-item" onclick="showSection('punch')"><span class="nav-icon">✅</span>Punch List</div>
+    </div>
+  </nav>
+  <div class="sidebar-footer"><div class="conn-status"><div class="conn-dot" id="conn-dot"></div><span id="conn-text">Connecting…</span></div></div>
+</aside>
+
+<div class="toast-container" id="toasts"></div>
+
+<main class="main">
+
+<!-- OVERVIEW -->
+<div class="section active" id="section-overview">
+  <div class="page-header">
+    <div><div class="page-title">Overview</div><div class="page-subtitle">Live project summary</div></div>
+    <button class="btn btn-secondary btn-sm" onclick="loadAll()">↻ Refresh</button>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card gold"><div class="stat-label">Total Budget</div><div class="stat-value" id="ov-budget">—</div><div class="stat-sub">PKR</div></div>
+    <div class="stat-card red"><div class="stat-label">Vendor Balance Due</div><div class="stat-value" id="ov-balance">—</div><div class="stat-sub">PKR</div></div>
+    <div class="stat-card green"><div class="stat-label">Avg Completion</div><div class="stat-value" id="ov-completion">—</div><div class="stat-sub">across all areas</div></div>
+    <div class="stat-card blue"><div class="stat-label">Open Issues</div><div class="stat-value" id="ov-issues">—</div><div class="stat-sub">punch list items</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Vendor Payments — Paid vs Balance</div>
+      <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text-muted);">
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:#4caf7d;display:inline-block;"></span>Paid</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:#c0392b;display:inline-block;"></span>Balance Due</span>
+      </div>
+      <div style="position:relative;height:320px;"><canvas id="chart-vendor"></canvas></div>
+    </div>
+    <div class="card"><div class="card-title">Work Completion by Area</div><div class="chart-container"><canvas id="chart-wip"></canvas></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Budget — Actual vs Budgeted</div><div class="chart-container"><canvas id="chart-budget"></canvas></div></div>
+    <div class="card"><div class="card-title">Upcoming Cashflow — Next 4 Entries</div><div id="upcoming-cashflow"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+  </div>
+</div>
+
+<!-- ALERTS -->
+<div class="section" id="section-alerts">
+  <div class="page-header"><div class="page-title">Active Alerts</div></div>
+  <div id="alerts-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+</div>
+
+<!-- VENDORS -->
+<div class="section" id="section-vendors">
+  <div class="page-header">
+    <div><div class="page-title">Vendors & Payments</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV('vendors')">Export CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="toggleXero()">⬆ Import from Xero</button>
+    </div>
+  </div>
+  <div id="xero-panel" style="display:none;" class="card">
+    <div class="card-title">Import from Xero CSV</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Export Bills from Xero: <b>Accounts → Purchases → Bills to Pay → Export CSV</b>, then drop below.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('xero-file').click()"><div class="drop-zone-icon">📂</div><div>Drop Xero CSV here or click to browse</div></div>
+    <input type="file" id="xero-file" accept=".csv" style="display:none;" onchange="handleXeroFile(this)">
+    <div id="xero-preview" style="margin-top:12px;display:none;">
+      <div class="table-wrap"><table id="xero-table"><thead></thead><tbody></tbody></table></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="importXeroSelected()">✓ Import Selected</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('xero-preview').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Add Vendor / Payment Record</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Vendor Name *</label><input id="v-name" placeholder="e.g. Ali Builders"></div>
+      <div class="form-group"><label>Category</label><input id="v-cat" placeholder="e.g. Civil, Electrical…"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="v-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Total Contract (PKR)</label><input id="v-total" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="v-paid" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Payment Due Date</label><input id="v-due" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="v-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
+      <div class="form-group"><label>Approval</label><select id="v-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="v-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
+  </div>
+  <div class="card">
+    <div class="card-title">All Vendors & Payments</div>
+    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Total</th><th>Paid</th><th>Balance</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"><tr><td colspan="12"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- WIP -->
+<div class="section" id="section-wip">
+  <div class="page-header"><div class="page-title">Work in Progress</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('work_items')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Work Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Area *</label><input id="w-area" placeholder="e.g. Lobby, Floor 2…"></div>
+      <div class="form-group"><label>Task *</label><input id="w-task" placeholder="Task description"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="w-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Contractor</label><input id="w-contractor" placeholder="Firm / person"></div>
+      <div class="form-group"><label>% Complete</label><input id="w-pct" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group"><label>Start Date</label><input id="w-start" type="date"></div>
+      <div class="form-group"><label>Target Date</label><input id="w-target" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="w-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option><option>On Hold</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="w-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addWip()">+ Add Item</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Work in Progress Tracker</div>
+    <div class="table-wrap"><table><thead><tr><th>Area</th><th>Task</th><th>Responsible</th><th>Contractor</th><th>Progress</th><th>Start</th><th>Target</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="wip-tbody"><tr><td colspan="10"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- WORKFLOW -->
+<div class="section" id="section-workflow">
+  <div class="page-header">
+    <div><div class="page-title">Workflow</div><div class="page-subtitle">Visual dependency flowchart — click a node to cycle its status</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="syncWipToWorkflow()">↻ Sync from WIP</button>
+      <button class="btn btn-primary btn-sm" onclick="toggleAddPanel()">+ Add Task</button>
+    </div>
+  </div>
+
+  <div class="card" id="wf-add-panel" style="display:none;">
+    <div class="card-title">Add Workflow Task</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Task Name *</label><input id="wf-name" placeholder="e.g. Paint Walls"></div>
+      <div class="form-group"><label>Area / Category</label><input id="wf-area" placeholder="e.g. Lobby, Floor 2"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="wf-status">
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Done">Done</option>
+          <option value="Blocked">Blocked</option>
+          <option value="On Hold">On Hold</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Depends On (must finish first)</label>
+        <select id="wf-depends" multiple style="min-height:80px;"></select>
+        <span style="font-size:10px;color:var(--text-dim);">Hold Cmd/Ctrl to select multiple</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="addWorkflowTask()">+ Add</button>
+      <button class="btn btn-secondary" onclick="toggleAddPanel()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="wf-legend">
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#4caf7d;"></div>Done</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#3a86c8;"></div>In Progress</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e08a4c;"></div>Not Started</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e05c5c;"></div>Blocked</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#8aaa9e;"></div>On Hold</div>
+    <div style="margin-left:auto;font-size:11px;color:var(--text-dim);">💡 Click any box to cycle status · → Arrow = must finish before</div>
+  </div>
+
+  <div class="card" style="padding:12px;">
+    <div class="wf-canvas-wrap" id="wf-canvas-wrap">
+      <svg id="workflow-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#8aaa9e"/></marker>
+          <marker id="arr-blocked" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#e05c5c"/></marker>
+        </defs>
+        <g id="wf-edges"></g>
+        <g id="wf-nodes"></g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Task List</div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Task</th><th>Area</th><th>Status</th><th>Depends On</th><th>Blocking</th><th></th></tr></thead>
+      <tbody id="wf-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY -->
+<div class="section" id="section-inventory">
+  <div class="page-header"><div class="page-title">Inventory & Furnishings</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Inventory / Furnishing Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Item Name *</label><input id="i-name" placeholder="e.g. King Bed Frame"></div>
+      <div class="form-group"><label>Room / Area</label><input id="i-area" placeholder="e.g. Room 101"></div>
+      <div class="form-group"><label>Supplier</label><input id="i-supplier" placeholder="Supplier name"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="i-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Qty Ordered</label><input id="i-ordered" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Qty Received</label><input id="i-received" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Unit Cost (PKR)</label><input id="i-cost" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Expected Delivery</label><input id="i-delivery" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="i-status"><option>Ordered</option><option>Received</option><option>Pending Order</option><option>Installed</option><option>Delayed</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="i-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addInventory()">+ Add Item</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Furnishing & Inventory Register</div>
+    <div class="table-wrap"><table><thead><tr><th>Item</th><th>Area</th><th>Supplier</th><th>Responsible</th><th>Ordered</th><th>Received</th><th>Unit Cost</th><th>Total</th><th>Delivery</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="inventory-tbody"><tr><td colspan="12"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- ROOMS -->
+<div class="section" id="section-rooms">
+  <div class="page-header"><div class="page-title">Room Tracker</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add / Update Room</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Room Number / Name *</label><input id="r-name" placeholder="e.g. 101, Penthouse A"></div>
+      <div class="form-group"><label>Floor</label><input id="r-floor" placeholder="e.g. Ground, 1st"></div>
+      <div class="form-group"><label>Room Type</label><select id="r-type"><option>Standard</option><option>Deluxe</option><option>Suite</option><option>Penthouse</option><option>Common Area</option></select></div>
+      <div class="form-group"><label>Person Responsible</label><input id="r-resp" placeholder="Name"></div>
+      <div class="form-group"><label>% Complete</label><input id="r-pct" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group"><label>Status</label><select id="r-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="r-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addRoom()">+ Add Room</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Room-by-Room Completion</div>
+    <div class="table-wrap"><table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Responsible</th><th>Progress</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rooms-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- BUDGET -->
+<div class="section" id="section-budget">
+  <div class="page-header"><div class="page-title">Budget</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('budget')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Budget Category</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Category *</label><input id="b-cat" placeholder="e.g. Civil Works"></div>
+      <div class="form-group"><label>Budgeted Amount (PKR)</label><input id="b-budgeted" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Actual Spent (PKR)</label><input id="b-actual" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="b-resp" placeholder="Name"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="b-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addBudget()">+ Add Category</button>
+  </div>
+  <div class="card"><div class="card-title">Budget vs Actual by Category</div><div class="chart-container"><canvas id="chart-budget2"></canvas></div></div>
+  <div class="card">
+    <div class="card-title">Category Breakdown</div>
+    <div class="table-wrap"><table><thead><tr><th>Category</th><th>Responsible</th><th>Budgeted</th><th>Actual</th><th>Variance</th><th>Used %</th><th>Notes</th><th></th></tr></thead><tbody id="budget-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- CASHFLOW -->
+<div class="section" id="section-cashflow">
+  <div class="page-header"><div class="page-title">Cashflow</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('cashflow')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Cashflow Requirement</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Month *</label><input id="cf-month" type="month"></div>
+      <div class="form-group"><label>Description *</label><input id="cf-desc" placeholder="e.g. Tile payment"></div>
+      <div class="form-group"><label>Amount Needed (PKR)</label><input id="cf-amount" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Category</label><select id="cf-cat"><option>Vendor Payment</option><option>Furnishing</option><option>Civil Work</option><option>Operations Setup</option><option>Other</option></select></div>
+      <div class="form-group"><label>Priority</label><select id="cf-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      <div class="form-group"><label>Person Responsible</label><input id="cf-resp" placeholder="Name"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addCashflow()">+ Add Entry</button>
+  </div>
+  <div class="card"><div class="card-title">Monthly Cashflow Requirements</div><div class="chart-container"><canvas id="chart-cashflow"></canvas></div></div>
+  <div class="card">
+    <div class="card-title">Cashflow Schedule</div>
+    <div class="table-wrap"><table><thead><tr><th>Month</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- CONTACTS -->
+<div class="section" id="section-contacts">
+  <div class="page-header"><div class="page-title">Team & Contacts</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('contacts')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Team Member / Contractor</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Full Name *</label><input id="c-name" placeholder="Name"></div>
+      <div class="form-group"><label>Role / Title</label><input id="c-role" placeholder="e.g. Site Engineer"></div>
+      <div class="form-group"><label>Company</label><input id="c-company" placeholder="Firm name"></div>
+      <div class="form-group"><label>Phone</label><input id="c-phone" placeholder="+92…"></div>
+      <div class="form-group"><label>Email</label><input id="c-email" type="email" placeholder="email@…"></div>
+      <div class="form-group"><label>Type</label><select id="c-type"><option>Team Member</option><option>Contractor</option><option>Vendor</option><option>Consultant</option><option>Supplier</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="c-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addContact()">+ Add Contact</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Directory</div>
+    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Company</th><th>Phone</th><th>Email</th><th>Type</th><th>Notes</th><th></th></tr></thead><tbody id="contacts-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- MEETINGS -->
+<div class="section" id="section-meetings">
+  <div class="page-header"><div class="page-title">Meeting & Decision Log</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('meetings')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Log Meeting / Decision</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Date *</label><input id="m-date" type="date"></div>
+      <div class="form-group"><label>Title / Subject *</label><input id="m-title" placeholder="Meeting subject"></div>
+      <div class="form-group"><label>Attendees</label><input id="m-attendees" placeholder="Comma-separated names"></div>
+      <div class="form-group"><label>Type</label><select id="m-type"><option>Site Meeting</option><option>Decision</option><option>Vendor Meeting</option><option>Design Review</option><option>Finance Review</option><option>Other</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label>Summary / Minutes *</label><textarea id="m-summary" style="min-height:90px;"></textarea></div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Action Items</label><textarea id="m-actions" placeholder="One per line…"></textarea></div>
+    <button class="btn btn-primary" onclick="addMeeting()">+ Log Meeting</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Meeting Log</div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Title</th><th>Attendees</th><th>Type</th><th>Summary</th><th>Actions</th><th></th></tr></thead><tbody id="meetings-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+<!-- PUNCH LIST -->
+<div class="section" id="section-punch">
+  <div class="page-header"><div class="page-title">Punch List</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('punch_list')">Export CSV</button></div>
+  <div class="card">
+    <div class="card-title">Add Punch List Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Issue *</label><input id="p-issue" placeholder="Describe the issue"></div>
+      <div class="form-group"><label>Location</label><input id="p-location" placeholder="e.g. Room 201, Lobby"></div>
+      <div class="form-group"><label>Assigned To</label><input id="p-assigned" placeholder="Name"></div>
+      <div class="form-group"><label>Due By</label><input id="p-due" type="date"></div>
+      <div class="form-group"><label>Priority</label><select id="p-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      <div class="form-group"><label>Status</label><select id="p-status"><option>Open</option><option>In Progress</option><option>Done</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="p-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addPunch()">+ Add Item</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Punch List / Snag List</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('All')">All</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('Open')">Open</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('In Progress')">In Progress</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('Done')">Done</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Issue</th><th>Location</th><th>Assigned To</th><th>Priority</th><th>Due By</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="punch-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div>
+  </div>
+</div>
+
+</main>
+
+<!-- PAYMENT SCHEDULE MODAL -->
+<!-- EDIT VENDOR MODAL -->
+<div id="edit-vendor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeEditVendor()">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;">Edit Vendor</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeEditVendor()">✕ Close</button>
+    </div>
+    <input type="hidden" id="ev-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Vendor Name *</label><input id="ev-name" placeholder="e.g. Ali Builders"></div>
+      <div class="form-group"><label>Category</label><input id="ev-cat" placeholder="e.g. Civil, Electrical…"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="ev-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Total Contract (PKR)</label><input id="ev-total" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
+      <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;"><label>Notes</label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeEditVendor()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditVendor()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="pay-schedule-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closePaySchedule()">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;" id="ps-vendor-name">Payment Schedule</div>
+      <button class="btn btn-secondary btn-sm" onclick="closePaySchedule()">✕ Close</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Total Contract: <b id="ps-vendor-total">—</b></div>
+
+    <!-- Add installment -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px;">Add Payment Milestone</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="form-group"><label>% of Total *</label><input type="number" id="ps-pct" min="1" max="100" placeholder="e.g. 30"></div>
+        <div class="form-group"><label>Due Date *</label><input type="date" id="ps-date"></div>
+        <div class="form-group"><label>Priority</label>
+          <select id="ps-priority"><option>High</option><option>Medium</option><option>Low</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;"><label>Description</label><input id="ps-desc" placeholder="e.g. Foundation completion payment"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="addPaymentMilestone()">+ Add Milestone</button>
+        <span style="font-size:11px;color:var(--text-dim);" id="ps-pct-used"></span>
+      </div>
+    </div>
+
+    <!-- Schedule list -->
+    <div id="ps-list"></div>
+
+    <!-- Summary bar -->
+    <div id="ps-summary" style="margin-top:12px;padding:12px;background:var(--green-bg);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;display:none;">
+      <div style="margin-top:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>Scheduled: <b id="ps-sum-pct">0%</b></span>
+        <span>Total Scheduled: <b id="ps-sum-amt" style="color:var(--green);">PKR 0</b></span>
+        <span>Total Paid: <b id="ps-sum-paid" style="color:var(--green);">PKR 0</b></span>
+        <span>Unscheduled: <b id="ps-sum-rem" style="color:var(--red);">100%</b></span>
+      </div>
+      <div style="margin-top:8px;background:var(--border);border-radius:10px;height:6px;overflow:hidden;">
+        <div id="ps-progress-fill" style="height:100%;background:var(--green);border-radius:10px;transition:width .3s;width:0%;"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" onclick="closePaySchedule()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// SUPABASE
+const SB_URL='https://vnqsmzgebjpdizwtysnw.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
+const headers={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=representation'};
+async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?order=created_at.asc${p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbInsert(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});if(!r.ok)throw new Error(await r.text());}
+
+function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+function showSection(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  loadSection(id);
+}
+
+const cache={};
+async function getData(t){cache[t]=await sbGet(t);return cache[t];}
+const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
+const fmtDate=d=>d?d:'—';
+function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return `<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
+
+async function loadSection(id){
+  if(id==='overview') loadOverview();
+  else if(id==='alerts') loadAlerts();
+  else if(id==='vendors') loadVendors();
+  else if(id==='wip') loadWip();
+  else if(id==='workflow') loadWorkflow();
+  else if(id==='inventory') loadInventory();
+  else if(id==='rooms') loadRooms();
+  else if(id==='budget') loadBudget();
+  else if(id==='cashflow') loadCashflow();
+  else if(id==='contacts') loadContacts();
+  else if(id==='meetings') loadMeetings();
+  else if(id==='punch') loadPunch();
+}
+
+async function loadAll(){
+  await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
+  loadOverview(); loadAlerts();
+}
+
+// OVERVIEW
+async function loadOverview(){
+  try{
+    const[vendors,wip,budget,cashflow,punch]=await Promise.all([getData('vendors'),getData('work_items'),getData('budget'),getData('cashflow'),getData('punch_list')]);
+    document.getElementById('ov-budget').textContent=fmt(budget.reduce((a,b)=>a+(+b.budgeted||0),0));
+    document.getElementById('ov-balance').textContent=fmt(vendors.reduce((a,b)=>a+((+b.total_contract||0)-(+b.amount_paid||0)),0));
+    document.getElementById('ov-completion').textContent=(wip.length?Math.round(wip.reduce((a,b)=>a+(+b.percent_complete||0),0)/wip.length):0)+'%';
+    document.getElementById('ov-issues').textContent=punch.filter(p=>p.status!=='Done').length;
+    renderVendorBar('chart-vendor',vendors.map(v=>v.vendor_name||'—'),vendors.map(v=>+v.amount_paid||0),vendors.map(v=>(+v.total_contract||0)-(+v.amount_paid||0)));
+    const areas={};wip.forEach(w=>{if(!areas[w.area])areas[w.area]=[];areas[w.area].push(+w.percent_complete||0);});
+    const aL=Object.keys(areas);renderBar('chart-wip',aL,aL.map(a=>Math.round(areas[a].reduce((x,y)=>x+y,0)/areas[a].length)),'% Complete','#c9a84c');
+    renderGroupedBar('chart-budget',budget.map(b=>b.category),budget.map(b=>+b.budgeted||0),budget.map(b=>+b.actual_spent||0));
+    const s=[...cashflow].sort((a,b)=>a.month.localeCompare(b.month)).slice(0,4);
+    const cf=document.getElementById('upcoming-cashflow');
+    cf.innerHTML=s.length?s.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;">${c.description}</div><div style="font-size:11px;color:var(--text-muted);">${c.month} · ${c.category}</div></div><div style="font-weight:600;color:var(--green);">PKR ${fmt(c.amount)}</div></div>`).join(''):'<div style="padding:20px;color:var(--text-dim);text-align:center;">No cashflow entries yet</div>';
+  }catch(e){console.error(e);}
+}
+
+function renderVendorBar(id,labels,paidData,balData){
+  const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();
+  ctx.parentElement.style.height=Math.max(labels.length*38+60,200)+'px';
+  ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Paid',data:paidData,backgroundColor:'#4caf7d',barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6},{label:'Balance Due',data:balData,backgroundColor:'#c0392b',borderRadius:{topLeft:0,topRight:4,bottomLeft:0,bottomRight:4},barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+Number(c.raw).toLocaleString('en-PK')}}},scales:{x:{stacked:true,ticks:{color:'#5a7066',font:{size:11},callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'K':v},grid:{color:'#dde8e2'},border:{color:'transparent'}},y:{stacked:true,ticks:{color:'#111c17',font:{size:12}},grid:{display:false},border:{color:'transparent'}}}}});
+}
+function renderBar(id,labels,data,label,color){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'},max:100}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
+function renderGroupedBar(id,labels,d1,d2){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Budgeted',data:d1,backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1},{label:'Actual',data:d2,backgroundColor:'#e05c5c99',borderColor:'#e05c5c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
+
+// ALERTS
+async function loadAlerts(){
+  try{
+    const[vendors,wip,inventory,punch]=await Promise.all([getData('vendors'),getData('work_items'),getData('inventory'),getData('punch_list')]);
+    const today=new Date();today.setHours(0,0,0,0);
+    const alerts=[];
+    vendors.forEach(v=>{if(v.due_date){const d=new Date(v.due_date);const diff=Math.ceil((d-today)/(864e5));if(diff<0&&v.status!=='Completed')alerts.push({type:'danger',msg:`Overdue payment: ${v.vendor_name} — PKR ${fmt((+v.total_contract||0)-(+v.amount_paid||0))} overdue by ${Math.abs(diff)} days`});else if(diff<=7&&diff>=0&&v.status!=='Completed')alerts.push({type:'warning',msg:`Payment due in ${diff} days: ${v.vendor_name}`});}});
+    wip.forEach(w=>{if(w.status==='Delayed')alerts.push({type:'warning',msg:`Delayed: ${w.area} — ${w.task}`});});
+    inventory.forEach(i=>{if(i.status==='Delayed')alerts.push({type:'warning',msg:`Delayed delivery: ${i.item_name}`});});
+    punch.filter(p=>p.priority==='High'&&p.status!=='Done').forEach(p=>alerts.push({type:'danger',msg:`High priority issue: ${p.issue} — ${p.location||''}`}));
+    getWorkflowTasks().filter(t=>t.status==='Blocked').forEach(t=>alerts.push({type:'danger',msg:`Blocked workflow task: ${t.name}`}));
+    const badge=document.getElementById('alert-badge');
+    if(alerts.length){badge.textContent=alerts.length;badge.style.display='inline';}else badge.style.display='none';
+    const el=document.getElementById('alerts-container');
+    el.innerHTML=alerts.length?alerts.map(a=>`<div class="alert alert-${a.type}">⚠ ${a.msg}</div>`).join(''):'<div class="alert alert-info">✅ No active alerts — everything looks on track.</div>';
+  }catch(e){console.error(e);}
+}
+
+// VENDORS
+async function loadVendors(){
+  try{
+    const data=await getData('vendors');const tbody=document.getElementById('vendors-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No vendors added yet.</td></tr>';return;}
+    const today=new Date();today.setHours(0,0,0,0);
+    tbody.innerHTML=data.map(v=>{
+      const bal=(+v.total_contract||0)-(+v.amount_paid||0);
+      const od=v.due_date&&new Date(v.due_date)<today&&v.status!=='Completed';
+      const schedule=getVendorSchedule(v.id);
+      const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);
+      const paidCount=schedule.filter(s=>s.payStatus==='Paid').length;
+      const partialCount=schedule.filter(s=>s.payStatus==='Partially Paid').length;
+      const overdueCount=schedule.filter(s=>s.payStatus==='Overdue'||(s.date<new Date().toISOString().slice(0,10)&&s.payStatus==='Scheduled')).length;
+      let schedBadge;
+      if(!schedule.length) schedBadge='<span class="badge badge-gray">No schedule</span>';
+      else if(overdueCount) schedBadge=`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`;
+      else if(partialCount) schedBadge=`<span class="badge badge-orange">${partialCount} partial</span>`;
+      else if(paidCount===schedule.length) schedBadge=`<span class="badge badge-green">✓ All paid</span>`;
+      else schedBadge=`<span class="badge badge-blue">${schedule.length} milestone${schedule.length>1?'s':''} · ${totalPct}%</span>`;
+      return`<tr>
+        <td><b>${v.vendor_name||'—'}</b></td>
+        <td>${v.category||'—'}</td>
+        <td>${v.responsible||'—'}</td>
+        <td>PKR ${fmt(v.total_contract)}</td>
+        <td>PKR ${fmt(v.amount_paid)}</td>
+        <td class="${od?'overdue':''}">PKR ${fmt(bal)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')" style="white-space:nowrap;">${schedBadge}</button></td>
+        <td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>
+        <td>${statusBadge(v.status||'Pending')}</td>
+        <td>${statusBadge(v.approval||'Pending Approval')}</td>
+        <td style="max-width:150px;font-size:12px;">${v.notes||''}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" style="margin-right:4px;">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button></td>
+      </tr>`;
+    }).join('');
+  }catch(e){toast('Failed to load vendors','error');}
+}
+async function addVendor(){
+  const name=document.getElementById('v-name').value.trim();if(!name){toast('Vendor name required','error');return;}
+  try{await sbInsert('vendors',{vendor_name:name,category:document.getElementById('v-cat').value,responsible:document.getElementById('v-resp').value,total_contract:+document.getElementById('v-total').value||null,amount_paid:+document.getElementById('v-paid').value||null,due_date:document.getElementById('v-due').value||null,status:document.getElementById('v-status').value,approval:document.getElementById('v-approval').value,notes:document.getElementById('v-notes').value});toast('Vendor added ✓');['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>document.getElementById(id).value='');delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error adding vendor','error');}
+}
+
+// WIP
+async function loadWip(){
+  try{
+    const data=await getData('work_items');const tbody=document.getElementById('wip-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="10">No work items yet.</td></tr>';return;}
+    tbody.innerHTML=data.map(w=>`<tr><td>${w.area||'—'}</td><td>${w.task||'—'}</td><td>${w.responsible||'—'}</td><td>${w.contractor||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${w.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill ${+w.percent_complete>=100?'green':''}" style="width:${w.percent_complete||0}%"></div></div></div></td><td>${fmtDate(w.start_date)}</td><td>${fmtDate(w.target_date)}</td><td>${statusBadge(w.status||'Not Started')}</td><td style="max-width:140px;font-size:12px;">${w.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('work_items','${w.id}',loadWip)">✕</button></td></tr>`).join('');
+  }catch(e){toast('Failed to load work items','error');}
+}
+async function addWip(){
+  const area=document.getElementById('w-area').value.trim(),task=document.getElementById('w-task').value.trim();
+  if(!area||!task){toast('Area and Task required','error');return;}
+  try{await sbInsert('work_items',{area,task,responsible:document.getElementById('w-resp').value,contractor:document.getElementById('w-contractor').value,percent_complete:+document.getElementById('w-pct').value||0,start_date:document.getElementById('w-start').value||null,target_date:document.getElementById('w-target').value||null,status:document.getElementById('w-status').value,notes:document.getElementById('w-notes').value});toast('Work item added ✓');['w-area','w-task','w-resp','w-contractor','w-pct','w-start','w-target','w-notes'].forEach(id=>document.getElementById(id).value='');delete cache['work_items'];loadWip();}catch(e){toast('Error adding item','error');}
+}
+
+// ============================================================
+// WORKFLOW
+// ============================================================
+function getWorkflowTasks(){return JSON.parse(localStorage.getItem('wf_tasks')||'[]');}
+function saveWorkflowTasks(t){localStorage.setItem('wf_tasks',JSON.stringify(t));}
+function toggleAddPanel(){const p=document.getElementById('wf-add-panel');p.style.display=p.style.display==='none'?'block':'none';}
+
+function loadWorkflow(){
+  refreshDependsDropdown();
+  renderWorkflowTable();
+  renderWorkflowChart();
+}
+
+function refreshDependsDropdown(){
+  const tasks=getWorkflowTasks();
+  const sel=document.getElementById('wf-depends');
+  sel.innerHTML=tasks.map(t=>`<option value="${t.id}">${t.name}${t.area?' ('+t.area+')':''}</option>`).join('');
+}
+
+async function syncWipToWorkflow(){
+  try{
+    const wip=await getData('work_items');
+    const existing=getWorkflowTasks();
+    let added=0;
+    wip.forEach(w=>{
+      if(!existing.find(t=>t.wipId===w.id)){
+        existing.push({id:'wip_'+w.id,wipId:w.id,name:w.task,area:w.area,status:w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started',depends:[]});
+        added++;
+      } else {
+        const t=existing.find(t=>t.wipId===w.id);
+        t.status=w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started';
+      }
+    });
+    saveWorkflowTasks(existing);
+    toast(`Synced ${added} new task(s) from WIP ✓`);
+    loadWorkflow();
+  }catch(e){toast('Error syncing WIP','error');}
+}
+
+function addWorkflowTask(){
+  const name=document.getElementById('wf-name').value.trim();
+  if(!name){toast('Task name required','error');return;}
+  const tasks=getWorkflowTasks();
+  const sel=document.getElementById('wf-depends');
+  const depends=Array.from(sel.selectedOptions).map(o=>o.value);
+  tasks.push({id:'wf_'+Date.now(),name,area:document.getElementById('wf-area').value.trim(),status:document.getElementById('wf-status').value,depends});
+  saveWorkflowTasks(tasks);
+  document.getElementById('wf-name').value='';
+  document.getElementById('wf-area').value='';
+  toggleAddPanel();
+  toast('Task added ✓');
+  loadWorkflow();
+}
+
+function deleteWorkflowTask(id){
+  if(!confirm('Remove this task?'))return;
+  let tasks=getWorkflowTasks().filter(t=>t.id!==id);
+  tasks=tasks.map(t=>({...t,depends:(t.depends||[]).filter(d=>d!==id)}));
+  saveWorkflowTasks(tasks);
+  loadWorkflow();
+  toast('Removed ✓');
+}
+
+function updateWorkflowStatus(id,status){
+  const tasks=getWorkflowTasks();
+  const t=tasks.find(t=>t.id===id);
+  if(t){t.status=status;saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}
+}
+
+function cycleStatus(id){
+  const statuses=['Not Started','In Progress','Done','Blocked','On Hold'];
+  const tasks=getWorkflowTasks();
+  const t=tasks.find(t=>t.id===id);
+  if(!t)return;
+  t.status=statuses[(statuses.indexOf(t.status)+1)%statuses.length];
+  saveWorkflowTasks(tasks);
+  renderWorkflowChart();
+  renderWorkflowTable();
+}
+
+function computeLevels(tasks){
+  const levels={};
+  const idSet=new Set(tasks.map(t=>t.id));
+  tasks.forEach(t=>{if(!levels[t.id])levels[t.id]=0;});
+  for(let p=0;p<tasks.length;p++){tasks.forEach(t=>{(t.depends||[]).forEach(d=>{if(idSet.has(d))levels[t.id]=Math.max(levels[t.id]||0,(levels[d]||0)+1);});});}
+  return levels;
+}
+
+function renderWorkflowChart(){
+  const tasks=getWorkflowTasks();
+  const svg=document.getElementById('workflow-svg');
+  if(!tasks.length){
+    document.getElementById('wf-edges').innerHTML='<text x="400" y="250" text-anchor="middle" fill="#8aaa9e" font-family="DM Sans,sans-serif" font-size="14">No tasks yet — add tasks or sync from WIP</text>';
+    document.getElementById('wf-nodes').innerHTML='';
+    svg.setAttribute('width',900);svg.setAttribute('height',500);
+    return;
+  }
+
+  const NODE_W=180,NODE_H=58,H_GAP=90,V_GAP=20,PAD=40;
+  const levels=computeLevels(tasks);
+  const maxLevel=Math.max(...Object.values(levels));
+  const colIdx={};
+  const pos={};
+  tasks.forEach(t=>{
+    const l=levels[t.id]||0;
+    if(colIdx[l]===undefined)colIdx[l]=0;
+    pos[t.id]={x:PAD+l*(NODE_W+H_GAP),y:PAD+colIdx[l]*(NODE_H+V_GAP)};
+    colIdx[l]++;
+  });
+
+  const colCounts={};tasks.forEach(t=>{const l=levels[t.id]||0;colCounts[l]=(colCounts[l]||0)+1;});
+  const svgW=Math.max(PAD*2+(maxLevel+1)*(NODE_W+H_GAP),900);
+  const svgH=Math.max(PAD*2+Math.max(...Object.values(colCounts))*(NODE_H+V_GAP),500);
+  svg.setAttribute('width',svgW);svg.setAttribute('height',svgH);
+
+  const cMap={'Done':'#4caf7d','In Progress':'#3a86c8','Not Started':'#e08a4c','Blocked':'#e05c5c','On Hold':'#8aaa9e'};
+
+  let edges='';
+  tasks.forEach(t=>{
+    (t.depends||[]).forEach(depId=>{
+      const from=pos[depId],to=pos[t.id];
+      if(!from||!to)return;
+      const isBlocked=t.status==='Blocked';
+      const x1=from.x+NODE_W,y1=from.y+NODE_H/2,x2=to.x,y2=to.y+NODE_H/2;
+      const cx=(x1+x2)/2;
+      edges+=`<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" fill="none" stroke="${isBlocked?'#e05c5c':'#8aaa9e'}" stroke-width="${isBlocked?2:1.5}" stroke-dasharray="${isBlocked?'6,3':''}" marker-end="url(#${isBlocked?'arr-blocked':'arr'})"/>`;
+    });
+  });
+  document.getElementById('wf-edges').innerHTML=edges;
+
+  let nodes='';
+  tasks.forEach(t=>{
+    const p=pos[t.id];
+    const color=cMap[t.status]||'#e08a4c';
+    const label=t.name.length>22?t.name.slice(0,21)+'…':t.name;
+    const sub=t.area?(t.area.length>24?t.area.slice(0,23)+'…':t.area):t.status;
+    nodes+=`<g class="wf-node" onclick="cycleStatus('${t.id}')" title="Click to cycle status">
+      <rect x="${p.x}" y="${p.y}" width="${NODE_W}" height="${NODE_H}" fill="${color}" rx="10" ry="10" opacity="0.9"/>
+      <text x="${p.x+NODE_W/2}" y="${p.y+22}" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>
+      <text x="${p.x+NODE_W/2}" y="${p.y+40}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="10" font-family="DM Sans,sans-serif">${sub}</text>
+    </g>`;
+  });
+  document.getElementById('wf-nodes').innerHTML=nodes;
+}
+
+function renderWorkflowTable(){
+  const tasks=getWorkflowTasks();
+  const tbody=document.getElementById('wf-tbody');
+  if(!tasks.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">No workflow tasks yet. Add one or sync from WIP.</td></tr>';return;}
+  const nameMap={};tasks.forEach(t=>nameMap[t.id]=t.name);
+  tbody.innerHTML=tasks.map(t=>{
+    const deps=(t.depends||[]).map(d=>nameMap[d]||d).join(', ')||'—';
+    const blocking=tasks.filter(x=>(x.depends||[]).includes(t.id)).map(x=>x.name).join(', ')||'—';
+    return`<tr>
+      <td><b>${t.name}</b></td>
+      <td style="font-size:12px;color:var(--text-muted);">${t.area||'—'}</td>
+      <td><select onchange="updateWorkflowStatus('${t.id}',this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:12px;color:var(--text);">
+        ${['Not Started','In Progress','Done','Blocked','On Hold'].map(s=>`<option ${t.status===s?'selected':''}>${s}</option>`).join('')}
+      </select></td>
+      <td style="font-size:12px;color:var(--text-muted);">${deps}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${blocking}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteWorkflowTask('${t.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// INVENTORY
+async function loadInventory(){
+  try{const data=await getData('inventory');const tbody=document.getElementById('inventory-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No inventory items yet.</td></tr>';return;}tbody.innerHTML=data.map(i=>`<tr><td>${i.item_name||'—'}</td><td>${i.room_area||'—'}</td><td>${i.supplier||'—'}</td><td>${i.responsible||'—'}</td><td>${i.qty_ordered||0}</td><td>${i.qty_received||0}</td><td>PKR ${fmt(i.unit_cost)}</td><td>PKR ${fmt((+i.qty_ordered||0)*(+i.unit_cost||0))}</td><td>${fmtDate(i.expected_delivery)}</td><td>${statusBadge(i.status||'Pending Order')}</td><td style="max-width:130px;font-size:12px;">${i.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('inventory','${i.id}',loadInventory)">✕</button></td></tr>`).join('');}catch(e){toast('Failed to load inventory','error');}
+}
+async function addInventory(){
+  const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}
+  try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}
+}
+
+// ROOMS
+async function loadRooms(){
+  try{const data=await getData('rooms');const tbody=document.getElementById('rooms-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No rooms added yet.</td></tr>';return;}tbody.innerHTML=data.map(r=>`<tr><td><b>${r.room_name||'—'}</b></td><td>${r.floor||'—'}</td><td>${r.room_type||'—'}</td><td>${r.responsible||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${r.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill ${+r.percent_complete>=100?'green':''}" style="width:${r.percent_complete||0}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td><td style="max-width:150px;font-size:12px;">${r.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td></tr>`).join('');}catch(e){toast('Failed to load rooms','error');}
+}
+async function addRoom(){
+  const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}
+  try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}
+}
+
+// BUDGET
+async function loadBudget(){
+  try{
+    const data=await getData('budget');const tbody=document.getElementById('budget-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No budget categories yet.</td></tr>';}
+    else tbody.innerHTML=data.map(b=>{const v=(+b.budgeted||0)-(+b.actual_spent||0);const pct=b.budgeted?Math.round(((+b.actual_spent||0)/(+b.budgeted))*100):0;return`<tr><td>${b.category||'—'}</td><td>${b.responsible||'—'}</td><td>PKR ${fmt(b.budgeted)}</td><td>PKR ${fmt(b.actual_spent)}</td><td class="${v<0?'overdue':''}">PKR ${fmt(Math.abs(v))} ${v<0?'over':'under'}</td><td><div style="display:flex;align-items:center;gap:6px;">${pct}%<div class="progress-bar" style="width:60px;"><div class="progress-fill ${pct>100?'red':''}" style="width:${Math.min(pct,100)}%"></div></div></div></td><td style="font-size:12px;">${b.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('budget','${b.id}',loadBudget)">✕</button></td></tr>`;}).join('');
+    renderGroupedBar('chart-budget2',data.map(b=>b.category),data.map(b=>+b.budgeted||0),data.map(b=>+b.actual_spent||0));
+  }catch(e){toast('Failed to load budget','error');}
+}
+async function addBudget(){
+  const cat=document.getElementById('b-cat').value.trim();if(!cat){toast('Category required','error');return;}
+  try{await sbInsert('budget',{category:cat,budgeted:+document.getElementById('b-budgeted').value||null,actual_spent:+document.getElementById('b-actual').value||null,responsible:document.getElementById('b-resp').value,notes:document.getElementById('b-notes').value});toast('Budget category added ✓');['b-cat','b-budgeted','b-actual','b-resp','b-notes'].forEach(id=>document.getElementById(id).value='');delete cache['budget'];loadBudget();loadOverview();}catch(e){toast('Error','error');}
+}
+
+// CASHFLOW
+async function loadCashflow(){
+  try{
+    const data=await getData('cashflow');const tbody=document.getElementById('cashflow-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';}
+    else tbody.innerHTML=data.map(c=>`<tr><td>${c.month||'—'}</td><td>${c.description||'—'}</td><td>${c.category||'—'}</td><td>${statusBadge(c.priority||'Medium')}</td><td>${c.responsible||'—'}</td><td>PKR ${fmt(c.amount)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td></tr>`).join('');
+    const bm={};data.forEach(c=>{bm[c.month]=(bm[c.month]||0)+(+c.amount||0);});const months=Object.keys(bm).sort();
+    const ctx=document.getElementById('chart-cashflow');if(ctx._chart)ctx._chart.destroy();
+    ctx._chart=new Chart(ctx,{type:'bar',data:{labels:months,datasets:[{label:'Required Cash (PKR)',data:months.map(m=>bm[m]),backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});
+  }catch(e){toast('Failed to load cashflow','error');}
+}
+async function addCashflow(){
+  const month=document.getElementById('cf-month').value,desc=document.getElementById('cf-desc').value.trim();
+  if(!month||!desc){toast('Month and description required','error');return;}
+  try{await sbInsert('cashflow',{month,description:desc,amount:+document.getElementById('cf-amount').value||null,category:document.getElementById('cf-cat').value,priority:document.getElementById('cf-priority').value,responsible:document.getElementById('cf-resp').value});toast('Cashflow entry added ✓');['cf-month','cf-desc','cf-amount','cf-resp'].forEach(id=>document.getElementById(id).value='');delete cache['cashflow'];loadCashflow();}catch(e){toast('Error','error');}
+}
+
+// CONTACTS
+async function loadContacts(){
+  try{const data=await getData('contacts');const tbody=document.getElementById('contacts-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No contacts yet.</td></tr>';return;}tbody.innerHTML=data.map(c=>`<tr><td><b>${c.full_name||'—'}</b></td><td>${c.role||'—'}</td><td>${c.company||'—'}</td><td>${c.phone||'—'}</td><td>${c.email||'—'}</td><td>${statusBadge(c.type||'Team Member')}</td><td style="font-size:12px;">${c.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('contacts','${c.id}',loadContacts)">✕</button></td></tr>`).join('');}catch(e){toast('Failed to load contacts','error');}
+}
+async function addContact(){
+  const name=document.getElementById('c-name').value.trim();if(!name){toast('Name required','error');return;}
+  try{await sbInsert('contacts',{full_name:name,role:document.getElementById('c-role').value,company:document.getElementById('c-company').value,phone:document.getElementById('c-phone').value,email:document.getElementById('c-email').value,type:document.getElementById('c-type').value,notes:document.getElementById('c-notes').value});toast('Contact added ✓');['c-name','c-role','c-company','c-phone','c-email','c-notes'].forEach(id=>document.getElementById(id).value='');delete cache['contacts'];loadContacts();}catch(e){toast('Error','error');}
+}
+
+// MEETINGS
+async function loadMeetings(){
+  try{const data=await getData('meetings');const tbody=document.getElementById('meetings-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">No meetings logged yet.</td></tr>';return;}tbody.innerHTML=data.map(m=>`<tr><td>${m.date||'—'}</td><td><b>${m.title||'—'}</b></td><td style="font-size:12px;">${m.attendees||'—'}</td><td>${statusBadge(m.type||'Other')}</td><td style="max-width:180px;font-size:12px;white-space:pre-wrap;">${m.summary||''}</td><td style="max-width:150px;font-size:12px;white-space:pre-wrap;">${m.action_items||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('meetings','${m.id}',loadMeetings)">✕</button></td></tr>`).join('');}catch(e){toast('Failed to load meetings','error');}
+}
+async function addMeeting(){
+  const date=document.getElementById('m-date').value,title=document.getElementById('m-title').value.trim(),summary=document.getElementById('m-summary').value.trim();
+  if(!date||!title||!summary){toast('Date, title and summary required','error');return;}
+  try{await sbInsert('meetings',{date,title,attendees:document.getElementById('m-attendees').value,type:document.getElementById('m-type').value,summary,action_items:document.getElementById('m-actions').value});toast('Meeting logged ✓');['m-date','m-title','m-attendees','m-summary','m-actions'].forEach(id=>document.getElementById(id).value='');delete cache['meetings'];loadMeetings();}catch(e){toast('Error','error');}
+}
+
+// PUNCH LIST
+let punchFilter='All';
+async function loadPunch(){try{const data=await getData('punch_list');renderPunch(data);}catch(e){toast('Failed to load punch list','error');}}
+function filterPunch(f){punchFilter=f;renderPunch(cache['punch_list']||[]);}
+function renderPunch(data){
+  const filtered=punchFilter==='All'?data:data.filter(p=>p.status===punchFilter);
+  const tbody=document.getElementById('punch-tbody');
+  if(!filtered.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No items.</td></tr>';return;}
+  tbody.innerHTML=filtered.map(p=>`<tr><td><b>${p.issue||'—'}</b></td><td>${p.location||'—'}</td><td>${p.assigned_to||'—'}</td><td>${statusBadge(p.priority||'Medium')}</td><td>${fmtDate(p.due_by)}</td><td>${statusBadge(p.status||'Open')}</td><td style="font-size:12px;">${p.notes||''}</td><td><button class="btn btn-danger btn-sm" onclick="deleteRow('punch_list','${p.id}',loadPunch)">✕</button></td></tr>`).join('');
+}
+async function addPunch(){
+  const issue=document.getElementById('p-issue').value.trim();if(!issue){toast('Issue required','error');return;}
+  try{await sbInsert('punch_list',{issue,location:document.getElementById('p-location').value,assigned_to:document.getElementById('p-assigned').value,due_by:document.getElementById('p-due').value||null,priority:document.getElementById('p-priority').value,status:document.getElementById('p-status').value,notes:document.getElementById('p-notes').value});toast('Punch list item added ✓');['p-issue','p-location','p-assigned','p-due','p-notes'].forEach(id=>document.getElementById(id).value='');delete cache['punch_list'];loadPunch();loadAlerts();}catch(e){toast('Error','error');}
+}
+
+// DELETE
+async function deleteRow(table,id,reloadFn){
+  if(!confirm('Delete this record?'))return;
+  try{await sbDelete(table,id);delete cache[table];toast('Deleted ✓');reloadFn();loadOverview();}catch(e){toast('Error deleting','error');}
+}
+
+// CSV EXPORT
+async function exportCSV(table){
+  try{const data=cache[table]||await getData(table);if(!data.length){toast('No data to export','error');return;}const keys=Object.keys(data[0]).filter(k=>k!=='id'&&k!=='created_at');const csv=[keys.join(','),...data.map(r=>keys.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`${table}_${new Date().toISOString().slice(0,10)}.csv`;a.click();toast('CSV exported ✓');}catch(e){toast('Export failed','error');}
+}
+
+// XERO
+function toggleXero(){const p=document.getElementById('xero-panel');p.style.display=p.style.display==='none'?'block':'none';}
+let xeroRows=[];
+function handleXeroFile(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{const lines=e.target.result.split('\n').filter(l=>l.trim());const headers=lines[0].split(',').map(h=>h.replace(/"/g,'').trim());xeroRows=lines.slice(1).map(l=>{const cols=l.split(',').map(c=>c.replace(/"/g,'').trim());const row={};headers.forEach((h,i)=>row[h]=cols[i]||'');return row;}).filter(r=>r[headers[0]]);renderXeroPreview(xeroRows);};reader.readAsText(file);}
+function renderXeroPreview(rows){const preview=document.getElementById('xero-preview');document.querySelector('#xero-table thead').innerHTML='<tr><th>Vendor</th><th>Reference</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Import?</th></tr>';document.querySelector('#xero-table tbody').innerHTML=rows.map((r,i)=>{const vendor=r['Contact']||r['Vendor']||r['Payee']||Object.values(r)[0]||'';const total=r['Total']||r['Amount Due']||'0';const paid=r['Amount Paid']||'0';const bal=((+total||0)-(+paid||0)).toFixed(2);return`<tr><td>${vendor}</td><td>${r['Reference']||''}</td><td>${total}</td><td>${paid}</td><td>${bal}</td><td>${r['Due Date']||r['Date']||''}</td><td>${r['Status']||'Pending'}</td><td><input type="checkbox" checked data-idx="${i}"></td></tr>`;}).join('');preview.style.display='block';}
+async function importXeroSelected(){const checks=document.querySelectorAll('#xero-table tbody input[type=checkbox]:checked');if(!checks.length){toast('No rows selected','error');return;}let imported=0;for(const cb of checks){const r=xeroRows[+cb.dataset.idx];const vendor=r['Contact']||r['Vendor']||r['Payee']||Object.values(r)[0]||'Xero Import';try{await sbInsert('vendors',{vendor_name:vendor,category:'Xero Import',total_contract:+(r['Total']||r['Amount Due']||0),amount_paid:+(r['Amount Paid']||0),due_date:r['Due Date']||r['Date']||null,status:r['Status']||'Pending',approval:'Pending Approval',notes:`Ref: ${r['Reference']||''}`});imported++;}catch(e){console.error(e);}}toast(`${imported} vendor(s) imported ✓`);delete cache['vendors'];loadVendors();document.getElementById('xero-preview').style.display='none';}
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f){document.getElementById('xero-file').files=e.dataTransfer.files;handleXeroFile({files:[f]});}});
+
+// EDIT VENDOR
+function openEditVendor(id){
+  const vendors = cache['vendors']||[];
+  const v = vendors.find(x=>x.id===id);
+  if(!v) return;
+  document.getElementById('ev-id').value = v.id;
+  document.getElementById('ev-name').value = v.vendor_name||'';
+  document.getElementById('ev-cat').value = v.category||'';
+  document.getElementById('ev-resp').value = v.responsible||'';
+  document.getElementById('ev-total').value = v.total_contract||'';
+  document.getElementById('ev-paid').value = v.amount_paid||'';
+  document.getElementById('ev-due').value = v.due_date||'';
+  document.getElementById('ev-status').value = v.status||'Pending';
+  document.getElementById('ev-approval').value = v.approval||'Pending Approval';
+  document.getElementById('ev-notes').value = v.notes||'';
+  document.getElementById('edit-vendor-modal').style.display='flex';
+}
+
+function closeEditVendor(){
+  document.getElementById('edit-vendor-modal').style.display='none';
+}
+
+async function saveEditVendor(){
+  const id = document.getElementById('ev-id').value;
+  const name = document.getElementById('ev-name').value.trim();
+  if(!name){toast('Vendor name is required','error');return;}
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{
+      method:'PATCH',
+      headers,
+      body:JSON.stringify({
+        vendor_name: name,
+        category: document.getElementById('ev-cat').value,
+        responsible: document.getElementById('ev-resp').value,
+        total_contract: +document.getElementById('ev-total').value||null,
+        amount_paid: +document.getElementById('ev-paid').value||null,
+        due_date: document.getElementById('ev-due').value||null,
+        status: document.getElementById('ev-status').value,
+        approval: document.getElementById('ev-approval').value,
+        notes: document.getElementById('ev-notes').value
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Vendor updated ✓');
+    closeEditVendor();
+    delete cache['vendors'];
+    loadVendors();
+    loadOverview();
+    loadAlerts();
+  }catch(e){toast('Error saving changes','error');console.error(e);}
+}
+
+// ============================================================
+// PAYMENT SCHEDULE
+// ============================================================
+let currentVendorId = null;
+let currentVendorTotal = 0;
+let currentVendorName = '';
+
+function getAllSchedules(){ return JSON.parse(localStorage.getItem('vendor_schedules')||'{}'); }
+function getVendorSchedule(vendorId){ return (getAllSchedules()[vendorId]||[]); }
+function saveVendorSchedule(vendorId, schedule){ const all=getAllSchedules(); all[vendorId]=schedule; localStorage.setItem('vendor_schedules',JSON.stringify(all)); }
+
+function openPaySchedule(vendorId){
+  const vendors = cache['vendors']||[];
+  const v = vendors.find(x=>x.id===vendorId);
+  if(!v) return;
+  currentVendorId = vendorId;
+  currentVendorTotal = +v.total_contract||0;
+  currentVendorName = v.vendor_name||'Vendor';
+  document.getElementById('ps-vendor-name').textContent = currentVendorName + ' — Payment Schedule';
+  document.getElementById('ps-vendor-total').textContent = 'PKR ' + fmt(currentVendorTotal);
+  document.getElementById('pay-schedule-modal').style.display='flex';
+  renderScheduleList();
+}
+
+function closePaySchedule(){
+  document.getElementById('pay-schedule-modal').style.display='none';
+  currentVendorId=null;
+}
+
+function renderScheduleList(){
+  if(!currentVendorId) return;
+  const schedule = getVendorSchedule(currentVendorId);
+  const list = document.getElementById('ps-list');
+  const totalPct = schedule.reduce((a,s)=>a+(+s.pct||0),0);
+  const totalAmt = Math.round(currentVendorTotal * totalPct / 100);
+  const paidAmt = schedule.reduce((a,s)=>a+(+s.paidAmt||0),0);
+
+  // Update summary
+  const summary = document.getElementById('ps-summary');
+  if(schedule.length){
+    summary.style.display='block';
+    document.getElementById('ps-sum-pct').textContent = totalPct+'%';
+    document.getElementById('ps-sum-amt').textContent = 'PKR '+fmt(totalAmt);
+    document.getElementById('ps-sum-rem').textContent = (100-totalPct)+'%';
+    document.getElementById('ps-progress-fill').style.width = Math.min(totalPct,100)+'%';
+    document.getElementById('ps-progress-fill').style.background = totalPct>100?'var(--red)':'var(--green)';
+    // Extra paid summary
+    const paidEl = document.getElementById('ps-sum-paid');
+    if(paidEl){ paidEl.textContent = 'PKR '+fmt(paidAmt); }
+  } else {
+    summary.style.display='none';
+  }
+  document.getElementById('ps-pct-used').textContent = totalPct>0?`${totalPct}% scheduled, ${100-totalPct}% remaining`:'';
+
+  if(!schedule.length){
+    list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-dim);font-style:italic;">No milestones yet — add your first payment milestone above.</div>';
+    return;
+  }
+
+  const statusColor = {Scheduled:'#3a86c8', Paid:'#4caf7d', 'Partially Paid':'#e08a4c', Overdue:'#e05c5c'};
+  const statusBg   = {Scheduled:'rgba(58,134,200,.1)', Paid:'rgba(76,175,125,.1)', 'Partially Paid':'rgba(224,138,76,.1)', Overdue:'rgba(224,92,92,.1)'};
+
+  const sorted = [...schedule].sort((a,b)=>a.date.localeCompare(b.date));
+  list.innerHTML = sorted.map((s,i)=>{
+    const realIdx = schedule.indexOf(s);
+    const amt = Math.round(currentVendorTotal * s.pct / 100);
+    const today = new Date().toISOString().slice(0,10);
+    const isPast = s.date < today;
+    const payStatus = s.payStatus || 'Scheduled';
+    const circleColor = statusColor[payStatus]||'#3a86c8';
+    const paidAmt = +s.paidAmt||0;
+    const paidPct = amt>0?Math.min(100,Math.round(paidAmt/amt*100)):0;
+    return `<div style="background:var(--surface);border:1px solid ${circleColor}33;border-radius:var(--radius-lg);padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <!-- Circle -->
+        <div style="width:48px;height:48px;border-radius:50%;background:${circleColor};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">${s.pct}%</div>
+        <!-- Info -->
+        <div style="flex:1;min-width:140px;">
+          <div style="font-weight:600;font-size:14px;">PKR ${fmt(amt)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${s.desc||'Payment milestone'}</div>
+          <div style="font-size:11px;color:${isPast&&payStatus!=='Paid'?'var(--red)':'var(--text-muted)'};">Due: ${s.date}${isPast&&payStatus!=='Paid'?' ⚠ Overdue':''}</div>
+        </div>
+        <!-- Status dropdown -->
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:140px;">
+          <label style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">Payment Status</label>
+          <select onchange="updateMilestoneStatus(${realIdx},this.value)"
+            style="background:${statusBg[payStatus]};border:1px solid ${circleColor}55;border-radius:var(--radius);padding:5px 8px;font-size:12px;font-weight:600;color:${circleColor};font-family:'DM Sans',sans-serif;cursor:pointer;">
+            ${['Scheduled','Partially Paid','Paid','Overdue'].map(st=>`<option value="${st}" ${payStatus===st?'selected':''}>${st}</option>`).join('')}
+          </select>
+        </div>
+        <!-- Paid amount (shown when Partially Paid) -->
+        <div id="paid-amt-wrap-${realIdx}" style="display:${payStatus==='Partially Paid'?'flex':'none'};flex-direction:column;gap:4px;min-width:120px;">
+          <label style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">Amount Paid (PKR)</label>
+          <input type="number" value="${paidAmt||''}" placeholder="0"
+            onchange="updateMilestonePaidAmt(${realIdx},this.value)"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;width:120px;">
+        </div>
+        <!-- Priority + delete -->
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <span class="badge badge-${s.priority==='High'?'red':s.priority==='Low'?'blue':'orange'}">${s.priority||'Medium'}</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteMilestone(${realIdx})">✕</button>
+        </div>
+      </div>
+      <!-- Progress bar for partial payments -->
+      ${payStatus==='Partially Paid'&&paidAmt>0?`
+      <div style="margin-top:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+          <span>Paid: PKR ${fmt(paidAmt)}</span><span>Remaining: PKR ${fmt(amt-paidAmt)}</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${paidPct}%;background:var(--orange);"></div></div>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function updateMilestoneStatus(idx, status){
+  const schedule = getVendorSchedule(currentVendorId);
+  schedule[idx].payStatus = status;
+  if(status==='Paid'){ schedule[idx].paidAmt = Math.round(currentVendorTotal * schedule[idx].pct / 100); }
+  if(status==='Scheduled'||status==='Overdue'){ schedule[idx].paidAmt = 0; }
+  saveVendorSchedule(currentVendorId, schedule);
+  renderScheduleList();
+  loadVendors();
+}
+
+function updateMilestonePaidAmt(idx, val){
+  const schedule = getVendorSchedule(currentVendorId);
+  schedule[idx].paidAmt = +val||0;
+  saveVendorSchedule(currentVendorId, schedule);
+  renderScheduleList();
+}
+
+function addPaymentMilestone(){
+  const pct = +document.getElementById('ps-pct').value;
+  const date = document.getElementById('ps-date').value;
+  const desc = document.getElementById('ps-desc').value.trim();
+  const priority = document.getElementById('ps-priority').value;
+  if(!pct||!date){toast('Percentage and date are required','error');return;}
+  if(pct<1||pct>100){toast('Percentage must be between 1 and 100','error');return;}
+  const schedule = getVendorSchedule(currentVendorId);
+  const totalPct = schedule.reduce((a,s)=>a+(+s.pct||0),0);
+  if(totalPct+pct>100){toast(`Only ${100-totalPct}% remaining to schedule`,'error');return;}
+  schedule.push({pct,date,desc,priority});
+  saveVendorSchedule(currentVendorId, schedule);
+  // Auto-create cashflow entry
+  createCashflowFromMilestone(currentVendorName, pct, date, desc, priority);
+  document.getElementById('ps-pct').value='';
+  document.getElementById('ps-date').value='';
+  document.getElementById('ps-desc').value='';
+  toast('Milestone added ✓');
+  renderScheduleList();
+  loadVendors();
+}
+
+function deleteMilestone(idx){
+  if(!confirm('Remove this milestone?')) return;
+  const schedule = getVendorSchedule(currentVendorId);
+  schedule.splice(idx,1);
+  saveVendorSchedule(currentVendorId, schedule);
+  toast('Removed ✓');
+  renderScheduleList();
+  loadVendors();
+}
+
+async function createCashflowFromMilestone(vendorName, pct, date, desc, priority){
+  try{
+    const amt = Math.round(currentVendorTotal * pct / 100);
+    const month = date.slice(0,7); // YYYY-MM
+    const description = desc || `${vendorName} — ${pct}% payment`;
+    await sbInsert('cashflow',{
+      month,
+      description,
+      amount: amt,
+      category: 'Vendor Payment',
+      priority: priority||'Medium',
+      responsible: ''
+    });
+    delete cache['cashflow'];
+    toast(`Cashflow entry created: PKR ${fmt(amt)} for ${month} ✓`);
+  }catch(e){console.error('Cashflow auto-create failed:',e);}
+}
+
+
+async function init(){
+  const dot=document.getElementById('conn-dot'),txt=document.getElementById('conn-text');
+  try{await sbGet('vendors','&limit=1');dot.classList.add('connected');txt.textContent='Supabase connected';toast('Connected to Supabase ✓');}
+  catch(e){dot.classList.add('error');txt.textContent='Connection failed';toast('Supabase connection failed','error');}
+  loadAll();
+}
+init();
+</script>
+</body>
+</html>
