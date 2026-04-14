@@ -43,12 +43,8 @@ body{font-family:'DM Sans',sans-serif;background:#f5f7f5;min-height:100vh;displa
 const SB_URL='https://vnqsmzgebjpdizwtysnw.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
 const sb=supabase.createClient(SB_URL,SB_KEY);
-
-// Always sign out any existing session on landing — no auto-redirect
-sb.auth.signOut();
-
+sb.auth.getSession().then(({data:{session}})=>{if(session)window.location.href='dashboard.html';});
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-
 async function doLogin(){
   const email=document.getElementById('login-email').value.trim();
   const password=document.getElementById('login-password').value;
@@ -56,20 +52,13 @@ async function doLogin(){
   const err=document.getElementById('error-msg');
   if(!email||!password){err.textContent='Please enter email and password.';err.style.display='block';return;}
   btn.disabled=true;btn.textContent='Signing in…';err.style.display='none';
-  try{
-    const{data,error}=await sb.auth.signInWithPassword({email,password});
-    if(error)throw error;
-    const{data:profile}=await sb.from('bejaan_profiles').select('*').eq('id',data.user.id).single();
-    if(!profile||!profile.is_active){await sb.auth.signOut();throw new Error('Your account is inactive. Contact admin.');}
-    sessionStorage.setItem('bejaan_role',profile.role);
-    sessionStorage.setItem('bejaan_name',profile.full_name||profile.email);
-    window.location.replace('dashboard.html');
-  }catch(e){
-    err.textContent=e.message||'Login failed.';
-    err.style.display='block';
-    btn.disabled=false;
-    btn.textContent='Sign In';
-  }
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){err.textContent=error.message;err.style.display='block';btn.disabled=false;btn.textContent='Sign In';return;}
+  const {data:profile}=await sb.from('bejaan_profiles').select('*').eq('id',data.user.id).single();
+  if(!profile||!profile.is_active){await sb.auth.signOut();err.textContent='Your account is inactive. Contact admin.';err.style.display='block';btn.disabled=false;btn.textContent='Sign In';return;}
+  sessionStorage.setItem('bejaan_role',profile.role);
+  sessionStorage.setItem('bejaan_name',profile.full_name||profile.email);
+  window.location.href='dashboard.html';
 }
 </script>
 </body>
