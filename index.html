@@ -44,24 +44,8 @@ const SB_URL='https://vnqsmzgebjpdizwtysnw.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
-// Loop-break: only auto-redirect once per page load, and only if profile is valid
-let autoRedirectDone=false;
-sb.auth.getSession().then(async({data:{session}})=>{
-  if(!session||autoRedirectDone)return;
-  autoRedirectDone=true;
-  try{
-    const{data:profile}=await sb.from('bejaan_profiles').select('is_active,role,full_name').eq('id',session.user.id).single();
-    if(profile&&profile.is_active){
-      sessionStorage.setItem('bejaan_role',profile.role);
-      sessionStorage.setItem('bejaan_name',profile.full_name||session.user.email);
-      window.location.replace('dashboard.html');
-    }else{
-      await sb.auth.signOut();
-    }
-  }catch(e){
-    await sb.auth.signOut();
-  }
-});
+// Always sign out any existing session on landing — no auto-redirect
+sb.auth.signOut();
 
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
