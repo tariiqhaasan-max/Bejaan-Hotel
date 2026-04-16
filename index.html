@@ -1,9 +1,8 @@
 
 
-
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" />
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Bejaan Hotel — Login</title>
@@ -305,24 +304,18 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // Simple access credentials — change these anytime
-    const VALID_USERS = [
-      { email: 'tariqbooni@yahoo.com',    password: 'Bejaan2026' },
-      { email: 'tariiq.haasan@gmail.com', password: 'Bejaan2026' },
-    ];
-
-    // If already logged in, skip to dashboard
-    if (sessionStorage.getItem('bejaan_auth') === 'true') {
-      window.location.replace('dashboard.html');
-    }
+    const SB_URL = 'https://vnqsmzgebjpdizwtysnw.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
+    const sb = supabase.createClient(SB_URL, SB_KEY);
 
     document.getElementById('login-password').addEventListener('keydown', e => {
       if (e.key === 'Enter') doLogin();
     });
 
-    function doLogin() {
-      const email    = document.getElementById('login-email').value.trim().toLowerCase();
+    async function doLogin() {
+      const email    = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
       const btn      = document.getElementById('login-btn');
       const err      = document.getElementById('error-msg');
@@ -338,17 +331,14 @@
       btn.disabled = true;
       btn.textContent = 'Signing in…';
 
-      const match = VALID_USERS.find(u =>
-        u.email.toLowerCase() === email && u.password === password
-      );
-
-      if (match) {
-        sessionStorage.setItem('bejaan_auth', 'true');
-        sessionStorage.setItem('bejaan_name', match.email);
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
         sessionStorage.setItem('bejaan_role', 'admin');
+        sessionStorage.setItem('bejaan_name', data.user.email);
         window.location.replace('dashboard.html');
-      } else {
-        err.textContent = 'Incorrect email or password.';
+      } catch (e) {
+        err.textContent = e.message || 'Login failed. Please try again.';
         err.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Sign In';
