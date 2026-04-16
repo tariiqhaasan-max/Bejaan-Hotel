@@ -335,13 +335,67 @@ body{display:flex;overflow:hidden;}
     <div class="tab-section" id="tab-vendors">
       <div class="kpi-grid" id="kpi-vendors"></div>
       <div class="panel">
-        <div class="panel-header"><span class="panel-title">Vendor List</span></div>
+        <div class="panel-header"><span class="panel-title">Vendor List</span><span style="font-size:11px;color:var(--text3)">Click ✏️ to edit</span></div>
         <div class="panel-body">
           <table class="data-table">
-            <thead><tr><th>Vendor</th><th>Category</th><th>Contract Value</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+            <thead><tr><th>Vendor</th><th>Category</th><th>Contract Value</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead>
             <tbody id="vendors-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- VENDOR EDIT MODAL -->
+    <div id="vendor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:#111;border:1px solid var(--border);border-radius:16px;padding:32px;width:min(500px,94vw);max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);">Edit Vendor</div>
+          <button onclick="closeVendorModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div id="vendor-modal-name" style="font-size:13px;color:var(--gold);margin-bottom:20px;"></div>
+        <div style="display:grid;gap:14px;">
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Total Contract Value ($)</label>
+            <input id="vm-contract" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;outline:none;"></div>
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Amount Paid ($)</label>
+            <input id="vm-paid" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;outline:none;"></div>
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Status</label>
+            <select id="vm-status" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;outline:none;">
+              <option>In Progress</option><option>Completed</option><option>On Hold</option><option>Delayed</option><option>Pending Payment</option>
+            </select></div>
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Notes</label>
+            <textarea id="vm-notes" rows="3" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;outline:none;resize:vertical;"></textarea></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button onclick="saveVendor()" style="flex:1;padding:12px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Save Changes</button>
+          <button onclick="closeVendorModal()" style="padding:12px 20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>
+        </div>
+        <div id="vm-msg" style="margin-top:12px;font-size:12px;text-align:center;"></div>
+      </div>
+    </div>
+
+    <!-- TASK EDIT MODAL -->
+    <div id="task-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:#111;border:1px solid var(--border);border-radius:16px;padding:32px;width:min(500px,94vw);max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);">Edit Task</div>
+          <button onclick="closeTaskModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div id="task-modal-name" style="font-size:13px;color:var(--gold);margin-bottom:20px;"></div>
+        <div style="display:grid;gap:14px;">
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Progress (%)</label>
+            <input id="tm-progress" type="number" min="0" max="100" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;outline:none;"></div>
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Status</label>
+            <select id="tm-status" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;outline:none;">
+              <option>In Progress</option><option>Completed</option><option>Delayed</option><option>On Hold</option><option>Planned</option>
+            </select></div>
+          <div><label style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:6px;">Notes</label>
+            <textarea id="tm-notes" rows="3" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;outline:none;resize:vertical;"></textarea></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button onclick="saveTask()" style="flex:1;padding:12px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Save Changes</button>
+          <button onclick="closeTaskModal()" style="padding:12px 20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>
+        </div>
+        <div id="tm-msg" style="margin-top:12px;font-size:12px;text-align:center;"></div>
       </div>
     </div>
 
@@ -629,6 +683,7 @@ function renderFloors(rooms){
 
 // ── Tasks ────────────────────────────────────────────────────
 function renderTasks(tasks){
+  _cachedTasks=tasks;
   document.getElementById('kpi-tasks').innerHTML=
     kpiCard('Total',tasks.length,'','gold')+
     kpiCard('Completed',tasks.filter(t=>(t.status||'').toLowerCase().includes('complet')).length,'','green')+
@@ -637,8 +692,17 @@ function renderTasks(tasks){
   const tb=document.getElementById('tasks-body');
   tb.innerHTML=tasks.length?tasks.map(t=>{
     const p2=parseFloat(t.progress||t.completion||0);
-    return '<tr><td>'+(t.task_name||t.name||'—')+'</td><td>'+(t.phase||t.category||'—')+'</td><td>'+(t.assigned_to||'—')+'</td><td>'+(t.start_date||'—')+'</td><td>'+(t.end_date||'—')+'</td><td><div class="prog-track" style="width:80px"><div class="prog-fill '+progClass(p2)+'" style="width:'+p2+'%"></div></div></td><td><span class="pill '+pillClass(t.status)+'">'+((t.status||'—'))+'</span></td></tr>';
-  }).join(''):emptyRow(7,'No tasks yet');
+    return '<tr>'
+      +'<td>'+(t.task_name||t.name||'—')+'</td>'
+      +'<td>'+(t.phase||t.category||'—')+'</td>'
+      +'<td>'+(t.assigned_to||'—')+'</td>'
+      +'<td>'+(t.start_date||'—')+'</td>'
+      +'<td>'+(t.end_date||'—')+'</td>'
+      +'<td><div class="prog-track" style="width:80px"><div class="prog-fill '+progClass(p2)+'" style="width:'+p2+'%"></div></div><span style="font-size:10px;color:var(--text3);margin-left:4px;">'+p2+'%</span></td>'
+      +'<td><span class="pill '+pillClass(t.status)+'">'+(t.status||'—')+'</span></td>'
+      +'<td><button onclick="openTaskModal(''+t.id+'')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 6px;">✏️</button></td>'
+      +'</tr>';
+  }).join(''):emptyRow(8,'No tasks yet — import construction_tasks.csv in Supabase');
 }
 
 // ── Budget ────────────────────────────────────────────────────
@@ -686,9 +750,11 @@ function renderCashflow(cashflow){
 }
 
 // ── Vendors ───────────────────────────────────────────────────
+let _vendorEditId=null,_cachedVendors=[];
 function renderVendors(vendors){
-  const totalContract=vendors.reduce((s,v)=>s+(v.contract_value||v.total||0),0);
-  const totalPaid=vendors.reduce((s,v)=>s+(v.paid||v.paid_amount||0),0);
+  _cachedVendors=vendors;
+  const totalContract=vendors.reduce((s,v)=>s+(v.contract_value||v.total_contract||0),0);
+  const totalPaid=vendors.reduce((s,v)=>s+(v.amount_paid||v.paid||0),0);
   document.getElementById('kpi-vendors').innerHTML=
     kpiCard('Total Vendors',vendors.length,'','gold')+
     kpiCard('Contract Value',fmt(totalContract),'','blue')+
@@ -696,9 +762,75 @@ function renderVendors(vendors){
     kpiCard('Outstanding',fmt(totalContract-totalPaid),'Balance due','amber');
   const vb=document.getElementById('vendors-body');
   vb.innerHTML=vendors.length?vendors.map(v=>{
-    const cv=v.contract_value||v.total||0;const paid=v.paid||v.paid_amount||0;const bal=cv-paid;
-    return'<tr><td>'+(v.name||v.vendor_name||'—')+'</td><td>'+(v.category||v.trade||'—')+'</td><td>'+fmt(cv)+'</td><td>'+fmt(paid)+'</td><td style="color:'+(bal>0?'var(--amber)':'var(--green)')+'">'+fmt(bal)+'</td><td><span class="pill '+pillClass(v.status)+'">'+((v.status||'Active'))+'</span></td></tr>';
-  }).join(''):emptyRow(6,'No vendors yet');
+    const cv=v.contract_value||v.total_contract||0;
+    const paid=v.amount_paid||v.paid||0;const bal=cv-paid;
+    return '<tr>'
+      +'<td>'+(v.vendor_name||v.name||'—')+'</td>'
+      +'<td>'+(v.category||v.trade||'—')+'</td>'
+      +'<td>'+fmt(cv)+'</td>'
+      +'<td>'+fmt(paid)+'</td>'
+      +'<td style="color:'+(bal>0?'var(--amber)':'var(--green)')+'">'+fmt(bal)+'</td>'
+      +'<td><span class="pill '+pillClass(v.status)+'">'+(v.status||'Active')+'</span></td>'
+      +'<td><button onclick="openVendorModal(''+v.id+'')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 6px;">✏️</button></td>'
+      +'</tr>';
+  }).join(''):emptyRow(7,'No vendors yet — import vendors.csv in Supabase');
+}
+function openVendorModal(id){
+  const v=_cachedVendors.find(x=>x.id==id);if(!v)return;
+  _vendorEditId=id;
+  document.getElementById('vendor-modal-name').textContent=v.vendor_name||v.name||'Vendor';
+  document.getElementById('vm-contract').value=v.contract_value||v.total_contract||0;
+  document.getElementById('vm-paid').value=v.amount_paid||v.paid||0;
+  document.getElementById('vm-status').value=v.status||'In Progress';
+  document.getElementById('vm-notes').value=v.notes||'';
+  document.getElementById('vm-msg').textContent='';
+  document.getElementById('vendor-modal').style.display='flex';
+}
+function closeVendorModal(){document.getElementById('vendor-modal').style.display='none';_vendorEditId=null;}
+async function saveVendor(){
+  if(!_vendorEditId)return;
+  const msg=document.getElementById('vm-msg');
+  msg.style.color='var(--text3)';msg.textContent='Saving…';
+  try{
+    const{error}=await sb.from('vendors').update({
+      contract_value:parseFloat(document.getElementById('vm-contract').value)||0,
+      amount_paid:parseFloat(document.getElementById('vm-paid').value)||0,
+      status:document.getElementById('vm-status').value,
+      notes:document.getElementById('vm-notes').value,
+    }).eq('id',_vendorEditId);
+    if(error)throw error;
+    msg.style.color='var(--green)';msg.textContent='✓ Saved!';
+    setTimeout(()=>{closeVendorModal();loadAllData();},800);
+  }catch(e){msg.style.color='var(--red)';msg.textContent='Error: '+e.message;}
+}
+
+// ── Task Edit ─────────────────────────────────────────────────
+let _taskEditId=null,_cachedTasks=[];
+function openTaskModal(id){
+  const t=_cachedTasks.find(x=>x.id==id);if(!t)return;
+  _taskEditId=id;
+  document.getElementById('task-modal-name').textContent=t.task_name||t.name||'Task';
+  document.getElementById('tm-progress').value=t.progress||t.completion||0;
+  document.getElementById('tm-status').value=t.status||'In Progress';
+  document.getElementById('tm-notes').value=t.notes||'';
+  document.getElementById('tm-msg').textContent='';
+  document.getElementById('task-modal').style.display='flex';
+}
+function closeTaskModal(){document.getElementById('task-modal').style.display='none';_taskEditId=null;}
+async function saveTask(){
+  if(!_taskEditId)return;
+  const msg=document.getElementById('tm-msg');
+  msg.style.color='var(--text3)';msg.textContent='Saving…';
+  try{
+    const{error}=await sb.from('construction_tasks').update({
+      progress:parseFloat(document.getElementById('tm-progress').value)||0,
+      status:document.getElementById('tm-status').value,
+      notes:document.getElementById('tm-notes').value,
+    }).eq('id',_taskEditId);
+    if(error)throw error;
+    msg.style.color='var(--green)';msg.textContent='✓ Saved!';
+    setTimeout(()=>{closeTaskModal();loadAllData();},800);
+  }catch(e){msg.style.color='var(--red)';msg.textContent='Error: '+e.message;}
 }
 
 // ── Workforce ─────────────────────────────────────────────────
