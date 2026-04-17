@@ -1118,7 +1118,7 @@ async function loadTasks(){
         const curr = +t.current_pct||0;
         const gap = tgt - curr;
         const barCls = gap >= 30 ? 'red' : (gap >= 15 ? 'orange' : '');
-        const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
+        const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area_name||a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
         const statusOpts = [
           {value:'not_started', label:'Not Started'},
           {value:'in_progress', label:'In Progress'},
