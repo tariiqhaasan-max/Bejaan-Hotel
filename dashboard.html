@@ -94,6 +94,135 @@ tr:hover td{background:var(--green-bg);}
 .wf-legend-item{display:flex;align-items:center;gap:6px;}
 .wf-legend-dot{width:12px;height:12px;border-radius:3px;}
 .admin-only{display:none;}
+
+/* ============ DARK EDITORIAL OVERVIEW ============ */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap');
+.ov-dark{
+  --ov-bg:#0d0d0d;--ov-surface:#141414;--ov-surface2:#1c1c1c;
+  --ov-border:rgba(184,149,88,0.18);--ov-border-strong:rgba(184,149,88,0.35);
+  --ov-gold:#b89558;--ov-gold-lt:#d4b47a;--ov-cream:#e8e0d0;
+  --ov-muted:#7a7060;--ov-dim:#5a5248;
+  --ov-red:#c85a5a;--ov-red-lt:#e07070;
+  --ov-green:#6aa57a;--ov-blue:#5a8ca5;--ov-amber:#c99a4c;
+  background:var(--ov-bg);color:var(--ov-cream);
+  font-family:'Jost',sans-serif;font-weight:300;
+  margin:-24px;padding:40px 48px 60px;min-height:calc(100vh);
+  position:relative;overflow-x:hidden;
+}
+.ov-dark::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(184,149,88,0.07), transparent 60%),
+    repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(184,149,88,0.02) 60px,rgba(184,149,88,0.02) 61px);
+}
+.ov-dark > *{position:relative;z-index:1;}
+
+.ov-hero{margin-bottom:40px;max-width:900px;animation:ovFadeUp .6s ease both;}
+.ov-eyebrow{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.22em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:18px;}
+.ov-line{width:40px;height:1px;background:var(--ov-gold);display:inline-block;}
+.ov-title{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:48px;line-height:1.08;color:var(--ov-cream);margin-bottom:14px;letter-spacing:-.005em;}
+.ov-title em{font-style:italic;color:var(--ov-gold-lt);}
+.ov-subtitle{font-size:14px;color:var(--ov-muted);max-width:620px;line-height:1.6;margin-bottom:22px;}
+.ov-actions{display:flex;gap:10px;}
+.ov-btn{background:transparent;border:1px solid var(--ov-border-strong);color:var(--ov-cream);padding:9px 18px;font-family:'Jost',sans-serif;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border-radius:2px;cursor:pointer;transition:all .25s;}
+.ov-btn:hover{background:var(--ov-gold);color:var(--ov-bg);border-color:var(--ov-gold);}
+.ov-btn-ghost{}
+
+/* KPI grid */
+.ov-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+@media(max-width:1200px){.ov-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){.ov-kpi-grid{grid-template-columns:1fr;}}
+.ov-kpi{
+  background:var(--ov-surface);border:1px solid var(--ov-border);border-radius:3px;
+  padding:22px 20px 18px;position:relative;overflow:hidden;
+  animation:ovFadeUp .6s ease both;
+}
+.ov-kpi:nth-child(1){animation-delay:.1s;}
+.ov-kpi:nth-child(2){animation-delay:.18s;}
+.ov-kpi:nth-child(3){animation-delay:.26s;}
+.ov-kpi:nth-child(4){animation-delay:.34s;}
+.ov-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ov-gold);opacity:.6;}
+.ov-kpi-red::before{background:var(--ov-red);opacity:.75;}
+.ov-kpi-crit::before{background:linear-gradient(90deg,var(--ov-red),var(--ov-red-lt));}
+.ov-kpi-amber::before{background:var(--ov-amber);}
+.ov-kpi-gold::before{background:var(--ov-gold);}
+.ov-kpi-label{font-size:10.5px;letter-spacing:.2em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:12px;}
+.ov-kpi-value{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:42px;line-height:1;color:var(--ov-cream);margin-bottom:6px;font-variant-numeric:tabular-nums;}
+.ov-kpi-red .ov-kpi-value,.ov-kpi-crit .ov-kpi-value{color:var(--ov-red-lt);}
+.ov-kpi-gold .ov-kpi-value{color:var(--ov-gold-lt);}
+.ov-kpi-amber .ov-kpi-value{color:var(--ov-amber);}
+.ov-kpi-sub{font-size:11.5px;color:var(--ov-muted);margin-bottom:14px;min-height:16px;}
+.ov-kpi-spark{height:3px;background:rgba(184,149,88,0.08);border-radius:2px;overflow:hidden;}
+.ov-kpi-bar{height:100%;width:0%;background:var(--ov-gold);transition:width 1.2s cubic-bezier(.3,0,.2,1);}
+.ov-kpi-red .ov-kpi-bar,.ov-kpi-crit .ov-kpi-bar{background:var(--ov-red-lt);}
+.ov-kpi-amber .ov-kpi-bar{background:var(--ov-amber);}
+
+/* Panels */
+.ov-grid{display:grid;gap:16px;margin-bottom:20px;}
+.ov-grid-2{grid-template-columns:1fr 1fr;}
+@media(max-width:1100px){.ov-grid-2{grid-template-columns:1fr;}}
+.ov-panel{
+  background:var(--ov-surface);border:1px solid var(--ov-border);border-radius:3px;
+  padding:22px;animation:ovFadeUp .7s ease both .4s;
+}
+.ov-panel-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+.ov-panel-title{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:20px;color:var(--ov-cream);}
+.ov-panel-hint{font-size:11px;letter-spacing:.12em;color:var(--ov-dim);text-transform:uppercase;}
+
+/* Gauge */
+.ov-gauge-wrap{position:relative;height:220px;display:flex;align-items:center;justify-content:center;}
+.ov-gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding-top:18px;}
+.ov-gauge-value{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:52px;color:var(--ov-gold-lt);line-height:1;font-variant-numeric:tabular-nums;}
+.ov-gauge-label{font-size:10.5px;letter-spacing:.24em;color:var(--ov-muted);text-transform:uppercase;margin-top:8px;}
+.ov-gauge-foot{text-align:center;font-size:12px;color:var(--ov-muted);margin-top:10px;}
+
+/* Donut */
+.ov-donut-wrap{position:relative;height:220px;}
+.ov-donut-legend{display:flex;flex-wrap:wrap;gap:12px 20px;justify-content:center;margin-top:12px;}
+.ov-donut-legend div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ov-cream);}
+.ov-donut-legend span{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.ov-donut-legend b{font-weight:500;color:var(--ov-cream);font-variant-numeric:tabular-nums;}
+
+/* Charts */
+.ov-chart-wrap{position:relative;}
+
+/* Package progress list */
+.ov-pkg-list > div{padding:12px 0;border-bottom:1px solid var(--ov-border);}
+.ov-pkg-list > div:last-child{border-bottom:none;}
+.ov-pkg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;gap:12px;}
+.ov-pkg-name{font-size:13.5px;color:var(--ov-cream);font-weight:400;}
+.ov-pkg-meta{font-size:11px;color:var(--ov-dim);letter-spacing:.05em;}
+.ov-pkg-pct{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--ov-gold-lt);font-variant-numeric:tabular-nums;}
+.ov-pkg-pct.red{color:var(--ov-red-lt);}
+.ov-pkg-bar{height:3px;background:rgba(184,149,88,0.08);border-radius:2px;overflow:hidden;}
+.ov-pkg-fill{height:100%;background:var(--ov-gold);transition:width 1s cubic-bezier(.3,0,.2,1);}
+.ov-pkg-fill.red{background:var(--ov-red-lt);}
+.ov-pkg-fill.amber{background:var(--ov-amber);}
+
+/* Attention / cashflow rows */
+.ov-attention, .ov-cashflow{max-height:360px;overflow-y:auto;}
+.ov-attention::-webkit-scrollbar,.ov-cashflow::-webkit-scrollbar,.ov-pkg-list::-webkit-scrollbar{width:4px;}
+.ov-attention::-webkit-scrollbar-thumb,.ov-cashflow::-webkit-scrollbar-thumb,.ov-pkg-list::-webkit-scrollbar-thumb{background:var(--ov-border-strong);border-radius:2px;}
+.ov-alert{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:2px;margin-bottom:8px;border:1px solid var(--ov-border);background:rgba(255,255,255,0.012);}
+.ov-alert-danger{border-color:rgba(200,90,90,0.35);background:rgba(200,90,90,0.06);}
+.ov-alert-warning{border-color:rgba(201,154,76,0.3);background:rgba(201,154,76,0.05);}
+.ov-alert-icon{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--ov-gold-lt);line-height:1;flex-shrink:0;margin-top:2px;}
+.ov-alert-danger .ov-alert-icon{color:var(--ov-red-lt);}
+.ov-alert-body strong{display:block;font-size:13px;color:var(--ov-cream);font-weight:400;margin-bottom:2px;}
+.ov-alert-body small{font-size:11.5px;color:var(--ov-muted);display:block;line-height:1.5;}
+.ov-cash-row{display:flex;justify-content:space-between;align-items:center;padding:12px 2px;border-bottom:1px solid var(--ov-border);gap:12px;}
+.ov-cash-row:last-child{border-bottom:none;}
+.ov-cash-desc{font-size:13px;color:var(--ov-cream);}
+.ov-cash-meta{font-size:11px;color:var(--ov-muted);letter-spacing:.04em;margin-top:2px;}
+.ov-cash-amt{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--ov-gold-lt);font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+.ov-muted{color:var(--ov-muted);font-size:12.5px;text-align:center;}
+.ov-empty{padding:40px 20px;text-align:center;color:var(--ov-dim);font-size:12.5px;}
+
+@keyframes ovFadeUp{
+  from{opacity:0;transform:translateY(18px);}
+  to{opacity:1;transform:translateY(0);}
+}
 </style>
 </head>
 <body>
@@ -133,34 +262,113 @@ tr:hover td{background:var(--green-bg);}
 <div class="toast-container" id="toasts"></div>
 <main class="main">
 
-<!-- OVERVIEW -->
+<!-- OVERVIEW (Dark Editorial) -->
 <div class="section active" id="section-overview">
-  <div class="page-header">
-    <div><div class="page-title">Overview</div><div class="page-subtitle">Live project summary</div></div>
-    <button class="btn btn-secondary btn-sm" onclick="loadAll()">↻ Refresh</button>
-  </div>
-  <div class="stat-grid">
-    <div class="stat-card gold"><div class="stat-label">Total Budget</div><div class="stat-value" id="ov-budget">—</div><div class="stat-sub">PKR</div></div>
-    <div class="stat-card red"><div class="stat-label">Vendor Balance Due</div><div class="stat-value" id="ov-balance">—</div><div class="stat-sub">PKR</div></div>
-    <div class="stat-card green"><div class="stat-label">Avg Completion</div><div class="stat-value" id="ov-completion">—</div><div class="stat-sub">across all areas</div></div>
-    <div class="stat-card blue"><div class="stat-label">Open Issues</div><div class="stat-value" id="ov-issues">—</div><div class="stat-sub">punch list items</div></div>
-  </div>
-  <div class="grid-2">
-    <div class="card">
-      <div class="card-title">Vendor Payments — Paid vs Balance</div>
-      <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text-muted);">
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:#4caf7d;display:inline-block;"></span>Paid</span>
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:2px;background:#c0392b;display:inline-block;"></span>Balance Due</span>
+  <div class="ov-dark">
+    <!-- Hero -->
+    <div class="ov-hero">
+      <div class="ov-eyebrow"><span class="ov-line"></span>MASTER DASHBOARD · <span id="ov-today"></span></div>
+      <h1 class="ov-title">Bejaan Resort <em>build</em>,<br>at a glance.</h1>
+      <p class="ov-subtitle">Tasks behind target, next milestones, unpaid vendors, critical bottlenecks — one screen for the whole project.</p>
+      <div class="ov-actions">
+        <button class="ov-btn ov-btn-ghost" onclick="loadOverview()">↻ Refresh</button>
       </div>
-      <div style="position:relative;height:320px;"><canvas id="chart-vendor"></canvas></div>
     </div>
-    <div class="card"><div class="card-title">Work Completion by Area</div><div class="chart-container"><canvas id="chart-wip"></canvas></div></div>
-  </div>
-  <div class="grid-2">
-    <div class="card"><div class="card-title">Budget — Actual vs Budgeted</div><div class="chart-container"><canvas id="chart-budget"></canvas></div></div>
-    <div class="card"><div class="card-title">Upcoming Cashflow — Next 4 Entries</div><div id="upcoming-cashflow"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+
+    <!-- Four hero KPI cards (requested top-priorities) -->
+    <div class="ov-kpi-grid">
+      <div class="ov-kpi ov-kpi-red">
+        <div class="ov-kpi-label">Tasks Behind Target</div>
+        <div class="ov-kpi-value" id="ov-behind">—</div>
+        <div class="ov-kpi-sub" id="ov-behind-sub">—</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-behind-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-gold">
+        <div class="ov-kpi-label">Next Milestones</div>
+        <div class="ov-kpi-value" id="ov-milestones">—</div>
+        <div class="ov-kpi-sub" id="ov-milestones-sub">due in next 14 days</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-milestones-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-amber">
+        <div class="ov-kpi-label">Unpaid to Vendors</div>
+        <div class="ov-kpi-value" id="ov-unpaid">—</div>
+        <div class="ov-kpi-sub" id="ov-unpaid-sub">—</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-unpaid-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-crit">
+        <div class="ov-kpi-label">Critical Bottlenecks</div>
+        <div class="ov-kpi-value" id="ov-crit">—</div>
+        <div class="ov-kpi-sub" id="ov-crit-sub">high + critical impact</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-crit-bar"></div></div>
+      </div>
+    </div>
+
+    <!-- Two-up: gauge + donut -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Overall Progress</div>
+          <div class="ov-panel-hint">bcc_tasks + work_items · combined</div>
+        </div>
+        <div class="ov-gauge-wrap">
+          <canvas id="ov-gauge"></canvas>
+          <div class="ov-gauge-center">
+            <div class="ov-gauge-value" id="ov-gauge-val">—</div>
+            <div class="ov-gauge-label">complete</div>
+          </div>
+        </div>
+        <div class="ov-gauge-foot" id="ov-gauge-foot">—</div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Task Status Mix</div>
+          <div class="ov-panel-hint">18 work packages</div>
+        </div>
+        <div class="ov-donut-wrap">
+          <canvas id="ov-donut"></canvas>
+        </div>
+        <div class="ov-donut-legend" id="ov-donut-legend"></div>
+      </div>
+    </div>
+
+    <!-- Vendor balance + work by area -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Vendor Payments — Paid vs Balance</div>
+          <div class="ov-panel-hint">top 10 by exposure</div>
+        </div>
+        <div class="ov-chart-wrap" style="min-height:340px;"><canvas id="ov-vendor-bar"></canvas></div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Progress by Work Package</div>
+          <div class="ov-panel-hint">by vendor · current vs target</div>
+        </div>
+        <div id="ov-pkg-list" class="ov-pkg-list"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Attention + Upcoming -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Attention Required</div>
+          <div class="ov-panel-hint">bottlenecks + behind-target tasks</div>
+        </div>
+        <div id="ov-attention" class="ov-attention"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Upcoming Cashflow</div>
+          <div class="ov-panel-hint">next 4 entries</div>
+        </div>
+        <div id="ov-cashflow" class="ov-cashflow"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+    </div>
   </div>
 </div>
+<!-- /OVERVIEW -->
 
 <!-- ALERTS -->
 <div class="section" id="section-alerts">
@@ -611,9 +819,9 @@ function isAdmin(){return CURRENT_ROLE==='admin';}
 async function loadTasks(){
   try{
     const [tasks, areas, vendors] = await Promise.all([
-      sbGet('bcc_tasks','&select=*&order=task_code.asc'),
-      sbGet('bcc_task_areas','&select=*'),
-      sbGet('vendors','&select=id,vendor_name')
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}).then(r=>r.json())
     ]);
     const vmap={}; vendors.forEach(v=>vmap[v.id]=v.vendor_name);
     const amap={}; areas.forEach(a=>{(amap[a.task_id]=amap[a.task_id]||[]).push(a);});
@@ -719,7 +927,8 @@ function toggleBottleForm(){
 
 async function loadBottlenecks(){
   try{
-    const data = await sbGet('bcc_bottlenecks','&select=*&order=raised_date.desc');
+    const data = await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json());
+    if(data.error || data.code){ throw new Error(data.message || JSON.stringify(data)); }
     const open = data.filter(b=>b.status==='open' || b.status==='in_progress');
     const done = data.filter(b=>b.status==='resolved');
 
@@ -867,7 +1076,7 @@ async function changeUserRole(id,role){
 // ============================================================
 // CORE
 // ============================================================
-async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?${p.includes('order=')?p.substring(1):'order=created_at.asc'+p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?order=created_at.asc${p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});if(!r.ok)throw new Error(await r.text());}
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3000);}
@@ -883,18 +1092,285 @@ async function loadAll(){await Promise.all(['vendors','work_items','inventory','
 // OVERVIEW
 async function loadOverview(){
   try{
-    const[vendors,wip,budget,cashflow,punch]=await Promise.all([getData('vendors'),getData('work_items'),getData('budget'),getData('cashflow'),getData('punch_list')]);
-    document.getElementById('ov-budget').textContent=fmt(budget.reduce((a,b)=>a+(+b.budgeted||0),0));
-    document.getElementById('ov-balance').textContent=fmt(vendors.reduce((a,b)=>a+((+b.total_contract||0)-(+b.amount_paid||0)),0));
-    document.getElementById('ov-completion').textContent=(wip.length?Math.round(wip.reduce((a,b)=>a+(+b.percent_complete||0),0)/wip.length):0)+'%';
-    document.getElementById('ov-issues').textContent=punch.filter(p=>p.status!=='Done').length;
-    renderVendorBar('chart-vendor',vendors.map(v=>v.vendor_name||'—'),vendors.map(v=>+v.amount_paid||0),vendors.map(v=>(+v.total_contract||0)-(+v.amount_paid||0)));
-    const areas={};wip.forEach(w=>{if(!areas[w.area])areas[w.area]=[];areas[w.area].push(+w.percent_complete||0);});
-    const aL=Object.keys(areas);renderBar('chart-wip',aL,aL.map(a=>Math.round(areas[a].reduce((x,y)=>x+y,0)/areas[a].length)),'% Complete','#c9a84c');
-    renderGroupedBar('chart-budget',budget.map(b=>b.category),budget.map(b=>+b.budgeted||0),budget.map(b=>+b.actual_spent||0));
-    const s=[...cashflow].sort((a,b)=>a.month.localeCompare(b.month)).slice(0,4);
-    document.getElementById('upcoming-cashflow').innerHTML=s.length?s.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;">${c.description}</div><div style="font-size:11px;color:var(--text-muted);">${c.month} · ${c.category}</div></div><div style="font-weight:600;color:var(--green);">PKR ${fmt(c.amount)}</div></div>`).join(''):'<div style="padding:20px;color:var(--text-dim);text-align:center;">No cashflow entries yet</div>';
-  }catch(e){console.error(e);}
+    // Date in hero
+    const td = document.getElementById('ov-today');
+    if(td){
+      const d = new Date();
+      td.textContent = d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
+    }
+
+    // Pull everything in parallel
+    const [vendors, wip, budget, cashflow, punch, bccTasks, bccAreas, bccBottles] = await Promise.all([
+      getData('vendors'),
+      getData('work_items'),
+      getData('budget'),
+      getData('cashflow'),
+      getData('punch_list'),
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[])
+    ]);
+    const tasks = Array.isArray(bccTasks) ? bccTasks : [];
+    const areas = Array.isArray(bccAreas) ? bccAreas : [];
+    const bottles = Array.isArray(bccBottles) ? bccBottles : [];
+    const areaByTask = {};
+    areas.forEach(a=>{(areaByTask[a.task_id]=areaByTask[a.task_id]||[]).push(a);});
+
+    // ---------- KPIs ----------
+    // Tasks behind target (>20% gap vs avg of area targets)
+    let behind = 0, onTrack = 0, totalGap = 0;
+    tasks.forEach(t=>{
+      const ar = areaByTask[t.id] || [];
+      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+      const curr = +t.current_pct||0;
+      const gap = tgt - curr;
+      if(gap >= 20) behind++;
+      else onTrack++;
+      if(gap > 0) totalGap += gap;
+    });
+    document.getElementById('ov-behind').textContent = behind;
+    document.getElementById('ov-behind-sub').textContent = tasks.length ? `out of ${tasks.length} tasks · ${onTrack} on track` : 'no tasks yet';
+    setTimeout(()=>{
+      const ratio = tasks.length ? (behind/tasks.length) : 0;
+      document.getElementById('ov-behind-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },80);
+
+    // Next milestones = active tasks (proxy: in_progress count, as a forward-looking signal)
+    const activeTasks = tasks.filter(t=>t.status==='in_progress').length;
+    document.getElementById('ov-milestones').textContent = activeTasks;
+    document.getElementById('ov-milestones-sub').textContent = activeTasks ? 'work packages in motion' : 'nothing in motion';
+    setTimeout(()=>{
+      const ratio = tasks.length ? (activeTasks/tasks.length) : 0;
+      document.getElementById('ov-milestones-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },120);
+
+    // Unpaid to vendors (from existing vendors table)
+    const totalContract = vendors.reduce((a,b)=>a+(+b.total_contract||0),0);
+    const totalPaid     = vendors.reduce((a,b)=>a+(+b.amount_paid||0),0);
+    const unpaid        = totalContract - totalPaid;
+    document.getElementById('ov-unpaid').textContent = fmtPKR(unpaid);
+    const paidRatio = totalContract ? (totalPaid/totalContract) : 0;
+    document.getElementById('ov-unpaid-sub').textContent = totalContract ? `${fmtPKR(totalPaid)} paid · ${(paidRatio*100).toFixed(0)}% of ${fmtPKR(totalContract)}` : 'no contracts';
+    setTimeout(()=>{
+      document.getElementById('ov-unpaid-bar').style.width = ((1-paidRatio)*100).toFixed(1)+'%';
+    },160);
+
+    // Critical bottlenecks
+    const openBottles = bottles.filter(b=>b.status==='open' || b.status==='in_progress');
+    const critical = openBottles.filter(b=>b.impact==='critical' || b.impact==='high').length;
+    document.getElementById('ov-crit').textContent = critical;
+    document.getElementById('ov-crit-sub').textContent = openBottles.length ? `${openBottles.length} total open` : 'no blockers';
+    setTimeout(()=>{
+      const ratio = openBottles.length ? (critical/openBottles.length) : 0;
+      document.getElementById('ov-crit-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },200);
+
+    // ---------- Gauge: combined progress ----------
+    const bccAvg = tasks.length ? tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length : 0;
+    const wipAvg = wip.length   ? wip.reduce((s,w)=>s+(+w.percent_complete||0),0)/wip.length : 0;
+    const combined = (tasks.length && wip.length) ? (bccAvg+wipAvg)/2 : (tasks.length ? bccAvg : wipAvg);
+    renderGauge('ov-gauge', combined);
+    document.getElementById('ov-gauge-val').textContent = Math.round(combined)+'%';
+    document.getElementById('ov-gauge-foot').textContent = `bcc_tasks avg ${Math.round(bccAvg)}% · work_items avg ${Math.round(wipAvg)}%`;
+
+    // ---------- Donut: task status mix ----------
+    const statusCounts = {in_progress:0,complete:0,blocked:0,not_started:0};
+    tasks.forEach(t=>{statusCounts[t.status]=(statusCounts[t.status]||0)+1;});
+    renderOvDonut(statusCounts);
+
+    // ---------- Vendor bar (top 10 by exposure) ----------
+    const sortedV = [...vendors]
+      .map(v=>({name:v.vendor_name||'—', paid:+v.amount_paid||0, bal:(+v.total_contract||0)-(+v.amount_paid||0)}))
+      .sort((a,b)=>(b.paid+b.bal)-(a.paid+a.bal))
+      .slice(0,10);
+    renderOvVendorBar(sortedV);
+
+    // ---------- Progress by package ----------
+    const byVendor = {};
+    tasks.forEach(t=>{
+      const v = vendors.find(x=>x.id===t.vendor_id);
+      const name = v ? v.vendor_name : 'Unassigned';
+      if(!byVendor[name]) byVendor[name]={n:0,curr:0,tgt:0};
+      byVendor[name].n++;
+      byVendor[name].curr += +t.current_pct||0;
+      const ar = areaByTask[t.id]||[];
+      byVendor[name].tgt += ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+    });
+    const pkgRows = Object.entries(byVendor)
+      .map(([name,d])=>({name, n:d.n, curr:d.curr/d.n, tgt:d.tgt/d.n}))
+      .sort((a,b)=>b.tgt-a.tgt)
+      .slice(0,8);
+    const pkgEl = document.getElementById('ov-pkg-list');
+    if(pkgRows.length === 0){
+      pkgEl.innerHTML = '<div class="ov-empty">No work packages seeded yet.</div>';
+    } else {
+      pkgEl.innerHTML = pkgRows.map((p,i)=>{
+        const gap = p.tgt - p.curr;
+        const cls = gap >= 30 ? 'red' : (gap >= 15 ? 'amber' : '');
+        return `
+          <div>
+            <div class="ov-pkg-head">
+              <div>
+                <div class="ov-pkg-name">${p.name}</div>
+                <div class="ov-pkg-meta">${p.n} task${p.n>1?'s':''} · target ${Math.round(p.tgt)}%${gap>5?` · ${Math.round(gap)}% gap`:' · on pace'}</div>
+              </div>
+              <div class="ov-pkg-pct ${cls}">${Math.round(p.curr)}%</div>
+            </div>
+            <div class="ov-pkg-bar"><div class="ov-pkg-fill ${cls}" style="width:0%" data-target="${Math.min(100,p.curr).toFixed(1)}"></div></div>
+          </div>`;
+      }).join('');
+      // Animate bars in
+      setTimeout(()=>{
+        document.querySelectorAll('.ov-pkg-fill').forEach((bar,idx)=>{
+          setTimeout(()=>{bar.style.width = bar.dataset.target+'%';}, idx*60);
+        });
+      }, 120);
+    }
+
+    // ---------- Attention list ----------
+    const attention = [];
+    openBottles.slice(0,6).forEach(b=>{
+      attention.push({
+        type: (b.impact==='critical' || b.impact==='high') ? 'danger' : 'warning',
+        title: b.title,
+        sub: [b.reason?`Reason: ${b.reason}`:'', b.area||''].filter(Boolean).join(' · ')
+      });
+    });
+    tasks.forEach(t=>{
+      const ar = areaByTask[t.id]||[];
+      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+      const curr = +t.current_pct||0;
+      if(tgt > 0 && tgt - curr >= 30){
+        attention.push({
+          type:'warning',
+          title: `${t.task_code||''} ${t.title} — ${Math.round(tgt-curr)}% behind`,
+          sub: (t.notes||'').slice(0,120)
+        });
+      }
+    });
+    const attEl = document.getElementById('ov-attention');
+    if(attention.length===0){
+      attEl.innerHTML = '<div class="ov-empty">All clear — no critical items right now.</div>';
+    } else {
+      attEl.innerHTML = attention.slice(0,10).map(a=>`
+        <div class="ov-alert ov-alert-${a.type}">
+          <span class="ov-alert-icon">${a.type==='danger'?'!':'•'}</span>
+          <div class="ov-alert-body"><strong>${a.title}</strong>${a.sub?`<small>${a.sub}</small>`:''}</div>
+        </div>`).join('');
+    }
+
+    // ---------- Upcoming cashflow ----------
+    const cashEl = document.getElementById('ov-cashflow');
+    const upcoming = [...cashflow].sort((a,b)=>(a.month||'').localeCompare(b.month||'')).slice(0,4);
+    if(upcoming.length===0){
+      cashEl.innerHTML = '<div class="ov-empty">No upcoming cashflow entries.</div>';
+    } else {
+      cashEl.innerHTML = upcoming.map(c=>`
+        <div class="ov-cash-row">
+          <div>
+            <div class="ov-cash-desc">${c.description||'—'}</div>
+            <div class="ov-cash-meta">${c.month||'—'} · ${c.category||''}</div>
+          </div>
+          <div class="ov-cash-amt">${fmtPKR(+c.amount||0)}</div>
+        </div>`).join('');
+    }
+
+  }catch(e){console.error('loadOverview error:',e);toast('Overview error: '+(e.message||e),'error');}
+}
+
+// PKR formatter with L / Cr
+function fmtPKR(n){
+  if(n==null||isNaN(n)) return '—';
+  n = Number(n);
+  const abs = Math.abs(n); const sign = n<0?'-':'';
+  if(abs >= 1e7)  return sign + '₨ ' + (abs/1e7).toFixed(2).replace(/\.?0+$/,'') + ' Cr';
+  if(abs >= 1e5)  return sign + '₨ ' + (abs/1e5).toFixed(2).replace(/\.?0+$/,'') + ' L';
+  if(abs >= 1000) return sign + '₨ ' + abs.toLocaleString('en-PK');
+  return sign + '₨ ' + abs;
+}
+
+// Gauge chart (semi-doughnut)
+function renderGauge(id, pct){
+  const ctx = document.getElementById(id); if(!ctx) return;
+  if(ctx._chart) ctx._chart.destroy();
+  const clamped = Math.max(0, Math.min(100, pct||0));
+  ctx._chart = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Complete','Remaining'],
+      datasets:[{
+        data:[clamped, 100-clamped],
+        backgroundColor:['#b89558','rgba(184,149,88,0.08)'],
+        borderColor:'transparent', borderWidth:0,
+        circumference:180, rotation:270, cutout:'78%'
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{duration:1400, easing:'easeOutCubic'},
+      plugins:{legend:{display:false}, tooltip:{enabled:false}}
+    }
+  });
+}
+
+// Donut chart (task status)
+let __ovDonut=null;
+function renderOvDonut(counts){
+  const ctx = document.getElementById('ov-donut'); if(!ctx) return;
+  if(__ovDonut) __ovDonut.destroy();
+  const labels = ['In progress','Complete','Blocked','Not started'];
+  const data   = [counts.in_progress||0, counts.complete||0, counts.blocked||0, counts.not_started||0];
+  const colors = ['#5a8ca5','#6aa57a','#c85a5a','#5a5248'];
+  const total  = data.reduce((a,b)=>a+b,0);
+  __ovDonut = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels, datasets:[{data, backgroundColor:colors, borderColor:'#141414', borderWidth:2}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'68%',
+      animation:{duration:1200, easing:'easeOutCubic', animateRotate:true, animateScale:false},
+      plugins:{legend:{display:false}, tooltip:{
+        backgroundColor:'#1c1c1c', titleColor:'#e8e0d0', bodyColor:'#e8e0d0',
+        borderColor:'rgba(184,149,88,0.3)', borderWidth:1, padding:10, displayColors:false,
+        callbacks:{label:c=>`${c.label}: ${c.raw} (${total?Math.round(c.raw/total*100):0}%)`}
+      }}
+    }
+  });
+  const legendEl = document.getElementById('ov-donut-legend');
+  legendEl.innerHTML = labels.map((l,i)=>`<div><span style="background:${colors[i]}"></span>${l} <b>${data[i]}</b></div>`).join('');
+}
+
+// Vendor horizontal bar (dark)
+let __ovVendorBar=null;
+function renderOvVendorBar(rows){
+  const ctx = document.getElementById('ov-vendor-bar'); if(!ctx) return;
+  if(__ovVendorBar) __ovVendorBar.destroy();
+  ctx.parentElement.style.height = Math.max(rows.length*36+40, 200)+'px';
+  __ovVendorBar = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: rows.map(r=>r.name),
+      datasets:[
+        {label:'Paid',data:rows.map(r=>r.paid),backgroundColor:'#6aa57a',stack:'s',barPercentage:0.7,categoryPercentage:0.85,minBarLength:4},
+        {label:'Balance',data:rows.map(r=>r.bal),backgroundColor:'#c85a5a',stack:'s',barPercentage:0.7,categoryPercentage:0.85,minBarLength:4, borderRadius:{topRight:3,bottomRight:3}}
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      animation:{duration:1000, easing:'easeOutCubic'},
+      plugins:{
+        legend:{labels:{color:'#e8e0d0',font:{family:'Jost',size:11},boxWidth:10,padding:14}},
+        tooltip:{
+          backgroundColor:'#1c1c1c',titleColor:'#e8e0d0',bodyColor:'#e8e0d0',
+          borderColor:'rgba(184,149,88,0.3)',borderWidth:1,padding:10,
+          callbacks:{label:c=>`${c.dataset.label}: ${fmtPKR(+c.raw||0)}`}
+        }
+      },
+      scales:{
+        x:{stacked:true, ticks:{color:'#7a7060',font:{size:10},callback:v=>v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v>=1e3?Math.round(v/1e3)+'K':v}, grid:{color:'rgba(184,149,88,0.08)'}, border:{color:'transparent'}},
+        y:{stacked:true, ticks:{color:'#e8e0d0',font:{size:11.5,family:'Jost'}}, grid:{display:false}, border:{color:'transparent'}}
+      }
+    }
+  });
 }
 function renderVendorBar(id,labels,paidData,balData){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx.parentElement.style.height=Math.max(labels.length*38+60,200)+'px';ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Paid',data:paidData,backgroundColor:'#4caf7d',barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6},{label:'Balance Due',data:balData,backgroundColor:'#c0392b',borderRadius:{topLeft:0,topRight:4,bottomLeft:0,bottomRight:4},barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+Number(c.raw).toLocaleString('en-PK')}}},scales:{x:{stacked:true,ticks:{color:'#5a7066',font:{size:11},callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'K':v},grid:{color:'#dde8e2'},border:{color:'transparent'}},y:{stacked:true,ticks:{color:'#111c17',font:{size:12}},grid:{display:false},border:{color:'transparent'}}}}});}
 function renderBar(id,labels,data,label,color){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'},max:100}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
