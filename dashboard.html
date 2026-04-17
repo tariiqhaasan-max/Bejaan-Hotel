@@ -867,7 +867,7 @@ async function changeUserRole(id,role){
 // ============================================================
 // CORE
 // ============================================================
-async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?order=created_at.asc${p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?${p.includes('order=')?p.substring(1):'order=created_at.asc'+p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});if(!r.ok)throw new Error(await r.text());}
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3000);}
