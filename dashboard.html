@@ -1,1 +1,2022 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bejaan Hotel — Project Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f7f5;--surface:#ffffff;--surface2:#f0f4f1;--border:#dde8e2;--green:#4caf7d;--green-light:#7dd4a8;--green-dim:#2d8a5e;--green-bg:rgba(76,175,125,.08);--text:#111c17;--text-muted:#5a7066;--text-dim:#8aaa9e;--red:#e05c5c;--blue:#3a86c8;--orange:#e08a4c;--radius:8px;--radius-lg:12px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px;}
+.sidebar{width:220px;min-height:100vh;background:#111c17;border-right:1px solid #1e2e26;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid #1e2e26;}
+.sidebar-logo h1{font-family:'Playfair Display',serif;font-size:16px;color:var(--green);line-height:1.3;}
+.sidebar-logo p{font-size:11px;color:#5a7a6a;margin-top:2px;}
+.sidebar-section{padding:12px 0;}
+.sidebar-label{font-size:10px;font-weight:600;letter-spacing:.1em;color:#3a5a4a;text-transform:uppercase;padding:0 16px 6px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;color:#8aaa9e;font-size:13px;transition:all .15s;border-left:2px solid transparent;}
+.nav-item:hover{color:#fff;background:rgba(76,175,125,.1);}
+.nav-item.active{color:var(--green);background:rgba(76,175,125,.12);border-left-color:var(--green);}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid #1e2e26;font-size:11px;color:#3a5a4a;}
+.main{margin-left:220px;flex:1;padding:24px;min-height:100vh;}
+.page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--text);}
+.page-subtitle{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;}
+.btn-primary{background:var(--green);color:#fff;}.btn-primary:hover{background:var(--green-dim);}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border);}.btn-secondary:hover{border-color:var(--green-dim);color:var(--green-dim);}
+.btn-danger{background:rgba(224,92,92,.1);color:var(--red);border:1px solid rgba(224,92,92,.25);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.section{display:none;}.section.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;}
+.card-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;}
+.stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;}
+.stat-value{font-size:24px;font-weight:600;color:var(--text);margin:4px 0;}
+.stat-sub{font-size:11px;color:var(--text-dim);}
+.stat-card.gold .stat-value,.stat-card.green .stat-value{color:var(--green);}
+.stat-card.red .stat-value{color:var(--red);}
+.stat-card.blue .stat-value{color:var(--blue);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr;}}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group label{font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;}
+.form-group input,.form-group select,.form-group textarea{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;transition:border-color .15s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green);}
+.form-group textarea{resize:vertical;min-height:70px;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--green-bg);}
+.empty-row td{text-align:center;color:var(--text-dim);padding:32px;font-style:italic;}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:500;}
+.badge-green{background:rgba(76,175,125,.12);color:var(--green-dim);}
+.badge-red{background:rgba(224,92,92,.12);color:#c04040;}
+.badge-blue{background:rgba(58,134,200,.12);color:#2a66a0;}
+.badge-orange{background:rgba(224,138,76,.12);color:#b06030;}
+.badge-gray{background:rgba(90,112,102,.1);color:var(--text-muted);}
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);margin-bottom:10px;font-size:13px;}
+.alert-warning{background:rgba(224,138,76,.08);border:1px solid rgba(224,138,76,.2);color:#b06030;}
+.alert-danger{background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.2);color:#c04040;}
+.alert-info{background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.2);color:var(--green-dim);}
+.progress-bar{background:var(--border);border-radius:10px;height:6px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:10px;background:var(--green);transition:width .3s;}
+.progress-fill.red{background:var(--red);}
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);gap:10px;}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-container{position:fixed;top:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;}
+.toast{padding:12px 16px;border-radius:var(--radius);font-size:13px;min-width:220px;animation:slideIn .2s ease;box-shadow:0 4px 12px rgba(0,0,0,.1);}
+.toast-success{background:#e8f5ee;border:1px solid #b0ddc0;color:#2d6a4a;}
+.toast-error{background:#fdf0f0;border:1px solid #f0c0c0;color:#c04040;}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.chart-container{position:relative;height:220px;}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:32px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-muted);}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--green);background:var(--green-bg);}
+.drop-zone-icon{font-size:28px;margin-bottom:8px;}
+.overdue{color:var(--red)!important;}
+.conn-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#5a7a6a;}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:#3a5a4a;}
+.conn-dot.connected{background:var(--green);}.conn-dot.error{background:var(--red);}
+.wf-canvas-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;min-height:520px;}
+#workflow-svg{display:block;}
+.wf-node{cursor:pointer;}.wf-node:hover rect{filter:brightness(1.1);}
+.wf-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--text-muted);}
+.wf-legend-item{display:flex;align-items:center;gap:6px;}
+.wf-legend-dot{width:12px;height:12px;border-radius:3px;}
+.admin-only{display:none;}
+
+/* ============ INLINE EDIT + MODAL SYSTEM ============ */
+.edit-cell{cursor:text;transition:background .12s;position:relative;}
+.edit-cell:hover{background:rgba(76,175,125,.06);}
+.edit-cell:hover::after{content:'✎';position:absolute;top:2px;right:4px;font-size:10px;color:var(--green-dim);opacity:.6;}
+.edit-cell.editing{background:rgba(76,175,125,.08);padding:2px !important;}
+.edit-cell.editing::after{display:none;}
+.edit-cell input,.edit-cell select,.edit-cell textarea{
+  width:100%;background:#fff;border:1px solid var(--green);border-radius:var(--radius);
+  padding:6px 8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);
+  outline:none;box-shadow:0 0 0 2px rgba(76,175,125,.12);
+}
+.edit-cell textarea{min-height:54px;resize:vertical;}
+.edit-cell.saving{opacity:.5;pointer-events:none;}
+.edit-cell.saving::after{content:'⟳ saving';display:block;position:absolute;top:2px;right:4px;font-size:10px;color:var(--green-dim);opacity:1;}
+.edit-cell.saved::after{content:'✓';display:block;position:absolute;top:2px;right:4px;font-size:11px;color:var(--green-dim);opacity:1;animation:editFadeOut 1.2s ease forwards;}
+@keyframes editFadeOut{0%,60%{opacity:1;}100%{opacity:0;}}
+
+.btn-icon{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:4px 8px;font-size:13px;border-radius:var(--radius);cursor:pointer;transition:.12s;}
+.btn-icon:hover{border-color:var(--green);color:var(--green-dim);background:rgba(76,175,125,.06);}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:22px 24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.modal h3{font-family:'Playfair Display',serif;font-size:20px;margin-bottom:6px;color:var(--text);}
+.modal-sub{font-size:12px;color:var(--text-muted);margin-bottom:18px;}
+.modal .ro-field{display:block;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;color:var(--text-muted);margin-top:2px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+
+/* ============ DARK EDITORIAL OVERVIEW ============ */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap');
+.ov-dark{
+  --ov-bg:#0d0d0d;--ov-surface:#141414;--ov-surface2:#1c1c1c;
+  --ov-border:rgba(184,149,88,0.18);--ov-border-strong:rgba(184,149,88,0.35);
+  --ov-gold:#b89558;--ov-gold-lt:#d4b47a;--ov-cream:#e8e0d0;
+  --ov-muted:#7a7060;--ov-dim:#5a5248;
+  --ov-red:#c85a5a;--ov-red-lt:#e07070;
+  --ov-green:#6aa57a;--ov-blue:#5a8ca5;--ov-amber:#c99a4c;
+  background:var(--ov-bg);color:var(--ov-cream);
+  font-family:'Jost',sans-serif;font-weight:300;
+  margin:-24px;padding:40px 48px 60px;min-height:calc(100vh);
+  position:relative;overflow-x:hidden;
+}
+.ov-dark::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(184,149,88,0.07), transparent 60%),
+    repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(184,149,88,0.02) 60px,rgba(184,149,88,0.02) 61px);
+}
+.ov-dark > *{position:relative;z-index:1;}
+
+.ov-hero{margin-bottom:40px;max-width:900px;animation:ovFadeUp .6s ease both;}
+.ov-eyebrow{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.22em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:18px;}
+.ov-line{width:40px;height:1px;background:var(--ov-gold);display:inline-block;}
+.ov-title{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:48px;line-height:1.08;color:var(--ov-cream);margin-bottom:14px;letter-spacing:-.005em;}
+.ov-title em{font-style:italic;color:var(--ov-gold-lt);}
+.ov-subtitle{font-size:14px;color:var(--ov-muted);max-width:620px;line-height:1.6;margin-bottom:22px;}
+.ov-actions{display:flex;gap:10px;}
+.ov-btn{background:transparent;border:1px solid var(--ov-border-strong);color:var(--ov-cream);padding:9px 18px;font-family:'Jost',sans-serif;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border-radius:2px;cursor:pointer;transition:all .25s;}
+.ov-btn:hover{background:var(--ov-gold);color:var(--ov-bg);border-color:var(--ov-gold);}
+.ov-btn-ghost{}
+
+/* KPI grid */
+.ov-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+@media(max-width:1200px){.ov-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){.ov-kpi-grid{grid-template-columns:1fr;}}
+.ov-kpi{
+  background:var(--ov-surface);border:1px solid var(--ov-border);border-radius:3px;
+  padding:22px 20px 18px;position:relative;overflow:hidden;
+  animation:ovFadeUp .6s ease both;
+}
+.ov-kpi:nth-child(1){animation-delay:.1s;}
+.ov-kpi:nth-child(2){animation-delay:.18s;}
+.ov-kpi:nth-child(3){animation-delay:.26s;}
+.ov-kpi:nth-child(4){animation-delay:.34s;}
+.ov-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ov-gold);opacity:.6;}
+.ov-kpi-red::before{background:var(--ov-red);opacity:.75;}
+.ov-kpi-crit::before{background:linear-gradient(90deg,var(--ov-red),var(--ov-red-lt));}
+.ov-kpi-amber::before{background:var(--ov-amber);}
+.ov-kpi-gold::before{background:var(--ov-gold);}
+.ov-kpi-label{font-size:10.5px;letter-spacing:.2em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:12px;}
+.ov-kpi-value{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:42px;line-height:1;color:var(--ov-cream);margin-bottom:6px;font-variant-numeric:tabular-nums;}
+.ov-kpi-red .ov-kpi-value,.ov-kpi-crit .ov-kpi-value{color:var(--ov-red-lt);}
+.ov-kpi-gold .ov-kpi-value{color:var(--ov-gold-lt);}
+.ov-kpi-amber .ov-kpi-value{color:var(--ov-amber);}
+.ov-kpi-sub{font-size:11.5px;color:var(--ov-muted);margin-bottom:14px;min-height:16px;}
+.ov-kpi-spark{height:3px;background:rgba(184,149,88,0.08);border-radius:2px;overflow:hidden;}
+.ov-kpi-bar{height:100%;width:0%;background:var(--ov-gold);transition:width 1.2s cubic-bezier(.3,0,.2,1);}
+.ov-kpi-red .ov-kpi-bar,.ov-kpi-crit .ov-kpi-bar{background:var(--ov-red-lt);}
+.ov-kpi-amber .ov-kpi-bar{background:var(--ov-amber);}
+
+/* Panels */
+.ov-grid{display:grid;gap:16px;margin-bottom:20px;}
+.ov-grid-2{grid-template-columns:1fr 1fr;}
+@media(max-width:1100px){.ov-grid-2{grid-template-columns:1fr;}}
+.ov-panel{
+  background:var(--ov-surface);border:1px solid var(--ov-border);border-radius:3px;
+  padding:22px;animation:ovFadeUp .7s ease both .4s;
+}
+.ov-panel-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+.ov-panel-title{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:20px;color:var(--ov-cream);}
+.ov-panel-hint{font-size:11px;letter-spacing:.12em;color:var(--ov-dim);text-transform:uppercase;}
+
+/* Gauge */
+.ov-gauge-wrap{position:relative;height:220px;display:flex;align-items:center;justify-content:center;}
+.ov-gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding-top:18px;}
+.ov-gauge-value{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:52px;color:var(--ov-gold-lt);line-height:1;font-variant-numeric:tabular-nums;}
+.ov-gauge-label{font-size:10.5px;letter-spacing:.24em;color:var(--ov-muted);text-transform:uppercase;margin-top:8px;}
+.ov-gauge-foot{text-align:center;font-size:12px;color:var(--ov-muted);margin-top:10px;}
+
+/* Donut */
+.ov-donut-wrap{position:relative;height:220px;}
+.ov-donut-legend{display:flex;flex-wrap:wrap;gap:12px 20px;justify-content:center;margin-top:12px;}
+.ov-donut-legend div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ov-cream);}
+.ov-donut-legend span{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.ov-donut-legend b{font-weight:500;color:var(--ov-cream);font-variant-numeric:tabular-nums;}
+
+/* Charts */
+.ov-chart-wrap{position:relative;}
+
+/* Package progress list */
+.ov-pkg-list > div{padding:12px 0;border-bottom:1px solid var(--ov-border);}
+.ov-pkg-list > div:last-child{border-bottom:none;}
+.ov-pkg-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;gap:12px;}
+.ov-pkg-name{font-size:13.5px;color:var(--ov-cream);font-weight:400;}
+.ov-pkg-meta{font-size:11px;color:var(--ov-dim);letter-spacing:.05em;}
+.ov-pkg-pct{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--ov-gold-lt);font-variant-numeric:tabular-nums;}
+.ov-pkg-pct.red{color:var(--ov-red-lt);}
+.ov-pkg-bar{height:3px;background:rgba(184,149,88,0.08);border-radius:2px;overflow:hidden;}
+.ov-pkg-fill{height:100%;background:var(--ov-gold);transition:width 1s cubic-bezier(.3,0,.2,1);}
+.ov-pkg-fill.red{background:var(--ov-red-lt);}
+.ov-pkg-fill.amber{background:var(--ov-amber);}
+
+/* Attention / cashflow rows */
+.ov-attention, .ov-cashflow{max-height:360px;overflow-y:auto;}
+.ov-attention::-webkit-scrollbar,.ov-cashflow::-webkit-scrollbar,.ov-pkg-list::-webkit-scrollbar{width:4px;}
+.ov-attention::-webkit-scrollbar-thumb,.ov-cashflow::-webkit-scrollbar-thumb,.ov-pkg-list::-webkit-scrollbar-thumb{background:var(--ov-border-strong);border-radius:2px;}
+.ov-alert{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:2px;margin-bottom:8px;border:1px solid var(--ov-border);background:rgba(255,255,255,0.012);}
+.ov-alert-danger{border-color:rgba(200,90,90,0.35);background:rgba(200,90,90,0.06);}
+.ov-alert-warning{border-color:rgba(201,154,76,0.3);background:rgba(201,154,76,0.05);}
+.ov-alert-icon{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--ov-gold-lt);line-height:1;flex-shrink:0;margin-top:2px;}
+.ov-alert-danger .ov-alert-icon{color:var(--ov-red-lt);}
+.ov-alert-body strong{display:block;font-size:13px;color:var(--ov-cream);font-weight:400;margin-bottom:2px;}
+.ov-alert-body small{font-size:11.5px;color:var(--ov-muted);display:block;line-height:1.5;}
+.ov-cash-row{display:flex;justify-content:space-between;align-items:center;padding:12px 2px;border-bottom:1px solid var(--ov-border);gap:12px;}
+.ov-cash-row:last-child{border-bottom:none;}
+.ov-cash-desc{font-size:13px;color:var(--ov-cream);}
+.ov-cash-meta{font-size:11px;color:var(--ov-muted);letter-spacing:.04em;margin-top:2px;}
+.ov-cash-amt{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--ov-gold-lt);font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+.ov-muted{color:var(--ov-muted);font-size:12.5px;text-align:center;}
+.ov-empty{padding:40px 20px;text-align:center;color:var(--ov-dim);font-size:12.5px;}
+
+@keyframes ovFadeUp{
+  from{opacity:0;transform:translateY(18px);}
+  to{opacity:1;transform:translateY(0);}
+}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo"><h1>Bejaan Hotel</h1><p>Project Dashboard</p></div>
+  <nav style="overflow-y:auto;flex:1;">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Main</div>
+      <div class="nav-item active" onclick="showSection('overview')"><span class="nav-icon">📊</span>Overview</div>
+      <div class="nav-item" onclick="showSection('alerts')"><span class="nav-icon">🔔</span>Alerts <span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tracking</div>
+      <div class="nav-item" onclick="showSection('vendors')"><span class="nav-icon">🤝</span>Vendors</div>
+      <div class="nav-item" onclick="showSection('wip')"><span class="nav-icon">🔧</span>Work in Progress</div>
+      <div class="nav-item" onclick="showSection('tasks')"><span class="nav-icon">📋</span>Tasks</div>
+      <div class="nav-item" onclick="showSection('bottlenecks')"><span class="nav-icon">🚧</span>Bottlenecks <span id="bottle-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
+      <div class="nav-item" onclick="showSection('workflow')"><span class="nav-icon">🔀</span>Workflow</div>
+      <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🛋️</span>Inventory</div>
+      <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
+      <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
+      <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Management</div>
+      <div class="nav-item" onclick="showSection('contacts')"><span class="nav-icon">👥</span>Team & Contacts</div>
+      <div class="nav-item" onclick="showSection('meetings')"><span class="nav-icon">📝</span>Meeting Log</div>
+      <div class="nav-item" onclick="showSection('punch')"><span class="nav-icon">✅</span>Punch List</div>
+      <div class="nav-item admin-only" id="nav-users" onclick="showSection('users')"><span class="nav-icon">👤</span>User Management</div>
+    </div>
+  </nav>
+  <div class="sidebar-footer" id="sidebar-footer">
+    <div class="conn-status"><div class="conn-dot" id="conn-dot"></div><span id="conn-text">Connecting…</span></div>
+  </div>
+</aside>
+
+<div class="toast-container" id="toasts"></div>
+<main class="main">
+
+<!-- OVERVIEW (Dark Editorial) -->
+<div class="section active" id="section-overview">
+  <div class="ov-dark">
+    <!-- Hero -->
+    <div class="ov-hero">
+      <div class="ov-eyebrow"><span class="ov-line"></span>MASTER DASHBOARD · <span id="ov-today"></span></div>
+      <h1 class="ov-title">Bejaan Resort <em>build</em>,<br>at a glance.</h1>
+      <p class="ov-subtitle">Tasks behind target, next milestones, unpaid vendors, critical bottlenecks — one screen for the whole project.</p>
+      <div class="ov-actions">
+        <button class="ov-btn ov-btn-ghost" onclick="loadOverview()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Four hero KPI cards (requested top-priorities) -->
+    <div class="ov-kpi-grid">
+      <div class="ov-kpi ov-kpi-red">
+        <div class="ov-kpi-label">Tasks Behind Target</div>
+        <div class="ov-kpi-value" id="ov-behind">—</div>
+        <div class="ov-kpi-sub" id="ov-behind-sub">—</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-behind-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-gold">
+        <div class="ov-kpi-label">Next Milestones</div>
+        <div class="ov-kpi-value" id="ov-milestones">—</div>
+        <div class="ov-kpi-sub" id="ov-milestones-sub">due in next 14 days</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-milestones-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-amber">
+        <div class="ov-kpi-label">Unpaid to Vendors</div>
+        <div class="ov-kpi-value" id="ov-unpaid">—</div>
+        <div class="ov-kpi-sub" id="ov-unpaid-sub">—</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-unpaid-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-crit">
+        <div class="ov-kpi-label">Critical Bottlenecks</div>
+        <div class="ov-kpi-value" id="ov-crit">—</div>
+        <div class="ov-kpi-sub" id="ov-crit-sub">high + critical impact</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-crit-bar"></div></div>
+      </div>
+    </div>
+
+    <!-- Two-up: gauge + donut -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Overall Progress</div>
+          <div class="ov-panel-hint">bcc_tasks + work_items · combined</div>
+        </div>
+        <div class="ov-gauge-wrap">
+          <canvas id="ov-gauge"></canvas>
+          <div class="ov-gauge-center">
+            <div class="ov-gauge-value" id="ov-gauge-val">—</div>
+            <div class="ov-gauge-label">complete</div>
+          </div>
+        </div>
+        <div class="ov-gauge-foot" id="ov-gauge-foot">—</div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Task Status Mix</div>
+          <div class="ov-panel-hint">18 work packages</div>
+        </div>
+        <div class="ov-donut-wrap">
+          <canvas id="ov-donut"></canvas>
+        </div>
+        <div class="ov-donut-legend" id="ov-donut-legend"></div>
+      </div>
+    </div>
+
+    <!-- Vendor balance + work by area -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Vendor Payments — Paid vs Balance</div>
+          <div class="ov-panel-hint">top 10 by exposure</div>
+        </div>
+        <div class="ov-chart-wrap" style="min-height:340px;"><canvas id="ov-vendor-bar"></canvas></div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Progress by Work Package</div>
+          <div class="ov-panel-hint">by vendor · current vs target</div>
+        </div>
+        <div id="ov-pkg-list" class="ov-pkg-list"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Attention + Upcoming -->
+    <div class="ov-grid ov-grid-2">
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Attention Required</div>
+          <div class="ov-panel-hint">bottlenecks + behind-target tasks</div>
+        </div>
+        <div id="ov-attention" class="ov-attention"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+      <div class="ov-panel">
+        <div class="ov-panel-head">
+          <div class="ov-panel-title">Upcoming Cashflow</div>
+          <div class="ov-panel-hint">next 4 entries</div>
+        </div>
+        <div id="ov-cashflow" class="ov-cashflow"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /OVERVIEW -->
+
+<!-- ALERTS -->
+<div class="section" id="section-alerts">
+  <div class="page-header"><div class="page-title">Active Alerts</div></div>
+  <div id="alerts-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+</div>
+
+<!-- VENDORS -->
+<div class="section" id="section-vendors">
+  <div class="page-header">
+    <div><div class="page-title">Vendors & Payments</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV('vendors')">Export CSV</button>
+      <button class="btn btn-secondary btn-sm admin-only" onclick="toggleXero()">⬆ Import from Xero</button>
+    </div>
+  </div>
+  <div id="xero-panel" style="display:none;" class="card">
+    <div class="card-title">Import from Xero CSV</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('xero-file').click()"><div class="drop-zone-icon">📂</div><div>Drop Xero CSV here or click to browse</div></div>
+    <input type="file" id="xero-file" accept=".csv" style="display:none;" onchange="handleXeroFile(this)">
+    <div id="xero-preview" style="margin-top:12px;display:none;">
+      <div class="table-wrap"><table id="xero-table"><thead></thead><tbody></tbody></table></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="importXeroSelected()">✓ Import Selected</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('xero-preview').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="card admin-only" id="vendor-add-card">
+    <div class="card-title">Add Vendor / Payment Record</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Vendor Name *</label><input id="v-name" placeholder="e.g. Ali Builders"></div>
+      <div class="form-group"><label>Category</label><input id="v-cat" placeholder="e.g. Civil, Electrical…"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="v-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Total Contract (PKR)</label><input id="v-total" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="v-paid" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Payment Due Date</label><input id="v-due" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="v-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
+      <div class="form-group"><label>Approval</label><select id="v-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="v-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
+  </div>
+  <div class="card">
+    <div class="card-title">All Vendors & Payments</div>
+    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Total</th><th>Paid</th><th>Balance</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- WIP -->
+<div class="section" id="section-wip">
+  <div class="page-header"><div class="page-title">Work in Progress</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('work_items')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Work Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Area *</label><input id="w-area" placeholder="e.g. Lobby, Floor 2…"></div>
+      <div class="form-group"><label>Task *</label><input id="w-task" placeholder="Task description"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="w-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Contractor</label><input id="w-contractor" placeholder="Firm / person"></div>
+      <div class="form-group"><label>% Complete</label><input id="w-pct" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group"><label>Start Date</label><input id="w-start" type="date"></div>
+      <div class="form-group"><label>Target Date</label><input id="w-target" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="w-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option><option>On Hold</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="w-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addWip()">+ Add Item</button>
+  </div>
+  <div class="card"><div class="card-title">Work in Progress Tracker</div><div class="table-wrap"><table><thead><tr><th>Area</th><th>Task</th><th>Responsible</th><th>Contractor</th><th>Progress</th><th>Start</th><th>Target</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="wip-tbody"></tbody></table></div></div>
+</div>
+
+<!-- TASKS (from Apr–May 2026 milestone plan) -->
+<div class="section" id="section-tasks">
+  <div class="page-header">
+    <div><div class="page-title">Tasks & Milestones</div><div class="page-subtitle">14 work packages from the Apr–May 2026 phase plan</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="loadTasks()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card gold"><div class="stat-label">Overall Progress</div><div class="stat-value" id="task-overall">—</div><div class="stat-sub">weighted avg</div></div>
+    <div class="stat-card blue"><div class="stat-label">Active Tasks</div><div class="stat-value" id="task-active">—</div><div class="stat-sub">in progress</div></div>
+    <div class="stat-card green"><div class="stat-label">Target %</div><div class="stat-value" id="task-target">—</div><div class="stat-sub">across all areas</div></div>
+    <div class="stat-card red"><div class="stat-label">Behind Target</div><div class="stat-value" id="task-behind">—</div><div class="stat-sub">&gt;20% gap</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Tasks by Work Package</div>
+    <div id="tasks-body"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+  </div>
+</div>
+
+<!-- BOTTLENECKS -->
+<div class="section" id="section-bottlenecks">
+  <div class="page-header">
+    <div><div class="page-title">Bottlenecks</div><div class="page-subtitle">Active blockers on site</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm admin-only" onclick="toggleBottleForm()">+ Log Bottleneck</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadBottlenecks()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="card admin-only" id="bottle-form-card" style="display:none;">
+    <div class="card-title">New Bottleneck</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Title *</label><input id="bf-title" placeholder="What's blocking the work?"/></div>
+      <div class="form-group"><label>Area</label><input id="bf-area" placeholder="e.g. Public Areas"/></div>
+      <div class="form-group"><label>Reason</label><select id="bf-reason"><option value="">—</option><option value="payment">Payment</option><option value="material">Material</option><option value="workforce">Workforce</option><option value="approval">Approval</option><option value="weather">Weather</option><option value="other">Other</option></select></div>
+      <div class="form-group"><label>Impact</label><select id="bf-impact"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Description</label><textarea id="bf-desc" rows="2" placeholder="Details, who's affected, next steps…"></textarea></div>
+    <button class="btn btn-primary btn-sm" onclick="saveBottleneck()">Save</button>
+    <button class="btn btn-secondary btn-sm" onclick="toggleBottleForm()">Cancel</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Open Bottlenecks</div>
+    <div id="bottle-body"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Resolved</div>
+    <div id="bottle-resolved"><div class="muted" style="padding:12px;color:var(--text-muted);font-size:13px;">None yet.</div></div>
+  </div>
+</div>
+
+<!-- WORKFLOW -->
+<div class="section" id="section-workflow">
+  <div class="page-header">
+    <div><div class="page-title">Workflow</div><div class="page-subtitle">Visual dependency flowchart — click a node to cycle status (admin only)</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm admin-only" onclick="syncWipToWorkflow()">↻ Sync from WIP</button>
+      <button class="btn btn-primary btn-sm admin-only" onclick="toggleAddPanel()">+ Add Task</button>
+    </div>
+  </div>
+  <div class="card admin-only" id="wf-add-panel" style="display:none;">
+    <div class="card-title">Add Workflow Task</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Task Name *</label><input id="wf-name" placeholder="e.g. Paint Walls"></div>
+      <div class="form-group"><label>Area / Category</label><input id="wf-area" placeholder="e.g. Lobby"></div>
+      <div class="form-group"><label>Status</label><select id="wf-status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="Done">Done</option><option value="Blocked">Blocked</option><option value="On Hold">On Hold</option></select></div>
+      <div class="form-group"><label>Depends On</label><select id="wf-depends" multiple style="min-height:80px;"></select></div>
+    </div>
+    <div style="display:flex;gap:8px;"><button class="btn btn-primary" onclick="addWorkflowTask()">+ Add</button><button class="btn btn-secondary" onclick="toggleAddPanel()">Cancel</button></div>
+  </div>
+  <div class="wf-legend">
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#4caf7d;"></div>Done</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#3a86c8;"></div>In Progress</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e08a4c;"></div>Not Started</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e05c5c;"></div>Blocked</div>
+    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#8aaa9e;"></div>On Hold</div>
+  </div>
+  <div class="card" style="padding:12px;">
+    <div class="wf-canvas-wrap" id="wf-canvas-wrap">
+      <svg id="workflow-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#8aaa9e"/></marker>
+          <marker id="arr-blocked" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#e05c5c"/></marker>
+        </defs>
+        <g id="wf-edges"></g><g id="wf-nodes"></g>
+      </svg>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">Task List</div><div class="table-wrap"><table><thead><tr><th>Task</th><th>Area</th><th>Status</th><th>Depends On</th><th>Blocking</th><th></th></tr></thead><tbody id="wf-tbody"></tbody></table></div></div>
+</div>
+
+<!-- INVENTORY -->
+<div class="section" id="section-inventory">
+  <div class="page-header"><div class="page-title">Inventory & Furnishings</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Inventory / Furnishing Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Item Name *</label><input id="i-name" placeholder="e.g. King Bed Frame"></div>
+      <div class="form-group"><label>Room / Area</label><input id="i-area" placeholder="e.g. Room 101"></div>
+      <div class="form-group"><label>Supplier</label><input id="i-supplier" placeholder="Supplier name"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="i-resp" placeholder="Name"></div>
+      <div class="form-group"><label>Qty Ordered</label><input id="i-ordered" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Qty Received</label><input id="i-received" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Unit Cost (PKR)</label><input id="i-cost" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Expected Delivery</label><input id="i-delivery" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="i-status"><option>Ordered</option><option>Received</option><option>Pending Order</option><option>Installed</option><option>Delayed</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="i-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addInventory()">+ Add Item</button>
+  </div>
+  <div class="card"><div class="card-title">Furnishing & Inventory Register</div><div class="table-wrap"><table><thead><tr><th>Item</th><th>Area</th><th>Supplier</th><th>Responsible</th><th>Ordered</th><th>Received</th><th>Unit Cost</th><th>Total</th><th>Delivery</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="inventory-tbody"></tbody></table></div></div>
+</div>
+
+<!-- ROOMS -->
+<div class="section" id="section-rooms">
+  <div class="page-header"><div class="page-title">Room Tracker</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add / Update Room</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Room Number / Name *</label><input id="r-name" placeholder="e.g. 101"></div>
+      <div class="form-group"><label>Floor</label><input id="r-floor" placeholder="e.g. Ground, 1st"></div>
+      <div class="form-group"><label>Room Type</label><select id="r-type"><option>Standard</option><option>Deluxe</option><option>Suite</option><option>Penthouse</option><option>Common Area</option></select></div>
+      <div class="form-group"><label>Person Responsible</label><input id="r-resp" placeholder="Name"></div>
+      <div class="form-group"><label>% Complete</label><input id="r-pct" type="number" min="0" max="100" placeholder="0"></div>
+      <div class="form-group"><label>Status</label><select id="r-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="r-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addRoom()">+ Add Room</button>
+  </div>
+  <div class="card"><div class="card-title">Room-by-Room Completion</div><div class="table-wrap"><table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Responsible</th><th>Progress</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rooms-tbody"></tbody></table></div></div>
+</div>
+
+<!-- BUDGET -->
+<div class="section" id="section-budget">
+  <div class="page-header"><div class="page-title">Budget</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('budget')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Budget Category</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Category *</label><input id="b-cat" placeholder="e.g. Civil Works"></div>
+      <div class="form-group"><label>Budgeted Amount (PKR)</label><input id="b-budgeted" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Actual Spent (PKR)</label><input id="b-actual" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="b-resp" placeholder="Name"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="b-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addBudget()">+ Add Category</button>
+  </div>
+  <div class="card"><div class="card-title">Budget vs Actual</div><div class="chart-container"><canvas id="chart-budget2"></canvas></div></div>
+  <div class="card"><div class="card-title">Category Breakdown</div><div class="table-wrap"><table><thead><tr><th>Category</th><th>Responsible</th><th>Budgeted</th><th>Actual</th><th>Variance</th><th>Used %</th><th>Notes</th><th></th></tr></thead><tbody id="budget-tbody"></tbody></table></div></div>
+</div>
+
+<!-- CASHFLOW -->
+<div class="section" id="section-cashflow">
+  <div class="page-header"><div class="page-title">Cashflow</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('cashflow')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Cashflow Requirement</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Month *</label><input id="cf-month" type="month"></div>
+      <div class="form-group"><label>Description *</label><input id="cf-desc" placeholder="e.g. Tile payment"></div>
+      <div class="form-group"><label>Amount Needed (PKR)</label><input id="cf-amount" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Category</label><select id="cf-cat"><option>Vendor Payment</option><option>Furnishing</option><option>Civil Work</option><option>Operations Setup</option><option>Other</option></select></div>
+      <div class="form-group"><label>Priority</label><select id="cf-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      <div class="form-group"><label>Person Responsible</label><input id="cf-resp" placeholder="Name"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addCashflow()">+ Add Entry</button>
+  </div>
+  <div class="card"><div class="card-title">Monthly Cashflow Requirements</div><div class="chart-container"><canvas id="chart-cashflow"></canvas></div></div>
+  <div class="card"><div class="card-title">Cashflow Schedule</div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
+</div>
+
+<!-- CONTACTS -->
+<div class="section" id="section-contacts">
+  <div class="page-header"><div class="page-title">Team & Contacts</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('contacts')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Team Member / Contractor</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Full Name *</label><input id="c-name" placeholder="Name"></div>
+      <div class="form-group"><label>Role / Title</label><input id="c-role" placeholder="e.g. Site Engineer"></div>
+      <div class="form-group"><label>Company</label><input id="c-company" placeholder="Firm name"></div>
+      <div class="form-group"><label>Phone</label><input id="c-phone" placeholder="+92…"></div>
+      <div class="form-group"><label>Email</label><input id="c-email" type="email" placeholder="email@…"></div>
+      <div class="form-group"><label>Type</label><select id="c-type"><option>Team Member</option><option>Contractor</option><option>Vendor</option><option>Consultant</option><option>Supplier</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="c-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addContact()">+ Add Contact</button>
+  </div>
+  <div class="card"><div class="card-title">Directory</div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Company</th><th>Phone</th><th>Email</th><th>Type</th><th>Notes</th><th></th></tr></thead><tbody id="contacts-tbody"></tbody></table></div></div>
+</div>
+
+<!-- MEETINGS -->
+<div class="section" id="section-meetings">
+  <div class="page-header"><div class="page-title">Meeting & Decision Log</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('meetings')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Log Meeting / Decision</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Date *</label><input id="m-date" type="date"></div>
+      <div class="form-group"><label>Title / Subject *</label><input id="m-title" placeholder="Meeting subject"></div>
+      <div class="form-group"><label>Attendees</label><input id="m-attendees" placeholder="Comma-separated names"></div>
+      <div class="form-group"><label>Type</label><select id="m-type"><option>Site Meeting</option><option>Decision</option><option>Vendor Meeting</option><option>Design Review</option><option>Finance Review</option><option>Other</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label>Summary / Minutes *</label><textarea id="m-summary" style="min-height:90px;"></textarea></div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Action Items</label><textarea id="m-actions" placeholder="One per line…"></textarea></div>
+    <button class="btn btn-primary" onclick="addMeeting()">+ Log Meeting</button>
+  </div>
+  <div class="card"><div class="card-title">Meeting Log</div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Title</th><th>Attendees</th><th>Type</th><th>Summary</th><th>Actions</th><th></th></tr></thead><tbody id="meetings-tbody"></tbody></table></div></div>
+</div>
+
+<!-- PUNCH LIST -->
+<div class="section" id="section-punch">
+  <div class="page-header"><div class="page-title">Punch List</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('punch_list')">Export CSV</button></div>
+  <div class="card admin-only">
+    <div class="card-title">Add Punch List Item</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Issue *</label><input id="p-issue" placeholder="Describe the issue"></div>
+      <div class="form-group"><label>Location</label><input id="p-location" placeholder="e.g. Room 201, Lobby"></div>
+      <div class="form-group"><label>Assigned To</label><input id="p-assigned" placeholder="Name"></div>
+      <div class="form-group"><label>Due By</label><input id="p-due" type="date"></div>
+      <div class="form-group"><label>Priority</label><select id="p-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      <div class="form-group"><label>Status</label><select id="p-status"><option>Open</option><option>In Progress</option><option>Done</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="p-notes"></textarea></div>
+    <button class="btn btn-primary" onclick="addPunch()">+ Add Item</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Punch List / Snag List</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('All')">All</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('Open')">Open</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('In Progress')">In Progress</button>
+      <button class="btn btn-secondary btn-sm" onclick="filterPunch('Done')">Done</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Issue</th><th>Location</th><th>Assigned To</th><th>Priority</th><th>Due By</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="punch-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- USER MANAGEMENT -->
+<div class="section" id="section-users">
+  <div class="page-header"><div class="page-title">User Management</div></div>
+  <div class="card">
+    <div class="card-title">Create New User</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Email *</label><input id="u-email" type="email" placeholder="colleague@email.com"></div>
+      <div class="form-group"><label>Full Name</label><input id="u-name" placeholder="Full name"></div>
+      <div class="form-group"><label>Role</label><select id="u-role"><option value="viewer">Viewer (read-only)</option><option value="admin">Admin (full access)</option></select></div>
+      <div class="form-group"><label>Password *</label><input id="u-password" type="password" placeholder="Temporary password"></div>
+    </div>
+    <button class="btn btn-primary" onclick="createUser()">+ Create User</button>
+    <div id="u-msg" style="margin-top:10px;font-size:13px;display:none;padding:8px 12px;border-radius:var(--radius);"></div>
+  </div>
+  <div class="card"><div class="card-title">All Users</div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div></div>
+</div>
+</main>
+
+<!-- ============ EDIT TASK MODAL ============ -->
+<div class="modal-overlay" id="edit-task-modal" onclick="if(event.target===this)closeEditTask()">
+  <div class="modal">
+    <h3>Edit Task</h3>
+    <div class="modal-sub" id="et-code-sub">—</div>
+
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Title · <span style="font-size:10px;color:var(--text-dim);">locked</span></label>
+      <div class="ro-field" id="et-title-ro">—</div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Description · <span style="font-size:10px;color:var(--text-dim);">locked</span></label>
+      <div class="ro-field" id="et-desc-ro" style="white-space:pre-wrap;">—</div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Vendor</label>
+        <select id="et-vendor"></select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="et-status">
+          <option value="not_started">Not Started</option>
+          <option value="in_progress">In Progress</option>
+          <option value="blocked">Blocked</option>
+          <option value="complete">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Current %</label>
+        <input id="et-pct" type="number" min="0" max="100" step="0.5"/>
+      </div>
+      <div class="form-group">
+        <label>Duration (days)</label>
+        <input id="et-duration" type="number" min="0"/>
+      </div>
+      <div class="form-group">
+        <label>Start Date</label>
+        <input id="et-start" type="date"/>
+      </div>
+      <div class="form-group">
+        <label>Deadline</label>
+        <input id="et-deadline" type="date"/>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>Notes</label>
+      <textarea id="et-notes" rows="3"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeEditTask()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEditTask()">Save Changes</button>
+    </div>
+    <input type="hidden" id="et-id">
+  </div>
+</div>
+
+<!-- ============ EDIT BUDGET MODAL ============ -->
+<div class="modal-overlay" id="edit-budget-modal" onclick="if(event.target===this)closeEditBudget()">
+  <div class="modal">
+    <h3>Edit Budget Category</h3>
+    <div class="modal-sub">Adjust figures, responsibility and notes</div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Category</label>
+        <input id="eb-cat" type="text"/>
+      </div>
+      <div class="form-group">
+        <label>Responsible</label>
+        <input id="eb-resp" type="text"/>
+      </div>
+      <div class="form-group">
+        <label>Budgeted (PKR)</label>
+        <input id="eb-budgeted" type="number" step="1" min="0"/>
+      </div>
+      <div class="form-group">
+        <label>Actual Spent (PKR)</label>
+        <input id="eb-actual" type="number" step="1" min="0"/>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>Notes</label>
+      <textarea id="eb-notes" rows="3"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeEditBudget()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEditBudget()">Save Changes</button>
+    </div>
+    <input type="hidden" id="eb-id">
+  </div>
+</div>
+
+<!-- EDIT VENDOR MODAL -->
+<div id="edit-vendor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeEditVendor()">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;">Edit Vendor</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeEditVendor()">✕ Close</button>
+    </div>
+    <input type="hidden" id="ev-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Vendor Name *</label><input id="ev-name"></div>
+      <div class="form-group"><label>Category</label><input id="ev-cat"></div>
+      <div class="form-group"><label>Person Responsible</label><input id="ev-resp"></div>
+      <div class="form-group"><label>Total Contract (PKR)</label><input id="ev-total" type="number"></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number"></div>
+      <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
+      <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;"><label>Notes</label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeEditVendor()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditVendor()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT SCHEDULE MODAL -->
+<div id="pay-schedule-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closePaySchedule()">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;" id="ps-vendor-name">Payment Schedule</div>
+      <button class="btn btn-secondary btn-sm" onclick="closePaySchedule()">✕ Close</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Total Contract: <b id="ps-vendor-total">—</b></div>
+    <div id="ps-add-section" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:none;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Add Payment Milestone</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="form-group"><label>% of Total *</label><input type="number" id="ps-pct" min="1" max="100" placeholder="e.g. 30"></div>
+        <div class="form-group"><label>Due Date *</label><input type="date" id="ps-date"></div>
+        <div class="form-group"><label>Priority</label><select id="ps-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;"><label>Description</label><input id="ps-desc" placeholder="e.g. Foundation completion payment"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="addPaymentMilestone()">+ Add Milestone</button>
+        <span style="font-size:11px;color:var(--text-dim);" id="ps-pct-used"></span>
+      </div>
+    </div>
+    <div id="ps-list"></div>
+    <div id="ps-summary" style="margin-top:12px;padding:12px;background:var(--green-bg);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;display:none;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>Scheduled: <b id="ps-sum-pct">0%</b></span>
+        <span>Total: <b id="ps-sum-amt" style="color:var(--green);">PKR 0</b></span>
+        <span>Paid: <b id="ps-sum-paid" style="color:var(--green);">PKR 0</b></span>
+        <span>Unscheduled: <b id="ps-sum-rem" style="color:var(--red);">100%</b></span>
+      </div>
+      <div style="margin-top:8px;background:var(--border);border-radius:10px;height:6px;overflow:hidden;">
+        <div id="ps-progress-fill" style="height:100%;background:var(--green);border-radius:10px;transition:width .3s;width:0%;"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closePaySchedule()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SB_URL='https://vnqsmzgebjpdizwtysnw.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const headers={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=representation'};
+
+// ============================================================
+// AUTH
+// ============================================================
+let CURRENT_ROLE='viewer';
+let CURRENT_NAME='';
+
+async function checkAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='index.html';return false;}
+  CURRENT_ROLE=sessionStorage.getItem('bejaan_role')||'viewer';
+  CURRENT_NAME=sessionStorage.getItem('bejaan_name')||session.user.email;
+  applyRoleUI();
+  return true;
+}
+
+function applyRoleUI(){
+  const footer=document.getElementById('sidebar-footer');
+  if(footer){
+    footer.innerHTML=`
+      <div style="margin-bottom:8px;">
+        <div style="font-size:12px;color:#c8e6c9;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${CURRENT_NAME}</div>
+        <span style="font-size:10px;background:${CURRENT_ROLE==='admin'?'rgba(76,175,125,.3)':'rgba(58,134,200,.3)'};color:${CURRENT_ROLE==='admin'?'#7dd4a8':'#90caf9'};padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;">${CURRENT_ROLE}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <div class="conn-status"><div class="conn-dot" id="conn-dot"></div><span id="conn-text">Connecting…</span></div>
+        <button onclick="doSignOut()" style="background:rgba(224,92,92,.2);border:1px solid rgba(224,92,92,.4);color:#ef9a9a;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">Sign Out</button>
+      </div>`;
+  }
+  if(CURRENT_ROLE==='admin'){
+    document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
+    const navUsers=document.getElementById('nav-users');
+    if(navUsers)navUsers.style.display='flex';
+  }
+}
+
+async function doSignOut(){
+  await sb.auth.signOut();
+  sessionStorage.removeItem('bejaan_role');
+  sessionStorage.removeItem('bejaan_name');
+  window.location.href='index.html';
+}
+
+function isAdmin(){return CURRENT_ROLE==='admin';}
+function canWrite(){return CURRENT_ROLE==='admin' || CURRENT_ROLE==='supervisor';}
+
+// ============================================================================
+// INLINE EDIT + MODAL SYSTEM (shared across Tasks, Vendors, Budget)
+// ============================================================================
+
+// Delegated click handler — any cell with class "edit-cell" becomes editable
+document.addEventListener('click', function(e){
+  const cell = e.target.closest('.edit-cell');
+  if(!cell) return;
+  if(!canWrite()){ toast('Read-only access','error'); return; }
+  if(cell.classList.contains('editing')) return;
+  startCellEdit(cell);
+});
+
+function startCellEdit(cell){
+  const raw = cell.dataset.raw != null ? cell.dataset.raw : cell.textContent.trim();
+  const type = cell.dataset.type || 'text';
+  const opts = cell.dataset.options ? JSON.parse(cell.dataset.options) : null;
+  cell.classList.add('editing');
+  cell.dataset.original = cell.innerHTML;
+
+  let input;
+  if(type === 'select' && opts){
+    input = document.createElement('select');
+    opts.forEach(o => {
+      const op = document.createElement('option');
+      op.value = o.value; op.textContent = o.label;
+      if(String(o.value)===String(raw)) op.selected = true;
+      input.appendChild(op);
+    });
+  } else if(type === 'textarea'){
+    input = document.createElement('textarea');
+    input.value = raw === '—' ? '' : raw;
+  } else if(type === 'number'){
+    input = document.createElement('input');
+    input.type = 'number';
+    if(cell.dataset.step) input.step = cell.dataset.step;
+    if(cell.dataset.min != null) input.min = cell.dataset.min;
+    if(cell.dataset.max != null) input.max = cell.dataset.max;
+    input.value = raw === '—' ? '' : raw;
+  } else if(type === 'date'){
+    input = document.createElement('input');
+    input.type = 'date';
+    input.value = raw === '—' ? '' : raw;
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = raw === '—' ? '' : raw;
+  }
+
+  cell.innerHTML = '';
+  cell.appendChild(input);
+  input.focus();
+  if(input.select) input.select();
+
+  let done = false;
+  const save = async () => {
+    if(done) return; done = true;
+    const newVal = input.value;
+    if(String(newVal) === String(raw === '—' ? '' : raw)){
+      // no change — revert
+      cell.classList.remove('editing');
+      cell.innerHTML = cell.dataset.original;
+      return;
+    }
+    await commitCellEdit(cell, newVal);
+  };
+  const cancel = () => {
+    if(done) return; done = true;
+    cell.classList.remove('editing');
+    cell.innerHTML = cell.dataset.original;
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (ev) => {
+    if(ev.key === 'Enter' && type !== 'textarea'){ ev.preventDefault(); input.blur(); }
+    else if(ev.key === 'Escape'){ ev.preventDefault(); cancel(); }
+    else if(ev.key === 'Enter' && ev.metaKey && type === 'textarea'){ ev.preventDefault(); input.blur(); }
+  });
+  if(type === 'select'){
+    input.addEventListener('change', () => { input.blur(); });
+  }
+}
+
+async function commitCellEdit(cell, value){
+  const tbl   = cell.dataset.tbl;
+  const id    = cell.dataset.id;
+  const field = cell.dataset.field;
+  const type  = cell.dataset.type || 'text';
+  const reloadFn = cell.dataset.reload;
+
+  cell.classList.remove('editing');
+  cell.classList.add('saving');
+
+  let payload = {};
+  if(type === 'number'){
+    payload[field] = value === '' ? null : Number(value);
+  } else if(type === 'date'){
+    payload[field] = value === '' ? null : value;
+  } else {
+    payload[field] = value === '' ? null : value;
+  }
+
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/${tbl}?id=eq.${id}`, {
+      method:'PATCH', headers, body: JSON.stringify(payload)
+    });
+    if(!r.ok) throw new Error(await r.text());
+
+    // Bust cache for that table if we manage it
+    if(cache[tbl]) delete cache[tbl];
+
+    cell.classList.remove('saving');
+    cell.classList.add('saved');
+
+    // Trigger reload so derived values refresh
+    setTimeout(() => {
+      if(reloadFn && typeof window[reloadFn] === 'function') window[reloadFn]();
+      // Always try to refresh overview if it's in view
+      if(document.getElementById('section-overview')?.classList.contains('active')) loadOverview();
+    }, 300);
+  } catch(err){
+    cell.classList.remove('saving');
+    cell.innerHTML = cell.dataset.original;
+    toast('Save failed: ' + (err.message || err), 'error');
+  }
+}
+
+// Helper to render an edit-cell td/span. Caller supplies the attributes and a display value.
+function editCell({tbl, id, field, value, rawValue, type='text', step, options, reload, tag='td', className=''}){
+  const raw = rawValue != null ? rawValue : (value == null || value === '' ? '' : value);
+  const disp = (value == null || value === '') ? '—' : value;
+  const dataOpts = options ? ` data-options='${JSON.stringify(options).replace(/'/g,"&#39;")}'` : '';
+  const dataStep = step ? ` data-step="${step}"` : '';
+  const dataRel  = reload ? ` data-reload="${reload}"` : '';
+  return `<${tag} class="edit-cell ${className}" data-tbl="${tbl}" data-id="${id}" data-field="${field}" data-type="${type}" data-raw="${String(raw).replace(/"/g,'&quot;')}"${dataStep}${dataOpts}${dataRel}>${disp}</${tag}>`;
+}
+
+// ============================================================================
+// USER MANAGEMENT
+// ============================================================
+// ============================================================================
+// TASKS (from bcc_tasks + bcc_task_areas, PDF Apr–May 2026 milestone plan)
+// ============================================================================
+async function loadTasks(){
+  try{
+    const [tasks, areas, vendors] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}).then(r=>r.json())
+    ]);
+    const vmap={}; vendors.forEach(v=>vmap[v.id]=v.vendor_name);
+    const amap={}; areas.forEach(a=>{(amap[a.task_id]=amap[a.task_id]||[]).push(a);});
+
+    // KPIs
+    const overall = tasks.length ? (tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length) : 0;
+    const target  = tasks.length ? (tasks.reduce((s,t)=>{
+      const ars=amap[t.id]||[];
+      const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+      return s+tgt;
+    },0)/tasks.length) : 0;
+    const active  = tasks.filter(t=>t.status==='in_progress').length;
+    const behind  = tasks.filter(t=>{
+      const ars=amap[t.id]||[];
+      const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+      return tgt - (+t.current_pct||0) >= 20;
+    }).length;
+    document.getElementById('task-overall').textContent = Math.round(overall)+'%';
+    document.getElementById('task-target').textContent  = Math.round(target)+'%';
+    document.getElementById('task-active').textContent  = active;
+    document.getElementById('task-behind').textContent  = behind;
+
+    // Group by vendor
+    const body = document.getElementById('tasks-body');
+    if(!tasks.length){body.innerHTML='<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks yet.</div>';return;}
+    const groups={};
+    tasks.forEach(t=>{const v=vmap[t.vendor_id]||'Unassigned';(groups[v]=groups[v]||[]).push(t);});
+
+    body.innerHTML = Object.entries(groups).map(([vendor,ts])=>{
+      const rows = ts.map(t=>{
+        const ars = amap[t.id]||[];
+        const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+        const curr = +t.current_pct||0;
+        const gap = tgt - curr;
+        const barCls = gap >= 30 ? 'red' : (gap >= 15 ? 'orange' : '');
+        const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
+        const statusOpts = [
+          {value:'not_started', label:'Not Started'},
+          {value:'in_progress', label:'In Progress'},
+          {value:'blocked',     label:'Blocked'},
+          {value:'complete',    label:'Completed'}
+        ];
+        const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Completed'}[t.status]||t.status||'—';
+        const editBtn = canWrite()
+          ? `<button class="btn-icon" title="Edit task" onclick="openEditTask('${t.id}')">✎</button>`
+          : '';
+        const delBtn = isAdmin()
+          ? `<button class="btn btn-danger btn-sm" title="Delete task" onclick="deleteRow('bcc_tasks','${t.id}',loadTasks)">✕</button>`
+          : '';
+        // Notes row (under the task text) — editable
+        const notesCell = canWrite()
+          ? `<div class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="notes" data-type="textarea" data-reload="loadTasks" data-raw="${(t.notes||'').replace(/"/g,'&quot;')}" style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;min-height:20px;">${t.notes||'— click to add notes —'}</div>`
+          : (t.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;">"${t.notes}"</div>` : '');
+        return `<tr>
+          <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${t.task_code||'—'}</td>
+          <td>
+            <div style="font-weight:500;">${t.title||'—'}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.description||''}</div>
+            ${areaChips?`<div style="margin-top:6px;">${areaChips}</div>`:''}
+            ${notesCell}
+          </td>
+          <td style="min-width:170px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar" style="flex:1;"><div class="progress-fill ${barCls}" style="width:${Math.min(100,curr)}%"></div></div>
+              <span class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="current_pct" data-type="number" data-step="0.5" data-reload="loadTasks" data-raw="${curr}" style="min-width:46px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;padding:2px 4px;">${Math.round(curr)}%</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Target ${Math.round(tgt)}%${gap>0?` · ${Math.round(gap)}% gap`:' · on track'}</div>
+          </td>
+          <td>${t.duration_days?t.duration_days+' days':'—'}</td>
+          <td class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="status" data-type="select" data-options='${JSON.stringify(statusOpts).replace(/'/g,"&#39;")}' data-reload="loadTasks" data-raw="${t.status||'not_started'}">${statusBadge(statusLabel)}</td>
+          <td style="white-space:nowrap;">${editBtn} ${delBtn}</td>
+        </tr>`;
+      }).join('');
+      return `<div style="margin-bottom:18px;">
+        <div style="font-weight:600;font-size:13px;color:var(--green);margin-bottom:8px;padding:6px 0;border-bottom:1px solid var(--border);">${vendor} <span style="font-weight:400;color:var(--text-muted);">· ${ts.length} task${ts.length>1?'s':''}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th style="width:50px;">#</th><th>Task</th><th>Progress</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    toast('Failed to load tasks: '+e.message,'error');
+    document.getElementById('tasks-body').innerHTML = '<div style="padding:20px;color:var(--red);">Error loading tasks. Check console.</div>';
+  }
+}
+
+// ---------- Edit Task modal ----------
+async function openEditTask(id){
+  if(!canWrite()) return;
+  try{
+    // Fetch the task + vendors list
+    const [tasksArr, vendors] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?id=eq.${id}&select=*`,{headers}).then(r=>r.json()),
+      getData('vendors')
+    ]);
+    const t = tasksArr[0];
+    if(!t){ toast('Task not found','error'); return; }
+
+    document.getElementById('et-id').value       = t.id;
+    document.getElementById('et-code-sub').textContent = `Task ${t.task_code||'—'}`;
+    document.getElementById('et-title-ro').textContent = t.title||'—';
+    document.getElementById('et-desc-ro').textContent  = t.description||'—';
+    document.getElementById('et-pct').value       = (t.current_pct ?? '');
+    document.getElementById('et-status').value    = t.status || 'not_started';
+    document.getElementById('et-duration').value  = t.duration_days ?? '';
+    document.getElementById('et-start').value     = t.start_date || '';
+    document.getElementById('et-deadline').value  = t.deadline   || '';
+    document.getElementById('et-notes').value     = t.notes      || '';
+
+    const vSel = document.getElementById('et-vendor');
+    const sorted = [...(vendors||[])].sort((a,b)=>(a.vendor_name||'').localeCompare(b.vendor_name||''));
+    vSel.innerHTML = `<option value="">— Unassigned —</option>` +
+      sorted.map(v=>`<option value="${v.id}" ${v.id===t.vendor_id?'selected':''}>${v.vendor_name||'—'}</option>`).join('');
+
+    document.getElementById('edit-task-modal').classList.add('open');
+  }catch(e){ toast('Error: '+(e.message||e),'error'); }
+}
+function closeEditTask(){ document.getElementById('edit-task-modal').classList.remove('open'); }
+
+async function saveEditTask(){
+  if(!canWrite()) return;
+  const id = document.getElementById('et-id').value;
+  const pct = parseFloat(document.getElementById('et-pct').value);
+  const status = document.getElementById('et-status').value;
+  const payload = {
+    vendor_id    : document.getElementById('et-vendor').value || null,
+    status       : status,
+    current_pct  : isNaN(pct) ? null : Math.max(0, Math.min(100, pct)),
+    duration_days: +document.getElementById('et-duration').value || null,
+    start_date   : document.getElementById('et-start').value || null,
+    deadline     : document.getElementById('et-deadline').value || null,
+    notes        : document.getElementById('et-notes').value || null,
+    updated_at   : new Date().toISOString()
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bcc_tasks?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error(await r.text());
+    // log progress snapshot if pct changed
+    if(!isNaN(pct)){
+      fetch(`${SB_URL}/rest/v1/bcc_task_progress`,{
+        method:'POST',headers,
+        body:JSON.stringify({task_id:id, pct_complete:payload.current_pct, snapshot_date:new Date().toISOString().slice(0,10)})
+      }).catch(()=>{});
+    }
+    toast('Task updated ✓');
+    closeEditTask();
+    loadTasks();
+    if(document.getElementById('section-overview')?.classList.contains('active')) loadOverview();
+  }catch(e){ toast('Save failed: '+(e.message||e),'error'); }
+}
+
+async function updateTaskPct(id, current){
+  const v = prompt('Update completion % (0-100):', current);
+  if(v===null) return;
+  const pct = Math.max(0, Math.min(100, parseFloat(v)||0));
+  try{
+    // Update the task
+    const r = await fetch(`${SB_URL}/rest/v1/bcc_tasks?id=eq.${id}`,{
+      method:'PATCH',headers,
+      body:JSON.stringify({current_pct:pct, updated_at:new Date().toISOString(), status: pct>=100?'complete':(pct>0?'in_progress':'not_started')})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    // Log the snapshot
+    await fetch(`${SB_URL}/rest/v1/bcc_task_progress`,{
+      method:'POST',headers,
+      body:JSON.stringify({task_id:id, pct_complete:pct, snapshot_date:new Date().toISOString().slice(0,10)})
+    });
+    toast('Progress updated ✓');
+    loadTasks();
+  }catch(e){toast('Update failed: '+e.message,'error');}
+}
+
+// ============================================================================
+// BOTTLENECKS
+// ============================================================================
+function toggleBottleForm(){
+  const el = document.getElementById('bottle-form-card');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+async function loadBottlenecks(){
+  try{
+    const data = await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json());
+    if(data.error || data.code){ throw new Error(data.message || JSON.stringify(data)); }
+    const open = data.filter(b=>b.status==='open' || b.status==='in_progress');
+    const done = data.filter(b=>b.status==='resolved');
+
+    // Badge in sidebar
+    const badge = document.getElementById('bottle-badge');
+    if(badge){
+      if(open.length){badge.textContent=open.length;badge.style.display='inline-block';}
+      else badge.style.display='none';
+    }
+
+    const renderRow = (b)=>{
+      const impactCls = (b.impact==='critical'||b.impact==='high')?'red':(b.impact==='medium'?'orange':'gray');
+      const adminBtn = isAdmin() ? `
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="resolveBottle('${b.id}')">${b.status==='resolved'?'Reopen':'Resolve'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRow('bcc_bottlenecks','${b.id}',loadBottlenecks)">✕</button>
+        </td>` : '<td></td>';
+      return `<tr>
+        <td><b>${b.title||'—'}</b>${b.description?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${b.description}</div>`:''}</td>
+        <td>${b.area||'—'}</td>
+        <td><span class="badge badge-${impactCls}">${b.impact||'—'}</span></td>
+        <td>${b.reason||'—'}</td>
+        <td>${b.raised_date||'—'}</td>
+        ${adminBtn}
+      </tr>`;
+    };
+
+    const openEl = document.getElementById('bottle-body');
+    if(!open.length){
+      openEl.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;font-size:13px;">No open bottlenecks. Log one as soon as something blocks work on site.</div>';
+    } else {
+      openEl.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Issue</th><th>Area</th><th>Impact</th><th>Reason</th><th>Raised</th><th></th></tr></thead>
+        <tbody>${open.map(renderRow).join('')}</tbody>
+      </table></div>`;
+    }
+
+    const resEl = document.getElementById('bottle-resolved');
+    if(!done.length){
+      resEl.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px;">None yet.</div>';
+    } else {
+      resEl.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Issue</th><th>Area</th><th>Impact</th><th>Reason</th><th>Raised</th><th></th></tr></thead>
+        <tbody>${done.map(renderRow).join('')}</tbody>
+      </table></div>`;
+    }
+  }catch(e){
+    console.error(e);
+    toast('Failed to load bottlenecks: '+e.message,'error');
+  }
+}
+
+async function saveBottleneck(){
+  const title = document.getElementById('bf-title').value.trim();
+  if(!title){toast('Title is required','error');return;}
+  const payload = {
+    title,
+    area: document.getElementById('bf-area').value.trim() || null,
+    reason: document.getElementById('bf-reason').value || null,
+    impact: document.getElementById('bf-impact').value || 'medium',
+    description: document.getElementById('bf-desc').value.trim() || null,
+    status: 'open'
+  };
+  try{
+    await sbInsert('bcc_bottlenecks', payload);
+    toast('Bottleneck logged ✓');
+    ['bf-title','bf-area','bf-desc'].forEach(id=>document.getElementById(id).value='');
+    toggleBottleForm();
+    loadBottlenecks();
+  }catch(e){toast('Save failed: '+e.message,'error');}
+}
+
+async function resolveBottle(id){
+  // Look up current status
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?id=eq.${id}&select=status`,{headers});
+    const arr = await r.json();
+    const currStatus = arr[0]?.status || 'open';
+    const next = currStatus==='resolved' ? 'open' : 'resolved';
+    const body = {status:next};
+    if(next==='resolved') body.resolved_date = new Date().toISOString().slice(0,10);
+    else body.resolved_date = null;
+    await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(body)});
+    toast(next==='resolved'?'Resolved ✓':'Reopened');
+    loadBottlenecks();
+  }catch(e){toast('Update failed','error');}
+}
+
+async function loadUsers(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/bejaan_profiles?order=created_at.asc`,{headers});
+    const data=await r.json();
+    const tbody=document.getElementById('users-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">No users yet.</td></tr>';return;}
+    tbody.innerHTML=data.map(u=>`<tr>
+      <td><b>${u.full_name||'—'}</b></td>
+      <td>${u.email||'—'}</td>
+      <td><span class="badge badge-${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
+      <td><span class="badge badge-${u.is_active?'green':'red'}">${u.is_active?'Active':'Inactive'}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="toggleUserActive('${u.id}',${!u.is_active})">${u.is_active?'Deactivate':'Activate'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="changeUserRole('${u.id}','${u.role==='admin'?'viewer':'admin'}')">Make ${u.role==='admin'?'Viewer':'Admin'}</button>
+      </td>
+    </tr>`).join('');
+  }catch(e){toast('Error loading users','error');}
+}
+
+async function createUser(){
+  const email=document.getElementById('u-email').value.trim();
+  const name=document.getElementById('u-name').value.trim();
+  const role=document.getElementById('u-role').value;
+  const password=document.getElementById('u-password').value;
+  const msg=document.getElementById('u-msg');
+  if(!email||!password){toast('Email and password required','error');return;}
+  msg.style.display='none';
+  try{
+    const {data,error}=await sb.auth.signUp({email,password,options:{data:{full_name:name}}});
+    if(error)throw error;
+    if(data.user){
+      await fetch(`${SB_URL}/rest/v1/bejaan_profiles`,{method:'POST',headers,body:JSON.stringify({id:data.user.id,email,full_name:name,role,is_active:true})});
+      toast('User created ✓');
+      ['u-email','u-name','u-password'].forEach(id=>document.getElementById(id).value='');
+      loadUsers();
+    }
+  }catch(e){
+    msg.textContent='Error: '+e.message;
+    msg.style.display='block';
+    msg.style.color='var(--red)';
+    msg.style.background='rgba(224,92,92,.08)';
+    msg.style.padding='8px 12px';
+    msg.style.borderRadius='var(--radius)';
+  }
+}
+
+async function toggleUserActive(id,active){
+  await fetch(`${SB_URL}/rest/v1/bejaan_profiles?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({is_active:active})});
+  toast('Updated ✓');loadUsers();
+}
+
+async function changeUserRole(id,role){
+  await fetch(`${SB_URL}/rest/v1/bejaan_profiles?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({role})});
+  toast('Role updated ✓');loadUsers();
+}
+
+// ============================================================
+// CORE
+// ============================================================
+async function sbGet(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?order=created_at.asc${p}`,{headers});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbInsert(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers,body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});if(!r.ok)throw new Error(await r.text());}
+function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3000);}
+function showSection(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('section-'+id).classList.add('active');event.currentTarget.classList.add('active');loadSection(id);}
+const cache={};
+async function getData(t){cache[t]=await sbGet(t);return cache[t];}
+const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
+const fmtDate=d=>d?d:'—';
+function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadAll(){await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));loadOverview();loadAlerts();loadBottlenecks();}
+
+// OVERVIEW
+async function loadOverview(){
+  try{
+    // Date in hero
+    const td = document.getElementById('ov-today');
+    if(td){
+      const d = new Date();
+      td.textContent = d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
+    }
+
+    // Pull everything in parallel
+    const [vendors, wip, budget, cashflow, punch, bccTasks, bccAreas, bccBottles] = await Promise.all([
+      getData('vendors'),
+      getData('work_items'),
+      getData('budget'),
+      getData('cashflow'),
+      getData('punch_list'),
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[])
+    ]);
+    const tasks = Array.isArray(bccTasks) ? bccTasks : [];
+    const areas = Array.isArray(bccAreas) ? bccAreas : [];
+    const bottles = Array.isArray(bccBottles) ? bccBottles : [];
+    const areaByTask = {};
+    areas.forEach(a=>{(areaByTask[a.task_id]=areaByTask[a.task_id]||[]).push(a);});
+
+    // ---------- KPIs ----------
+    // Tasks behind target (>20% gap vs avg of area targets)
+    let behind = 0, onTrack = 0, totalGap = 0;
+    tasks.forEach(t=>{
+      const ar = areaByTask[t.id] || [];
+      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+      const curr = +t.current_pct||0;
+      const gap = tgt - curr;
+      if(gap >= 20) behind++;
+      else onTrack++;
+      if(gap > 0) totalGap += gap;
+    });
+    document.getElementById('ov-behind').textContent = behind;
+    document.getElementById('ov-behind-sub').textContent = tasks.length ? `out of ${tasks.length} tasks · ${onTrack} on track` : 'no tasks yet';
+    setTimeout(()=>{
+      const ratio = tasks.length ? (behind/tasks.length) : 0;
+      document.getElementById('ov-behind-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },80);
+
+    // Next milestones = active tasks (proxy: in_progress count, as a forward-looking signal)
+    const activeTasks = tasks.filter(t=>t.status==='in_progress').length;
+    document.getElementById('ov-milestones').textContent = activeTasks;
+    document.getElementById('ov-milestones-sub').textContent = activeTasks ? 'work packages in motion' : 'nothing in motion';
+    setTimeout(()=>{
+      const ratio = tasks.length ? (activeTasks/tasks.length) : 0;
+      document.getElementById('ov-milestones-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },120);
+
+    // Unpaid to vendors (from existing vendors table)
+    const totalContract = vendors.reduce((a,b)=>a+(+b.total_contract||0),0);
+    const totalPaid     = vendors.reduce((a,b)=>a+(+b.amount_paid||0),0);
+    const unpaid        = totalContract - totalPaid;
+    document.getElementById('ov-unpaid').textContent = fmtPKR(unpaid);
+    const paidRatio = totalContract ? (totalPaid/totalContract) : 0;
+    document.getElementById('ov-unpaid-sub').textContent = totalContract ? `${fmtPKR(totalPaid)} paid · ${(paidRatio*100).toFixed(0)}% of ${fmtPKR(totalContract)}` : 'no contracts';
+    setTimeout(()=>{
+      document.getElementById('ov-unpaid-bar').style.width = ((1-paidRatio)*100).toFixed(1)+'%';
+    },160);
+
+    // Critical bottlenecks
+    const openBottles = bottles.filter(b=>b.status==='open' || b.status==='in_progress');
+    const critical = openBottles.filter(b=>b.impact==='critical' || b.impact==='high').length;
+    document.getElementById('ov-crit').textContent = critical;
+    document.getElementById('ov-crit-sub').textContent = openBottles.length ? `${openBottles.length} total open` : 'no blockers';
+    setTimeout(()=>{
+      const ratio = openBottles.length ? (critical/openBottles.length) : 0;
+      document.getElementById('ov-crit-bar').style.width = (ratio*100).toFixed(1)+'%';
+    },200);
+
+    // ---------- Gauge: combined progress ----------
+    const bccAvg = tasks.length ? tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length : 0;
+    const wipAvg = wip.length   ? wip.reduce((s,w)=>s+(+w.percent_complete||0),0)/wip.length : 0;
+    const combined = (tasks.length && wip.length) ? (bccAvg+wipAvg)/2 : (tasks.length ? bccAvg : wipAvg);
+    renderGauge('ov-gauge', combined);
+    document.getElementById('ov-gauge-val').textContent = Math.round(combined)+'%';
+    document.getElementById('ov-gauge-foot').textContent = `bcc_tasks avg ${Math.round(bccAvg)}% · work_items avg ${Math.round(wipAvg)}%`;
+
+    // ---------- Donut: task status mix ----------
+    const statusCounts = {in_progress:0,complete:0,blocked:0,not_started:0};
+    tasks.forEach(t=>{statusCounts[t.status]=(statusCounts[t.status]||0)+1;});
+    renderOvDonut(statusCounts);
+
+    // ---------- Vendor bar (top 10 by exposure) ----------
+    const sortedV = [...vendors]
+      .map(v=>({name:v.vendor_name||'—', paid:+v.amount_paid||0, bal:(+v.total_contract||0)-(+v.amount_paid||0)}))
+      .sort((a,b)=>(b.paid+b.bal)-(a.paid+a.bal))
+      .slice(0,10);
+    renderOvVendorBar(sortedV);
+
+    // ---------- Progress by package ----------
+    const byVendor = {};
+    tasks.forEach(t=>{
+      const v = vendors.find(x=>x.id===t.vendor_id);
+      const name = v ? v.vendor_name : 'Unassigned';
+      if(!byVendor[name]) byVendor[name]={n:0,curr:0,tgt:0};
+      byVendor[name].n++;
+      byVendor[name].curr += +t.current_pct||0;
+      const ar = areaByTask[t.id]||[];
+      byVendor[name].tgt += ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+    });
+    const pkgRows = Object.entries(byVendor)
+      .map(([name,d])=>({name, n:d.n, curr:d.curr/d.n, tgt:d.tgt/d.n}))
+      .sort((a,b)=>b.tgt-a.tgt)
+      .slice(0,8);
+    const pkgEl = document.getElementById('ov-pkg-list');
+    if(pkgRows.length === 0){
+      pkgEl.innerHTML = '<div class="ov-empty">No work packages seeded yet.</div>';
+    } else {
+      pkgEl.innerHTML = pkgRows.map((p,i)=>{
+        const gap = p.tgt - p.curr;
+        const cls = gap >= 30 ? 'red' : (gap >= 15 ? 'amber' : '');
+        return `
+          <div>
+            <div class="ov-pkg-head">
+              <div>
+                <div class="ov-pkg-name">${p.name}</div>
+                <div class="ov-pkg-meta">${p.n} task${p.n>1?'s':''} · target ${Math.round(p.tgt)}%${gap>5?` · ${Math.round(gap)}% gap`:' · on pace'}</div>
+              </div>
+              <div class="ov-pkg-pct ${cls}">${Math.round(p.curr)}%</div>
+            </div>
+            <div class="ov-pkg-bar"><div class="ov-pkg-fill ${cls}" style="width:0%" data-target="${Math.min(100,p.curr).toFixed(1)}"></div></div>
+          </div>`;
+      }).join('');
+      // Animate bars in
+      setTimeout(()=>{
+        document.querySelectorAll('.ov-pkg-fill').forEach((bar,idx)=>{
+          setTimeout(()=>{bar.style.width = bar.dataset.target+'%';}, idx*60);
+        });
+      }, 120);
+    }
+
+    // ---------- Attention list ----------
+    const attention = [];
+    openBottles.slice(0,6).forEach(b=>{
+      attention.push({
+        type: (b.impact==='critical' || b.impact==='high') ? 'danger' : 'warning',
+        title: b.title,
+        sub: [b.reason?`Reason: ${b.reason}`:'', b.area||''].filter(Boolean).join(' · ')
+      });
+    });
+    tasks.forEach(t=>{
+      const ar = areaByTask[t.id]||[];
+      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
+      const curr = +t.current_pct||0;
+      if(tgt > 0 && tgt - curr >= 30){
+        attention.push({
+          type:'warning',
+          title: `${t.task_code||''} ${t.title} — ${Math.round(tgt-curr)}% behind`,
+          sub: (t.notes||'').slice(0,120)
+        });
+      }
+    });
+    const attEl = document.getElementById('ov-attention');
+    if(attention.length===0){
+      attEl.innerHTML = '<div class="ov-empty">All clear — no critical items right now.</div>';
+    } else {
+      attEl.innerHTML = attention.slice(0,10).map(a=>`
+        <div class="ov-alert ov-alert-${a.type}">
+          <span class="ov-alert-icon">${a.type==='danger'?'!':'•'}</span>
+          <div class="ov-alert-body"><strong>${a.title}</strong>${a.sub?`<small>${a.sub}</small>`:''}</div>
+        </div>`).join('');
+    }
+
+    // ---------- Upcoming cashflow ----------
+    const cashEl = document.getElementById('ov-cashflow');
+    const upcoming = [...cashflow].sort((a,b)=>(a.month||'').localeCompare(b.month||'')).slice(0,4);
+    if(upcoming.length===0){
+      cashEl.innerHTML = '<div class="ov-empty">No upcoming cashflow entries.</div>';
+    } else {
+      cashEl.innerHTML = upcoming.map(c=>`
+        <div class="ov-cash-row">
+          <div>
+            <div class="ov-cash-desc">${c.description||'—'}</div>
+            <div class="ov-cash-meta">${c.month||'—'} · ${c.category||''}</div>
+          </div>
+          <div class="ov-cash-amt">${fmtPKR(+c.amount||0)}</div>
+        </div>`).join('');
+    }
+
+  }catch(e){console.error('loadOverview error:',e);toast('Overview error: '+(e.message||e),'error');}
+}
+
+// PKR formatter with L / Cr
+function fmtPKR(n){
+  if(n==null||isNaN(n)) return '—';
+  n = Number(n);
+  const abs = Math.abs(n); const sign = n<0?'-':'';
+  if(abs >= 1e7)  return sign + '₨ ' + (abs/1e7).toFixed(2).replace(/\.?0+$/,'') + ' Cr';
+  if(abs >= 1e5)  return sign + '₨ ' + (abs/1e5).toFixed(2).replace(/\.?0+$/,'') + ' L';
+  if(abs >= 1000) return sign + '₨ ' + abs.toLocaleString('en-PK');
+  return sign + '₨ ' + abs;
+}
+
+// Gauge chart (semi-doughnut)
+function renderGauge(id, pct){
+  const ctx = document.getElementById(id); if(!ctx) return;
+  if(ctx._chart) ctx._chart.destroy();
+  const clamped = Math.max(0, Math.min(100, pct||0));
+  ctx._chart = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Complete','Remaining'],
+      datasets:[{
+        data:[clamped, 100-clamped],
+        backgroundColor:['#b89558','rgba(184,149,88,0.08)'],
+        borderColor:'transparent', borderWidth:0,
+        circumference:180, rotation:270, cutout:'78%'
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{duration:1400, easing:'easeOutCubic'},
+      plugins:{legend:{display:false}, tooltip:{enabled:false}}
+    }
+  });
+}
+
+// Donut chart (task status)
+let __ovDonut=null;
+function renderOvDonut(counts){
+  const ctx = document.getElementById('ov-donut'); if(!ctx) return;
+  if(__ovDonut) __ovDonut.destroy();
+  const labels = ['In progress','Complete','Blocked','Not started'];
+  const data   = [counts.in_progress||0, counts.complete||0, counts.blocked||0, counts.not_started||0];
+  const colors = ['#5a8ca5','#6aa57a','#c85a5a','#5a5248'];
+  const total  = data.reduce((a,b)=>a+b,0);
+  __ovDonut = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels, datasets:[{data, backgroundColor:colors, borderColor:'#141414', borderWidth:2}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'68%',
+      animation:{duration:1200, easing:'easeOutCubic', animateRotate:true, animateScale:false},
+      plugins:{legend:{display:false}, tooltip:{
+        backgroundColor:'#1c1c1c', titleColor:'#e8e0d0', bodyColor:'#e8e0d0',
+        borderColor:'rgba(184,149,88,0.3)', borderWidth:1, padding:10, displayColors:false,
+        callbacks:{label:c=>`${c.label}: ${c.raw} (${total?Math.round(c.raw/total*100):0}%)`}
+      }}
+    }
+  });
+  const legendEl = document.getElementById('ov-donut-legend');
+  legendEl.innerHTML = labels.map((l,i)=>`<div><span style="background:${colors[i]}"></span>${l} <b>${data[i]}</b></div>`).join('');
+}
+
+// Vendor horizontal bar (dark)
+let __ovVendorBar=null;
+function renderOvVendorBar(rows){
+  const ctx = document.getElementById('ov-vendor-bar'); if(!ctx) return;
+  if(__ovVendorBar) __ovVendorBar.destroy();
+  ctx.parentElement.style.height = Math.max(rows.length*36+40, 200)+'px';
+  __ovVendorBar = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: rows.map(r=>r.name),
+      datasets:[
+        {label:'Paid',data:rows.map(r=>r.paid),backgroundColor:'#6aa57a',stack:'s',barPercentage:0.7,categoryPercentage:0.85,minBarLength:4},
+        {label:'Balance',data:rows.map(r=>r.bal),backgroundColor:'#c85a5a',stack:'s',barPercentage:0.7,categoryPercentage:0.85,minBarLength:4, borderRadius:{topRight:3,bottomRight:3}}
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      animation:{duration:1000, easing:'easeOutCubic'},
+      plugins:{
+        legend:{labels:{color:'#e8e0d0',font:{family:'Jost',size:11},boxWidth:10,padding:14}},
+        tooltip:{
+          backgroundColor:'#1c1c1c',titleColor:'#e8e0d0',bodyColor:'#e8e0d0',
+          borderColor:'rgba(184,149,88,0.3)',borderWidth:1,padding:10,
+          callbacks:{label:c=>`${c.dataset.label}: ${fmtPKR(+c.raw||0)}`}
+        }
+      },
+      scales:{
+        x:{stacked:true, ticks:{color:'#7a7060',font:{size:10},callback:v=>v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v>=1e3?Math.round(v/1e3)+'K':v}, grid:{color:'rgba(184,149,88,0.08)'}, border:{color:'transparent'}},
+        y:{stacked:true, ticks:{color:'#e8e0d0',font:{size:11.5,family:'Jost'}}, grid:{display:false}, border:{color:'transparent'}}
+      }
+    }
+  });
+}
+function renderVendorBar(id,labels,paidData,balData){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx.parentElement.style.height=Math.max(labels.length*38+60,200)+'px';ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Paid',data:paidData,backgroundColor:'#4caf7d',barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6},{label:'Balance Due',data:balData,backgroundColor:'#c0392b',borderRadius:{topLeft:0,topRight:4,bottomLeft:0,bottomRight:4},barPercentage:0.6,categoryPercentage:0.85,stack:'s',minBarLength:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': PKR '+Number(c.raw).toLocaleString('en-PK')}}},scales:{x:{stacked:true,ticks:{color:'#5a7066',font:{size:11},callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'K':v},grid:{color:'#dde8e2'},border:{color:'transparent'}},y:{stacked:true,ticks:{color:'#111c17',font:{size:12}},grid:{display:false},border:{color:'transparent'}}}}});}
+function renderBar(id,labels,data,label,color){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'},max:100}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
+function renderGroupedBar(id,labels,d1,d2){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Budgeted',data:d1,backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1},{label:'Actual',data:d2,backgroundColor:'#e05c5c99',borderColor:'#e05c5c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
+
+// ALERTS
+async function loadAlerts(){
+  try{
+    const[vendors,wip,inventory,punch]=await Promise.all([getData('vendors'),getData('work_items'),getData('inventory'),getData('punch_list')]);
+    const today=new Date();today.setHours(0,0,0,0);
+    const alerts=[];
+    vendors.forEach(v=>{if(v.due_date){const d=new Date(v.due_date);const diff=Math.ceil((d-today)/(864e5));if(diff<0&&v.status!=='Completed')alerts.push({type:'danger',msg:`Overdue payment: ${v.vendor_name} — PKR ${fmt((+v.total_contract||0)-(+v.amount_paid||0))} overdue by ${Math.abs(diff)} days`});else if(diff<=7&&diff>=0&&v.status!=='Completed')alerts.push({type:'warning',msg:`Payment due in ${diff} days: ${v.vendor_name}`});}});
+    wip.forEach(w=>{if(w.status==='Delayed')alerts.push({type:'warning',msg:`Delayed: ${w.area} — ${w.task}`});});
+    inventory.forEach(i=>{if(i.status==='Delayed')alerts.push({type:'warning',msg:`Delayed delivery: ${i.item_name}`});});
+    punch.filter(p=>p.priority==='High'&&p.status!=='Done').forEach(p=>alerts.push({type:'danger',msg:`High priority issue: ${p.issue} — ${p.location||''}`}));
+    getWorkflowTasks().filter(t=>t.status==='Blocked').forEach(t=>alerts.push({type:'danger',msg:`Blocked workflow task: ${t.name}`}));
+    const badge=document.getElementById('alert-badge');
+    if(alerts.length){badge.textContent=alerts.length;badge.style.display='inline';}else badge.style.display='none';
+    document.getElementById('alerts-container').innerHTML=alerts.length?alerts.map(a=>`<div class="alert alert-${a.type}">⚠ ${a.msg}</div>`).join(''):'<div class="alert alert-info">✅ No active alerts — everything looks on track.</div>';
+  }catch(e){console.error(e);}
+}
+
+// VENDORS
+async function loadVendors(){
+  try{
+    const data=await getData('vendors');const tbody=document.getElementById('vendors-tbody');
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No vendors added yet.</td></tr>';return;}
+    const today=new Date();today.setHours(0,0,0,0);
+    const vStatusOpts = [
+      {value:'Pending',        label:'Pending'},
+      {value:'Pending Approval',label:'Pending Approval'},
+      {value:'Approved',        label:'Approved'},
+      {value:'In Progress',     label:'In Progress'},
+      {value:'On Hold',         label:'On Hold'},
+      {value:'Completed',       label:'Completed'},
+      {value:'Rejected',        label:'Rejected'}
+    ];
+    tbody.innerHTML=data.map(v=>{
+      const bal=(+v.total_contract||0)-(+v.amount_paid||0);
+      const od=v.due_date&&new Date(v.due_date)<today&&v.status!=='Completed';
+      const schedule=getVendorSchedule(v.id);
+      const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);
+      const paidCount=schedule.filter(s=>s.payStatus==='Paid').length;
+      const overdueCount=schedule.filter(s=>s.date<new Date().toISOString().slice(0,10)&&s.payStatus==='Scheduled').length;
+      let schedBadge=!schedule.length?'<span class="badge badge-gray">No schedule</span>':overdueCount?`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`:paidCount===schedule.length?'<span class="badge badge-green">✓ All paid</span>':`<span class="badge badge-blue">${schedule.length} milestone${schedule.length>1?'s':''} · ${totalPct}%</span>`;
+      const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
+      const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
+
+      // Inline-editable cells: Paid, Status, Notes
+      const paidCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="amount_paid" data-type="number" data-step="1" data-reload="loadVendors" data-raw="${v.amount_paid||0}">PKR ${fmt(v.amount_paid)}</td>`
+        : `<td>PKR ${fmt(v.amount_paid)}</td>`;
+      const statusCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="status" data-type="select" data-options='${JSON.stringify(vStatusOpts).replace(/'/g,"&#39;")}' data-reload="loadVendors" data-raw="${v.status||'Pending'}">${statusBadge(v.status||'Pending')}</td>`
+        : `<td>${statusBadge(v.status||'Pending')}</td>`;
+      const notesCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="notes" data-type="textarea" data-reload="loadVendors" data-raw="${(v.notes||'').replace(/"/g,'&quot;')}" style="max-width:150px;font-size:12px;">${v.notes||'— click to add —'}</td>`
+        : `<td style="max-width:150px;font-size:12px;">${v.notes||''}</td>`;
+
+      return`<tr><td><b>${v.vendor_name||'—'}</b></td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>PKR ${fmt(v.total_contract)}</td>${paidCell}<td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
+    }).join('');
+  }catch(e){toast('Failed to load vendors','error');}
+}
+async function addVendor(){if(!isAdmin())return;const name=document.getElementById('v-name').value.trim();if(!name){toast('Vendor name required','error');return;}try{await sbInsert('vendors',{vendor_name:name,category:document.getElementById('v-cat').value,responsible:document.getElementById('v-resp').value,total_contract:+document.getElementById('v-total').value||null,amount_paid:+document.getElementById('v-paid').value||null,due_date:document.getElementById('v-due').value||null,status:document.getElementById('v-status').value,approval:document.getElementById('v-approval').value,notes:document.getElementById('v-notes').value});toast('Vendor added ✓');['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>document.getElementById(id).value='');delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error adding vendor','error');}}
+
+// WIP
+async function loadWip(){
+  try{const data=await getData('work_items');const tbody=document.getElementById('wip-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="10">No work items yet.</td></tr>';return;}
+  tbody.innerHTML=data.map(w=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('work_items','${w.id}',loadWip)">✕</button></td>`:'<td></td>';return`<tr><td>${w.area||'—'}</td><td>${w.task||'—'}</td><td>${w.responsible||'—'}</td><td>${w.contractor||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${w.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${w.percent_complete||0}%"></div></div></div></td><td>${fmtDate(w.start_date)}</td><td>${fmtDate(w.target_date)}</td><td>${statusBadge(w.status||'Not Started')}</td><td style="max-width:140px;font-size:12px;">${w.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load work items','error');}
+}
+async function addWip(){if(!isAdmin())return;const area=document.getElementById('w-area').value.trim(),task=document.getElementById('w-task').value.trim();if(!area||!task){toast('Area and Task required','error');return;}try{await sbInsert('work_items',{area,task,responsible:document.getElementById('w-resp').value,contractor:document.getElementById('w-contractor').value,percent_complete:+document.getElementById('w-pct').value||0,start_date:document.getElementById('w-start').value||null,target_date:document.getElementById('w-target').value||null,status:document.getElementById('w-status').value,notes:document.getElementById('w-notes').value});toast('Work item added ✓');['w-area','w-task','w-resp','w-contractor','w-pct','w-start','w-target','w-notes'].forEach(id=>document.getElementById(id).value='');delete cache['work_items'];loadWip();}catch(e){toast('Error adding item','error');}}
+
+// WORKFLOW
+function getWorkflowTasks(){return JSON.parse(localStorage.getItem('wf_tasks')||'[]');}
+function saveWorkflowTasks(t){localStorage.setItem('wf_tasks',JSON.stringify(t));}
+function toggleAddPanel(){if(!isAdmin())return;const p=document.getElementById('wf-add-panel');p.style.display=p.style.display==='none'?'block':'none';}
+function loadWorkflow(){refreshDependsDropdown();renderWorkflowTable();renderWorkflowChart();}
+function refreshDependsDropdown(){const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');if(sel)sel.innerHTML=tasks.map(t=>`<option value="${t.id}">${t.name}${t.area?' ('+t.area+')':''}</option>`).join('');}
+async function syncWipToWorkflow(){if(!isAdmin())return;try{const wip=await getData('work_items');const existing=getWorkflowTasks();let added=0;wip.forEach(w=>{if(!existing.find(t=>t.wipId===w.id)){existing.push({id:'wip_'+w.id,wipId:w.id,name:w.task,area:w.area,status:w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started',depends:[]});added++;}else{const t=existing.find(t=>t.wipId===w.id);t.status=w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started';}});saveWorkflowTasks(existing);toast(`Synced ${added} new task(s) ✓`);loadWorkflow();}catch(e){toast('Error syncing WIP','error');}}
+function addWorkflowTask(){if(!isAdmin())return;const name=document.getElementById('wf-name').value.trim();if(!name){toast('Task name required','error');return;}const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');const depends=Array.from(sel.selectedOptions).map(o=>o.value);tasks.push({id:'wf_'+Date.now(),name,area:document.getElementById('wf-area').value.trim(),status:document.getElementById('wf-status').value,depends});saveWorkflowTasks(tasks);document.getElementById('wf-name').value='';document.getElementById('wf-area').value='';toggleAddPanel();toast('Task added ✓');loadWorkflow();}
+function deleteWorkflowTask(id){if(!isAdmin())return;if(!confirm('Remove this task?'))return;let tasks=getWorkflowTasks().filter(t=>t.id!==id);tasks=tasks.map(t=>({...t,depends:(t.depends||[]).filter(d=>d!==id)}));saveWorkflowTasks(tasks);loadWorkflow();toast('Removed ✓');}
+function updateWorkflowStatus(id,status){const tasks=getWorkflowTasks();const t=tasks.find(t=>t.id===id);if(t){t.status=status;saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}}
+function cycleStatus(id){if(!isAdmin())return;const statuses=['Not Started','In Progress','Done','Blocked','On Hold'];const tasks=getWorkflowTasks();const t=tasks.find(t=>t.id===id);if(!t)return;t.status=statuses[(statuses.indexOf(t.status)+1)%statuses.length];saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}
+function computeLevels(tasks){const levels={};const idSet=new Set(tasks.map(t=>t.id));tasks.forEach(t=>{if(!levels[t.id])levels[t.id]=0;});for(let p=0;p<tasks.length;p++){tasks.forEach(t=>{(t.depends||[]).forEach(d=>{if(idSet.has(d))levels[t.id]=Math.max(levels[t.id]||0,(levels[d]||0)+1);});});}return levels;}
+function renderWorkflowChart(){
+  const tasks=getWorkflowTasks();const svg=document.getElementById('workflow-svg');
+  if(!tasks.length){document.getElementById('wf-edges').innerHTML='<text x="400" y="250" text-anchor="middle" fill="#8aaa9e" font-family="DM Sans,sans-serif" font-size="14">No tasks yet — add tasks or sync from WIP</text>';document.getElementById('wf-nodes').innerHTML='';svg.setAttribute('width',900);svg.setAttribute('height',500);return;}
+  const NODE_W=180,NODE_H=58,H_GAP=90,V_GAP=20,PAD=40;
+  const levels=computeLevels(tasks);const maxLevel=Math.max(...Object.values(levels));const colIdx={};const pos={};
+  tasks.forEach(t=>{const l=levels[t.id]||0;if(colIdx[l]===undefined)colIdx[l]=0;pos[t.id]={x:PAD+l*(NODE_W+H_GAP),y:PAD+colIdx[l]*(NODE_H+V_GAP)};colIdx[l]++;});
+  const colCounts={};tasks.forEach(t=>{const l=levels[t.id]||0;colCounts[l]=(colCounts[l]||0)+1;});
+  const svgW=Math.max(PAD*2+(maxLevel+1)*(NODE_W+H_GAP),900);const svgH=Math.max(PAD*2+Math.max(...Object.values(colCounts))*(NODE_H+V_GAP),500);
+  svg.setAttribute('width',svgW);svg.setAttribute('height',svgH);
+  const cMap={'Done':'#4caf7d','In Progress':'#3a86c8','Not Started':'#e08a4c','Blocked':'#e05c5c','On Hold':'#8aaa9e'};
+  let edges='';tasks.forEach(t=>{(t.depends||[]).forEach(depId=>{const from=pos[depId],to=pos[t.id];if(!from||!to)return;const isBlocked=t.status==='Blocked';const x1=from.x+NODE_W,y1=from.y+NODE_H/2,x2=to.x,y2=to.y+NODE_H/2;const cx=(x1+x2)/2;edges+=`<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" fill="none" stroke="${isBlocked?'#e05c5c':'#8aaa9e'}" stroke-width="${isBlocked?2:1.5}" stroke-dasharray="${isBlocked?'6,3':''}" marker-end="url(#${isBlocked?'arr-blocked':'arr'})"/>`;});});
+  document.getElementById('wf-edges').innerHTML=edges;
+  let nodes='';tasks.forEach(t=>{const p=pos[t.id];const color=cMap[t.status]||'#e08a4c';const label=t.name.length>22?t.name.slice(0,21)+'…':t.name;const sub=t.area?(t.area.length>24?t.area.slice(0,23)+'…':t.area):t.status;nodes+=`<g class="wf-node" onclick="cycleStatus('${t.id}')" title="Click to cycle status"><rect x="${p.x}" y="${p.y}" width="${NODE_W}" height="${NODE_H}" fill="${color}" rx="10" ry="10" opacity="0.9"/><text x="${p.x+NODE_W/2}" y="${p.y+22}" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" font-family="DM Sans,sans-serif">${label}</text><text x="${p.x+NODE_W/2}" y="${p.y+40}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="10" font-family="DM Sans,sans-serif">${sub}</text></g>`;});
+  document.getElementById('wf-nodes').innerHTML=nodes;
+}
+function renderWorkflowTable(){
+  const tasks=getWorkflowTasks();const tbody=document.getElementById('wf-tbody');
+  if(!tasks.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">No workflow tasks yet.</td></tr>';return;}
+  const nameMap={};tasks.forEach(t=>nameMap[t.id]=t.name);
+  tbody.innerHTML=tasks.map(t=>{
+    const deps=(t.depends||[]).map(d=>nameMap[d]||d).join(', ')||'—';
+    const blocking=tasks.filter(x=>(x.depends||[]).includes(t.id)).map(x=>x.name).join(', ')||'—';
+    const statusEl=isAdmin()?`<select onchange="updateWorkflowStatus('${t.id}',this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:12px;color:var(--text);">${['Not Started','In Progress','Done','Blocked','On Hold'].map(s=>`<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select>`:statusBadge(t.status);
+    const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteWorkflowTask('${t.id}')">✕</button></td>`:'<td></td>';
+    return`<tr><td><b>${t.name}</b></td><td style="font-size:12px;color:var(--text-muted);">${t.area||'—'}</td><td>${statusEl}</td><td style="font-size:12px;">${deps}</td><td style="font-size:12px;">${blocking}</td>${adminBtn}</tr>`;
+  }).join('');
+}
+
+// INVENTORY
+async function loadInventory(){try{const data=await getData('inventory');const tbody=document.getElementById('inventory-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No inventory items yet.</td></tr>';return;}tbody.innerHTML=data.map(i=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('inventory','${i.id}',loadInventory)">✕</button></td>`:'<td></td>';return`<tr><td>${i.item_name||'—'}</td><td>${i.room_area||'—'}</td><td>${i.supplier||'—'}</td><td>${i.responsible||'—'}</td><td>${i.qty_ordered||0}</td><td>${i.qty_received||0}</td><td>PKR ${fmt(i.unit_cost)}</td><td>PKR ${fmt((+i.qty_ordered||0)*(+i.unit_cost||0))}</td><td>${fmtDate(i.expected_delivery)}</td><td>${statusBadge(i.status||'Pending Order')}</td><td style="max-width:130px;font-size:12px;">${i.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load inventory','error');}}
+async function addInventory(){if(!isAdmin())return;const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}}
+
+// ROOMS
+async function loadRooms(){try{const data=await getData('rooms');const tbody=document.getElementById('rooms-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No rooms added yet.</td></tr>';return;}tbody.innerHTML=data.map(r=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td>`:'<td></td>';return`<tr><td><b>${r.room_name||'—'}</b></td><td>${r.floor||'—'}</td><td>${r.room_type||'—'}</td><td>${r.responsible||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${r.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${r.percent_complete||0}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td><td style="max-width:150px;font-size:12px;">${r.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load rooms','error');}}
+async function addRoom(){if(!isAdmin())return;const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}}
+
+// BUDGET
+async function loadBudget(){try{
+  const data=await getData('budget');
+  const tbody=document.getElementById('budget-tbody');
+  if(!data.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="8">No budget categories yet.</td></tr>';
+  } else {
+    tbody.innerHTML=data.map(b=>{
+      const v=(+b.budgeted||0)-(+b.actual_spent||0);
+      const pct=b.budgeted?Math.round(((+b.actual_spent||0)/(+b.budgeted))*100):0;
+      const editBtn = canWrite() ? `<button class="btn-icon" title="Edit" onclick="openEditBudget('${b.id}')">✎</button>` : '';
+      const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('budget','${b.id}',loadBudget)">✕</button>` : '';
+
+      const budgetedCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="budget" data-id="${b.id}" data-field="budgeted" data-type="number" data-step="1" data-reload="loadBudget" data-raw="${b.budgeted||0}">PKR ${fmt(b.budgeted)}</td>`
+        : `<td>PKR ${fmt(b.budgeted)}</td>`;
+      const actualCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="budget" data-id="${b.id}" data-field="actual_spent" data-type="number" data-step="1" data-reload="loadBudget" data-raw="${b.actual_spent||0}">PKR ${fmt(b.actual_spent)}</td>`
+        : `<td>PKR ${fmt(b.actual_spent)}</td>`;
+      const notesCell = canWrite()
+        ? `<td class="edit-cell" data-tbl="budget" data-id="${b.id}" data-field="notes" data-type="textarea" data-reload="loadBudget" data-raw="${(b.notes||'').replace(/"/g,'&quot;')}" style="font-size:12px;max-width:180px;">${b.notes||'— click to add —'}</td>`
+        : `<td style="font-size:12px;">${b.notes||''}</td>`;
+
+      return `<tr><td>${b.category||'—'}</td><td>${b.responsible||'—'}</td>${budgetedCell}${actualCell}<td class="${v<0?'overdue':''}">PKR ${fmt(Math.abs(v))} ${v<0?'over':'under'}</td><td><div style="display:flex;align-items:center;gap:6px;">${pct}%<div class="progress-bar" style="width:60px;"><div class="progress-fill ${pct>100?'red':''}" style="width:${Math.min(pct,100)}%"></div></div></div></td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
+    }).join('');
+  }
+  renderGroupedBar('chart-budget2',data.map(b=>b.category),data.map(b=>+b.budgeted||0),data.map(b=>+b.actual_spent||0));
+}catch(e){toast('Failed to load budget','error');}}
+
+// ---------- Edit Budget modal ----------
+function openEditBudget(id){
+  if(!canWrite()) return;
+  const b = (cache['budget']||[]).find(x=>x.id===id);
+  if(!b) return;
+  document.getElementById('eb-id').value       = b.id;
+  document.getElementById('eb-cat').value      = b.category || '';
+  document.getElementById('eb-resp').value     = b.responsible || '';
+  document.getElementById('eb-budgeted').value = b.budgeted ?? '';
+  document.getElementById('eb-actual').value   = b.actual_spent ?? '';
+  document.getElementById('eb-notes').value    = b.notes || '';
+  document.getElementById('edit-budget-modal').classList.add('open');
+}
+function closeEditBudget(){ document.getElementById('edit-budget-modal').classList.remove('open'); }
+
+async function saveEditBudget(){
+  if(!canWrite()) return;
+  const id = document.getElementById('eb-id').value;
+  const payload = {
+    category:     document.getElementById('eb-cat').value.trim() || null,
+    responsible:  document.getElementById('eb-resp').value.trim() || null,
+    budgeted:     +document.getElementById('eb-budgeted').value || null,
+    actual_spent: +document.getElementById('eb-actual').value || null,
+    notes:        document.getElementById('eb-notes').value.trim() || null
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/budget?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify(payload)});
+    if(!r.ok) throw new Error(await r.text());
+    toast('Budget updated ✓');
+    closeEditBudget();
+    delete cache['budget'];
+    loadBudget();
+    if(document.getElementById('section-overview')?.classList.contains('active')) loadOverview();
+  }catch(e){ toast('Save failed: '+(e.message||e),'error'); }
+}
+async function addBudget(){if(!isAdmin())return;const cat=document.getElementById('b-cat').value.trim();if(!cat){toast('Category required','error');return;}try{await sbInsert('budget',{category:cat,budgeted:+document.getElementById('b-budgeted').value||null,actual_spent:+document.getElementById('b-actual').value||null,responsible:document.getElementById('b-resp').value,notes:document.getElementById('b-notes').value});toast('Budget category added ✓');['b-cat','b-budgeted','b-actual','b-resp','b-notes'].forEach(id=>document.getElementById(id).value='');delete cache['budget'];loadBudget();loadOverview();}catch(e){toast('Error','error');}}
+
+// CASHFLOW
+async function loadCashflow(){try{const data=await getData('cashflow');const tbody=document.getElementById('cashflow-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';}else tbody.innerHTML=data.map(c=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td>`:'<td></td>';return`<tr><td>${c.month||'—'}</td><td>${c.description||'—'}</td><td>${c.category||'—'}</td><td>${statusBadge(c.priority||'Medium')}</td><td>${c.responsible||'—'}</td><td>PKR ${fmt(c.amount)}</td>${adminBtn}</tr>`;}).join('');const bm={};data.forEach(c=>{bm[c.month]=(bm[c.month]||0)+(+c.amount||0);});const months=Object.keys(bm).sort();const ctx=document.getElementById('chart-cashflow');if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels:months,datasets:[{label:'Required Cash (PKR)',data:months.map(m=>bm[m]),backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}catch(e){toast('Failed to load cashflow','error');}}
+async function addCashflow(){if(!isAdmin())return;const month=document.getElementById('cf-month').value,desc=document.getElementById('cf-desc').value.trim();if(!month||!desc){toast('Month and description required','error');return;}try{await sbInsert('cashflow',{month,description:desc,amount:+document.getElementById('cf-amount').value||null,category:document.getElementById('cf-cat').value,priority:document.getElementById('cf-priority').value,responsible:document.getElementById('cf-resp').value});toast('Cashflow entry added ✓');['cf-month','cf-desc','cf-amount','cf-resp'].forEach(id=>document.getElementById(id).value='');delete cache['cashflow'];loadCashflow();}catch(e){toast('Error','error');}}
+
+// CONTACTS
+async function loadContacts(){try{const data=await getData('contacts');const tbody=document.getElementById('contacts-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No contacts yet.</td></tr>';return;}tbody.innerHTML=data.map(c=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('contacts','${c.id}',loadContacts)">✕</button></td>`:'<td></td>';return`<tr><td><b>${c.full_name||'—'}</b></td><td>${c.role||'—'}</td><td>${c.company||'—'}</td><td>${c.phone||'—'}</td><td>${c.email||'—'}</td><td>${statusBadge(c.type||'Team Member')}</td><td style="font-size:12px;">${c.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load contacts','error');}}
+async function addContact(){if(!isAdmin())return;const name=document.getElementById('c-name').value.trim();if(!name){toast('Name required','error');return;}try{await sbInsert('contacts',{full_name:name,role:document.getElementById('c-role').value,company:document.getElementById('c-company').value,phone:document.getElementById('c-phone').value,email:document.getElementById('c-email').value,type:document.getElementById('c-type').value,notes:document.getElementById('c-notes').value});toast('Contact added ✓');['c-name','c-role','c-company','c-phone','c-email','c-notes'].forEach(id=>document.getElementById(id).value='');delete cache['contacts'];loadContacts();}catch(e){toast('Error','error');}}
+
+// MEETINGS
+async function loadMeetings(){try{const data=await getData('meetings');const tbody=document.getElementById('meetings-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">No meetings logged yet.</td></tr>';return;}tbody.innerHTML=data.map(m=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('meetings','${m.id}',loadMeetings)">✕</button></td>`:'<td></td>';return`<tr><td>${m.date||'—'}</td><td><b>${m.title||'—'}</b></td><td style="font-size:12px;">${m.attendees||'—'}</td><td>${statusBadge(m.type||'Other')}</td><td style="max-width:180px;font-size:12px;white-space:pre-wrap;">${m.summary||''}</td><td style="max-width:150px;font-size:12px;white-space:pre-wrap;">${m.action_items||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load meetings','error');}}
+async function addMeeting(){if(!isAdmin())return;const date=document.getElementById('m-date').value,title=document.getElementById('m-title').value.trim(),summary=document.getElementById('m-summary').value.trim();if(!date||!title||!summary){toast('Date, title and summary required','error');return;}try{await sbInsert('meetings',{date,title,attendees:document.getElementById('m-attendees').value,type:document.getElementById('m-type').value,summary,action_items:document.getElementById('m-actions').value});toast('Meeting logged ✓');['m-date','m-title','m-attendees','m-summary','m-actions'].forEach(id=>document.getElementById(id).value='');delete cache['meetings'];loadMeetings();}catch(e){toast('Error','error');}}
+
+// PUNCH LIST
+let punchFilter='All';
+async function loadPunch(){try{const data=await getData('punch_list');renderPunch(data);}catch(e){toast('Failed to load punch list','error');}}
+function filterPunch(f){punchFilter=f;renderPunch(cache['punch_list']||[]);}
+function renderPunch(data){const filtered=punchFilter==='All'?data:data.filter(p=>p.status===punchFilter);const tbody=document.getElementById('punch-tbody');if(!filtered.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No items.</td></tr>';return;}tbody.innerHTML=filtered.map(p=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('punch_list','${p.id}',loadPunch)">✕</button></td>`:'<td></td>';return`<tr><td><b>${p.issue||'—'}</b></td><td>${p.location||'—'}</td><td>${p.assigned_to||'—'}</td><td>${statusBadge(p.priority||'Medium')}</td><td>${fmtDate(p.due_by)}</td><td>${statusBadge(p.status||'Open')}</td><td style="font-size:12px;">${p.notes||''}</td>${adminBtn}</tr>`;}).join('');}
+async function addPunch(){if(!isAdmin())return;const issue=document.getElementById('p-issue').value.trim();if(!issue){toast('Issue required','error');return;}try{await sbInsert('punch_list',{issue,location:document.getElementById('p-location').value,assigned_to:document.getElementById('p-assigned').value,due_by:document.getElementById('p-due').value||null,priority:document.getElementById('p-priority').value,status:document.getElementById('p-status').value,notes:document.getElementById('p-notes').value});toast('Punch list item added ✓');['p-issue','p-location','p-assigned','p-due','p-notes'].forEach(id=>document.getElementById(id).value='');delete cache['punch_list'];loadPunch();loadAlerts();}catch(e){toast('Error','error');}}
+
+// DELETE
+async function deleteRow(table,id,reloadFn){if(!isAdmin()){toast('Admin only','error');return;}if(!confirm('Delete this record?'))return;try{await sbDelete(table,id);delete cache[table];toast('Deleted ✓');reloadFn();loadOverview();}catch(e){toast('Error deleting','error');}}
+
+// CSV EXPORT
+async function exportCSV(table){try{const data=cache[table]||await getData(table);if(!data.length){toast('No data to export','error');return;}const keys=Object.keys(data[0]).filter(k=>k!=='id'&&k!=='created_at');const csv=[keys.join(','),...data.map(r=>keys.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`${table}_${new Date().toISOString().slice(0,10)}.csv`;a.click();toast('CSV exported ✓');}catch(e){toast('Export failed','error');}}
+
+// XERO
+function toggleXero(){if(!isAdmin())return;const p=document.getElementById('xero-panel');p.style.display=p.style.display==='none'?'block':'none';}
+let xeroRows=[];
+function handleXeroFile(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{const lines=e.target.result.split('\n').filter(l=>l.trim());const hdrs=lines[0].split(',').map(h=>h.replace(/"/g,'').trim());xeroRows=lines.slice(1).map(l=>{const cols=l.split(',').map(c=>c.replace(/"/g,'').trim());const row={};hdrs.forEach((h,i)=>row[h]=cols[i]||'');return row;}).filter(r=>r[hdrs[0]]);renderXeroPreview(xeroRows);};reader.readAsText(file);}
+function renderXeroPreview(rows){const preview=document.getElementById('xero-preview');document.querySelector('#xero-table thead').innerHTML='<tr><th>Vendor</th><th>Reference</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Import?</th></tr>';document.querySelector('#xero-table tbody').innerHTML=rows.map((r,i)=>{const vendor=r['Contact']||r['Vendor']||Object.values(r)[0]||'';const total=r['Total']||r['Amount Due']||'0';const paid=r['Amount Paid']||'0';const bal=((+total||0)-(+paid||0)).toFixed(2);return`<tr><td>${vendor}</td><td>${r['Reference']||''}</td><td>${total}</td><td>${paid}</td><td>${bal}</td><td>${r['Due Date']||r['Date']||''}</td><td>${r['Status']||'Pending'}</td><td><input type="checkbox" checked data-idx="${i}"></td></tr>`;}).join('');preview.style.display='block';}
+async function importXeroSelected(){if(!isAdmin())return;const checks=document.querySelectorAll('#xero-table tbody input[type=checkbox]:checked');if(!checks.length){toast('No rows selected','error');return;}let imported=0;for(const cb of checks){const r=xeroRows[+cb.dataset.idx];const vendor=r['Contact']||r['Vendor']||Object.values(r)[0]||'Xero Import';try{await sbInsert('vendors',{vendor_name:vendor,category:'Xero Import',total_contract:+(r['Total']||r['Amount Due']||0),amount_paid:+(r['Amount Paid']||0),due_date:r['Due Date']||r['Date']||null,status:r['Status']||'Pending',approval:'Pending Approval',notes:`Ref: ${r['Reference']||''}`});imported++;}catch(e){console.error(e);}}toast(`${imported} vendor(s) imported ✓`);delete cache['vendors'];loadVendors();document.getElementById('xero-preview').style.display='none';}
+const dz=document.getElementById('drop-zone');
+if(dz){dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f){document.getElementById('xero-file').files=e.dataTransfer.files;handleXeroFile({files:[f]});}});}
+
+// EDIT VENDOR
+function openEditVendor(id){if(!canWrite())return;const vendors=cache['vendors']||[];const v=vendors.find(x=>x.id===id);if(!v)return;document.getElementById('ev-id').value=v.id;document.getElementById('ev-name').value=v.vendor_name||'';document.getElementById('ev-cat').value=v.category||'';document.getElementById('ev-resp').value=v.responsible||'';document.getElementById('ev-total').value=v.total_contract||'';document.getElementById('ev-paid').value=v.amount_paid||'';document.getElementById('ev-due').value=v.due_date||'';document.getElementById('ev-status').value=v.status||'Pending';document.getElementById('ev-approval').value=v.approval||'Pending Approval';document.getElementById('ev-notes').value=v.notes||'';document.getElementById('edit-vendor-modal').style.display='flex';}
+function closeEditVendor(){document.getElementById('edit-vendor-modal').style.display='none';}
+async function saveEditVendor(){if(!canWrite())return;const id=document.getElementById('ev-id').value;const name=document.getElementById('ev-name').value.trim();if(!name){toast('Vendor name is required','error');return;}try{const r=await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({vendor_name:name,category:document.getElementById('ev-cat').value,responsible:document.getElementById('ev-resp').value,total_contract:+document.getElementById('ev-total').value||null,amount_paid:+document.getElementById('ev-paid').value||null,due_date:document.getElementById('ev-due').value||null,status:document.getElementById('ev-status').value,approval:document.getElementById('ev-approval').value,notes:document.getElementById('ev-notes').value})});if(!r.ok)throw new Error(await r.text());toast('Vendor updated ✓');closeEditVendor();delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error saving changes','error');}}
+
+// PAYMENT SCHEDULE
+let currentVendorId=null,currentVendorTotal=0,currentVendorName='';
+function getAllSchedules(){return JSON.parse(localStorage.getItem('vendor_schedules')||'{}');}
+function getVendorSchedule(vendorId){return(getAllSchedules()[vendorId]||[]);}
+function saveVendorSchedule(vendorId,schedule){const all=getAllSchedules();all[vendorId]=schedule;localStorage.setItem('vendor_schedules',JSON.stringify(all));}
+function openPaySchedule(vendorId){
+  const vendors=cache['vendors']||[];const v=vendors.find(x=>x.id===vendorId);if(!v)return;
+  currentVendorId=vendorId;currentVendorTotal=+v.total_contract||0;currentVendorName=v.vendor_name||'Vendor';
+  document.getElementById('ps-vendor-name').textContent=currentVendorName+' — Payment Schedule';
+  document.getElementById('ps-vendor-total').textContent='PKR '+fmt(currentVendorTotal);
+  const addSection=document.getElementById('ps-add-section');
+  if(addSection)addSection.style.display=isAdmin()?'block':'none';
+  document.getElementById('pay-schedule-modal').style.display='flex';
+  renderScheduleList();
+}
+function closePaySchedule(){document.getElementById('pay-schedule-modal').style.display='none';currentVendorId=null;}
+function renderScheduleList(){
+  if(!currentVendorId)return;
+  const schedule=getVendorSchedule(currentVendorId);const list=document.getElementById('ps-list');
+  const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);const totalAmt=Math.round(currentVendorTotal*totalPct/100);const paidAmt=schedule.reduce((a,s)=>a+(+s.paidAmt||0),0);
+  const summary=document.getElementById('ps-summary');
+  if(schedule.length){summary.style.display='block';document.getElementById('ps-sum-pct').textContent=totalPct+'%';document.getElementById('ps-sum-amt').textContent='PKR '+fmt(totalAmt);document.getElementById('ps-sum-rem').textContent=(100-totalPct)+'%';document.getElementById('ps-progress-fill').style.width=Math.min(totalPct,100)+'%';document.getElementById('ps-progress-fill').style.background=totalPct>100?'var(--red)':'var(--green)';const paidEl=document.getElementById('ps-sum-paid');if(paidEl)paidEl.textContent='PKR '+fmt(paidAmt);}else{summary.style.display='none';}
+  document.getElementById('ps-pct-used').textContent=totalPct>0?`${totalPct}% scheduled, ${100-totalPct}% remaining`:'';
+  if(!schedule.length){list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-dim);font-style:italic;">No milestones yet.</div>';return;}
+  const statusColor={Scheduled:'#3a86c8',Paid:'#4caf7d','Partially Paid':'#e08a4c',Overdue:'#e05c5c'};
+  const statusBg={Scheduled:'rgba(58,134,200,.1)',Paid:'rgba(76,175,125,.1)','Partially Paid':'rgba(224,138,76,.1)',Overdue:'rgba(224,92,92,.1)'};
+  const sorted=[...schedule].sort((a,b)=>a.date.localeCompare(b.date));
+  list.innerHTML=sorted.map((s,i)=>{
+    const realIdx=schedule.indexOf(s);const amt=Math.round(currentVendorTotal*s.pct/100);const today=new Date().toISOString().slice(0,10);const isPast=s.date<today;const payStatus=s.payStatus||'Scheduled';const circleColor=statusColor[payStatus]||'#3a86c8';const paidAmtVal=+s.paidAmt||0;const paidPct=amt>0?Math.min(100,Math.round(paidAmtVal/amt*100)):0;
+    const adminControls=isAdmin()?`
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:140px;">
+        <label style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Payment Status</label>
+        <select onchange="updateMilestoneStatus(${realIdx},this.value)" style="background:${statusBg[payStatus]};border:1px solid ${circleColor}55;border-radius:var(--radius);padding:5px 8px;font-size:12px;font-weight:600;color:${circleColor};font-family:'DM Sans',sans-serif;cursor:pointer;">
+          ${['Scheduled','Partially Paid','Paid','Overdue'].map(st=>`<option value="${st}" ${payStatus===st?'selected':''}>${st}</option>`).join('')}
+        </select>
+      </div>
+      <div id="paid-amt-wrap-${realIdx}" style="display:${payStatus==='Partially Paid'?'flex':'none'};flex-direction:column;gap:4px;min-width:120px;">
+        <label style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">Amount Paid (PKR)</label>
+        <input type="number" value="${paidAmtVal||''}" placeholder="0" onchange="updateMilestonePaidAmt(${realIdx},this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;width:120px;">
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <span class="badge badge-${s.priority==='High'?'red':s.priority==='Low'?'blue':'orange'}">${s.priority||'Medium'}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteMilestone(${realIdx})">✕</button>
+      </div>`:`<div><span class="badge badge-${payStatus==='Paid'?'green':payStatus==='Overdue'?'red':'blue'}">${payStatus}</span></div>`;
+    return`<div style="background:var(--surface);border:1px solid ${circleColor}33;border-radius:var(--radius-lg);padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="width:48px;height:48px;border-radius:50%;background:${circleColor};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">${s.pct}%</div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-weight:600;font-size:14px;">PKR ${fmt(amt)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${s.desc||'Payment milestone'}</div>
+          <div style="font-size:11px;color:${isPast&&payStatus!=='Paid'?'var(--red)':'var(--text-muted)'};">Due: ${s.date}${isPast&&payStatus!=='Paid'?' ⚠ Overdue':''}</div>
+        </div>
+        ${adminControls}
+      </div>
+      ${payStatus==='Partially Paid'&&paidAmtVal>0?`<div style="margin-top:10px;"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;"><span>Paid: PKR ${fmt(paidAmtVal)}</span><span>Remaining: PKR ${fmt(amt-paidAmtVal)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${paidPct}%;background:var(--orange);"></div></div></div>`:''}
+    </div>`;
+  }).join('');
+}
+function updateMilestoneStatus(idx,status){const schedule=getVendorSchedule(currentVendorId);schedule[idx].payStatus=status;if(status==='Paid'){schedule[idx].paidAmt=Math.round(currentVendorTotal*schedule[idx].pct/100);}if(status==='Scheduled'||status==='Overdue'){schedule[idx].paidAmt=0;}saveVendorSchedule(currentVendorId,schedule);renderScheduleList();loadVendors();}
+function updateMilestonePaidAmt(idx,val){const schedule=getVendorSchedule(currentVendorId);schedule[idx].paidAmt=+val||0;saveVendorSchedule(currentVendorId,schedule);renderScheduleList();}
+function addPaymentMilestone(){
+  if(!isAdmin())return;
+  const pct=+document.getElementById('ps-pct').value;const date=document.getElementById('ps-date').value;const desc=document.getElementById('ps-desc').value.trim();const priority=document.getElementById('ps-priority').value;
+  if(!pct||!date){toast('Percentage and date are required','error');return;}if(pct<1||pct>100){toast('Percentage must be between 1 and 100','error');return;}
+  const schedule=getVendorSchedule(currentVendorId);const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);if(totalPct+pct>100){toast(`Only ${100-totalPct}% remaining`,'error');return;}
+  schedule.push({pct,date,desc,priority});saveVendorSchedule(currentVendorId,schedule);createCashflowFromMilestone(currentVendorName,pct,date,desc,priority);
+  document.getElementById('ps-pct').value='';document.getElementById('ps-date').value='';document.getElementById('ps-desc').value='';toast('Milestone added ✓');renderScheduleList();loadVendors();
+}
+function deleteMilestone(idx){if(!isAdmin())return;if(!confirm('Remove this milestone?'))return;const schedule=getVendorSchedule(currentVendorId);schedule.splice(idx,1);saveVendorSchedule(currentVendorId,schedule);toast('Removed ✓');renderScheduleList();loadVendors();}
+async function createCashflowFromMilestone(vendorName,pct,date,desc,priority){try{const amt=Math.round(currentVendorTotal*pct/100);const month=date.slice(0,7);const description=desc||`${vendorName} — ${pct}% payment`;await sbInsert('cashflow',{month,description,amount:amt,category:'Vendor Payment',priority:priority||'Medium',responsible:''});delete cache['cashflow'];toast(`Cashflow entry created: PKR ${fmt(amt)} ✓`);}catch(e){console.error('Cashflow auto-create failed:',e);}}
+
+// INIT
+async function init(){
+  const authed=await checkAuth();if(!authed)return;
+  const dot=document.getElementById('conn-dot'),txt=document.getElementById('conn-text');
+  try{await sbGet('vendors','&limit=1');if(dot)dot.classList.add('connected');if(txt)txt.textContent='Supabase connected';}catch(e){if(dot)dot.classList.add('error');if(txt)txt.textContent='Connection failed';}
+  loadAll();
+}
+init();
+</script>
+</body>
+</html>
+
+
