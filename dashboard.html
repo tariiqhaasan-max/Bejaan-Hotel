@@ -491,6 +491,7 @@ tr:hover td{background:var(--green-bg);}
   <div class="page-header">
     <div><div class="page-title">Vendors & Payments</div></div>
     <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm admin-only" onclick="toggleVendorAddForm()" id="vendor-add-toggle">+ Add Vendor</button>
       <button class="btn btn-secondary btn-sm" onclick="exportCSV('vendors')">Export CSV</button>
       <button class="btn btn-secondary btn-sm admin-only" onclick="toggleXero()">⬆ Import from Xero</button>
     </div>
@@ -507,7 +508,7 @@ tr:hover td{background:var(--green-bg);}
       </div>
     </div>
   </div>
-  <div class="card admin-only" id="vendor-add-card">
+  <div class="card admin-only" id="vendor-add-card" style="display:none;">
     <div class="card-title">Add Vendor / Payment Record</div>
     <div class="form-grid">
       <div class="form-group"><label>Vendor Name *</label><input id="v-name" placeholder="e.g. Ali Builders"></div>
@@ -544,7 +545,10 @@ tr:hover td{background:var(--green-bg);}
       </div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="v-notes"></textarea></div>
-    <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
+      <button class="btn btn-secondary" onclick="toggleVendorAddForm()">Cancel</button>
+    </div>
   </div>
   <!-- SQL MIGRATION BANNER -->
   <div class="card admin-only" id="sql-migration-banner" style="display:none;border-left:3px solid #b89558;background:rgba(184,149,88,0.06);">
@@ -879,8 +883,14 @@ tr:hover td{background:var(--green-bg);}
 
 <!-- ROOMS -->
 <div class="section" id="section-rooms">
-  <div class="page-header"><div class="page-title">Room Tracker</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button></div>
-  <div class="card admin-only">
+  <div class="page-header">
+    <div class="page-title">Room Tracker</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm admin-only" onclick="toggleRoomAddForm()" id="room-add-toggle">+ Add Room</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button>
+    </div>
+  </div>
+  <div class="card admin-only" id="room-add-card" style="display:none;">
     <div class="card-title">Add / Update Room</div>
     <div class="form-grid">
       <div class="form-group"><label>Room Number / Name *</label><input id="r-name" placeholder="e.g. 101"></div>
@@ -891,7 +901,10 @@ tr:hover td{background:var(--green-bg);}
       <div class="form-group"><label>Status</label><select id="r-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option></select></div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="r-notes"></textarea></div>
-    <button class="btn btn-primary" onclick="addRoom()">+ Add Room</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="addRoom()">+ Add Room</button>
+      <button class="btn btn-secondary" onclick="toggleRoomAddForm()">Cancel</button>
+    </div>
   </div>
   <div class="card"><div class="card-title">Room-by-Room Completion</div><div class="table-wrap"><table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Responsible</th><th>Progress</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rooms-tbody"></tbody></table></div></div>
 
@@ -3614,6 +3627,11 @@ async function addVendor(){
     await tryInsert(payload);
     toast('Vendor added ✓');
     ['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    // Close form after save
+    const card = document.getElementById('vendor-add-card');
+    const btn  = document.getElementById('vendor-add-toggle');
+    if(card) card.style.display = 'none';
+    if(btn) btn.textContent = '+ Add Vendor';
     delete cache['vendors'];
     loadVendors();
     loadOverview();
@@ -3626,6 +3644,31 @@ function onAddVendorDestChange(){
   const wrap = document.getElementById('v-fa-cat-wrap');
   if(!wrap) return;
   wrap.style.display = (dest==='fixed_asset' || dest==='both') ? 'block' : 'none';
+}
+
+// ── Toggle inline Add forms on Vendor + Rooms pages ──
+function toggleVendorAddForm(){
+  const card = document.getElementById('vendor-add-card');
+  const btn  = document.getElementById('vendor-add-toggle');
+  if(!card) return;
+  const showing = card.style.display !== 'none';
+  card.style.display = showing ? 'none' : 'block';
+  if(btn) btn.textContent = showing ? '+ Add Vendor' : '✕ Close';
+  if(!showing){
+    // Focus name input for quick typing
+    setTimeout(()=>document.getElementById('v-name')?.focus(),50);
+  }
+}
+function toggleRoomAddForm(){
+  const card = document.getElementById('room-add-card');
+  const btn  = document.getElementById('room-add-toggle');
+  if(!card) return;
+  const showing = card.style.display !== 'none';
+  card.style.display = showing ? 'none' : 'block';
+  if(btn) btn.textContent = showing ? '+ Add Room' : '✕ Close';
+  if(!showing){
+    setTimeout(()=>document.getElementById('r-name')?.focus(),50);
+  }
 }
 
 // WIP
@@ -4817,7 +4860,7 @@ async function renderOverviewRoomsGrid(){
 // END ROOM CHECKLIST MODULE
 // ============================================================
 
-async function addRoom(){if(!isAdmin())return;const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}}
+async function addRoom(){if(!isAdmin())return;const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');const card=document.getElementById('room-add-card');const btn=document.getElementById('room-add-toggle');if(card)card.style.display='none';if(btn)btn.textContent='+ Add Room';delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}}
 
 // BUDGET
 async function loadBudget(){try{
