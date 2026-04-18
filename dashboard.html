@@ -333,6 +333,34 @@ tr:hover td{background:var(--green-bg);}
       </div>
     </div>
 
+    <!-- Asset / Store KPI strip -->
+    <div class="ov-kpi-grid">
+      <div class="ov-kpi ov-kpi-gold">
+        <div class="ov-kpi-label">FA Capitalized</div>
+        <div class="ov-kpi-value" id="ov-fa-cap">—</div>
+        <div class="ov-kpi-sub" id="ov-fa-cap-sub">paid + issued from store</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-fa-cap-bar"></div></div>
+      </div>
+      <div class="ov-kpi">
+        <div class="ov-kpi-label">FA Committed</div>
+        <div class="ov-kpi-value" id="ov-fa-com">—</div>
+        <div class="ov-kpi-sub" id="ov-fa-com-sub">incl. unpaid task allocations</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-fa-com-bar"></div></div>
+      </div>
+      <div class="ov-kpi ov-kpi-amber">
+        <div class="ov-kpi-label">Inventory in Store</div>
+        <div class="ov-kpi-value" id="ov-store-val">—</div>
+        <div class="ov-kpi-sub" id="ov-store-val-sub">awaiting issuance</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-store-val-bar"></div></div>
+      </div>
+      <div class="ov-kpi">
+        <div class="ov-kpi-label">Total Asset Base</div>
+        <div class="ov-kpi-value" id="ov-asset-total">—</div>
+        <div class="ov-kpi-sub" id="ov-asset-total-sub">capitalized + store</div>
+        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-asset-total-bar"></div></div>
+      </div>
+    </div>
+
     <!-- Two-up: gauge + donut -->
     <div class="ov-grid ov-grid-2">
       <div class="ov-panel">
@@ -746,7 +774,7 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <div class="card">
       <div class="card-title">All Fixed Assets</div>
-      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Status</th><th>Direct Cost</th><th>From Store</th><th>Total Value</th><th>Items</th><th></th></tr></thead><tbody id="store-fa-tbody"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Status</th><th>Direct</th><th>From Store</th><th>Task Payments</th><th>Capitalized</th><th>Committed</th><th>Items</th><th></th></tr></thead><tbody id="store-fa-tbody"></tbody></table></div>
     </div>
   </div>
 </div>
@@ -806,8 +834,8 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Direct Cost</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-top:4px;" id="fad-direct">—</div></div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">From Store</div><div style="font-size:15px;font-weight:600;color:var(--green);margin-top:4px;" id="fad-store">—</div></div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Total Capitalized</div><div style="font-size:15px;font-weight:600;color:var(--gold);margin-top:4px;" id="fad-total">—</div></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Tasks + Store</div><div style="font-size:15px;font-weight:600;color:var(--green);margin-top:4px;" id="fad-store">—</div></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Capitalized</div><div style="font-size:15px;font-weight:600;color:var(--gold);margin-top:4px;" id="fad-total">—</div></div>
     </div>
     <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Items Issued to This Asset</div>
     <div id="fad-issuances"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No items issued yet.</div></div>
@@ -1971,13 +1999,86 @@ async function loadOverview(){
     // ---------- Cashflow Momentum (gradient area + glowing particle) ----------
     let _allPayments = [];
     let _allVendorTasks = [];
+    let _allFixedAssets = [];
+    let _allIssuances = [];
+    let _allReceipts = [];
     try {
       const payRes = await fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers});
       _allPayments = payRes.ok ? await payRes.json() : [];
       const vtRes = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers});
       _allVendorTasks = vtRes.ok ? await vtRes.json() : [];
+      const faRes = await fetch(`${SB_URL}/rest/v1/fixed_assets?select=*`,{headers});
+      _allFixedAssets = faRes.ok ? await faRes.json() : [];
+      const issRes = await fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*`,{headers});
+      _allIssuances = issRes.ok ? await issRes.json() : [];
+      const recRes = await fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*`,{headers});
+      _allReceipts = recRes.ok ? await recRes.json() : [];
     } catch(e) {}
     renderCashflowMomentum(_allPayments, cashflow);
+
+    // ---------- Asset KPIs (Capitalized vs Committed) ----------
+    try {
+      // Per-task paid sum
+      const paidByTask = {};
+      _allPayments.forEach(p=>{ paidByTask[p.task_id] = (paidByTask[p.task_id]||0) + (+p.amount||0); });
+      const faTasks = _allVendorTasks.filter(t=>(t.destination_type||'store')==='fixed_asset');
+      const directFA = _allFixedAssets.reduce((s,a)=>s+(+a.direct_cost||0),0);
+      const issuanceFA = _allIssuances.filter(i=>i.destination_type==='fixed_asset').reduce((s,i)=>s+(+i.total_value||0),0);
+      const paidFA = faTasks.reduce((s,t)=>s+(paidByTask[t.id]||0),0);
+      const capFA = directFA + issuanceFA + paidFA;
+      // Committed extra = unpaid portion of FA tasks
+      let unpaidFA = 0;
+      faTasks.forEach(t=>{
+        const v = vendors.find(x=>x.id===t.vendor_id);
+        const total = +v?.total_contract || 0;
+        const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
+        const paid = paidByTask[t.id]||0;
+        unpaidFA += Math.max(0, allocated - paid);
+      });
+      const comFA = capFA + unpaidFA;
+      // Store value = remaining qty × avg unit cost per item
+      const itemMap = {};
+      _allReceipts.forEach(r=>{
+        const k = r.item_name;
+        if(!itemMap[k]) itemMap[k] = {recvQty:0, recvVal:0, issQty:0};
+        itemMap[k].recvQty += +r.qty||0;
+        itemMap[k].recvVal += (+r.qty||0)*(+r.unit_cost||0);
+      });
+      _allIssuances.forEach(i=>{
+        if(!itemMap[i.item_name]) itemMap[i.item_name] = {recvQty:0, recvVal:0, issQty:0};
+        itemMap[i.item_name].issQty += +i.qty||0;
+      });
+      const storeVal = Object.values(itemMap).reduce((s,it)=>{
+        const remain = it.recvQty - it.issQty;
+        const avg = it.recvQty ? it.recvVal/it.recvQty : 0;
+        return s + Math.max(0,remain)*avg;
+      },0);
+      const totalAssetBase = capFA + storeVal;
+
+      _countUpPKR('ov-fa-cap', capFA);
+      _countUpPKR('ov-fa-com', comFA);
+      _countUpPKR('ov-store-val', storeVal);
+      _countUpPKR('ov-asset-total', totalAssetBase);
+      // Sub-text refinements
+      document.getElementById('ov-fa-cap-sub').textContent =
+        `${fmtPKR(directFA)} direct · ${fmtPKR(paidFA)} paid · ${fmtPKR(issuanceFA)} from store`;
+      document.getElementById('ov-fa-com-sub').textContent = unpaidFA > 0
+        ? `${fmtPKR(unpaidFA)} pending capitalization`
+        : 'fully capitalized';
+      document.getElementById('ov-store-val-sub').textContent =
+        `${Object.values(itemMap).filter(it=>(it.recvQty-it.issQty)>0).length} items in store`;
+      document.getElementById('ov-asset-total-sub').textContent = `${fmtPKR(capFA)} fixed + ${fmtPKR(storeVal)} store`;
+
+      // Fill bars: ratio of capitalized vs committed (shows how "real" the FA value is)
+      const capRatio = comFA > 0 ? Math.min(1, capFA/comFA) : 0;
+      setTimeout(()=>{
+        document.getElementById('ov-fa-cap-bar').style.width = (capRatio*100).toFixed(1)+'%';
+        document.getElementById('ov-fa-com-bar').style.width = '100%';
+        const storeRatio = totalAssetBase > 0 ? Math.min(1, storeVal/totalAssetBase) : 0;
+        document.getElementById('ov-store-val-bar').style.width = (storeRatio*100).toFixed(1)+'%';
+        document.getElementById('ov-asset-total-bar').style.width = '100%';
+      }, 240);
+    } catch(e) { console.warn('Asset KPIs:', e); }
 
     // ---------- Task Sparkline Wall (30-day heart-monitor) ----------
     renderTaskSparkwall(_allVendorTasks, _allPayments);
@@ -3583,7 +3684,12 @@ ALTER TABLE vendor_tasks
   ADD COLUMN IF NOT EXISTS inventory_pct NUMERIC,
   ADD COLUMN IF NOT EXISTS fixed_asset_pct NUMERIC,
   ADD COLUMN IF NOT EXISTS fixed_asset_category TEXT,
-  ADD COLUMN IF NOT EXISTS destination_type TEXT DEFAULT 'store';
+  ADD COLUMN IF NOT EXISTS destination_type TEXT DEFAULT 'store',
+  ADD COLUMN IF NOT EXISTS assigned_asset_id UUID REFERENCES fixed_assets(id) ON DELETE SET NULL;
+
+-- Mark auto-created default buckets so we can distinguish from user-named ones
+ALTER TABLE fixed_assets
+  ADD COLUMN IF NOT EXISTS is_auto_bucket BOOLEAN DEFAULT false;
 
 -- Inventory receipts (every "goods in" event)
 CREATE TABLE IF NOT EXISTS inventory_receipts (
@@ -3636,14 +3742,54 @@ CREATE INDEX IF NOT EXISTS idx_iss_fa ON inventory_issuances(fixed_asset_id);`;
 
 let _storeReceipts = [], _storeIssuances = [], _storeAssets = [];
 
+// Categories that get auto-created as default buckets
+const FA_CATEGORIES = ['Building','Furniture & Fixtures','Equipment','Vehicle','HVAC','Electrical Infrastructure','IT & Software','Other'];
+
+// Ensure default auto-bucket exists for every category. Returns the asset map by category.
+async function ensureAutoBuckets(existingAssets){
+  const byCat = {};
+  existingAssets.forEach(a=>{ if(a.is_auto_bucket && a.category) byCat[a.category] = a; });
+  const missing = FA_CATEGORIES.filter(c=>!byCat[c]);
+  if(missing.length === 0) return existingAssets;
+  // Create missing buckets
+  const created = [];
+  for(const cat of missing){
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/fixed_assets`,{
+        method:'POST',
+        headers:{...headers,'Prefer':'return=representation'},
+        body: JSON.stringify({ name: cat, category: cat, status:'Under Construction', direct_cost:0, is_auto_bucket:true })
+      });
+      if(r.ok){
+        const d = await r.json();
+        const newRow = Array.isArray(d)?d[0]:d;
+        if(newRow) created.push(newRow);
+      }
+    }catch(e){ /* skip silently — schema may be missing is_auto_bucket */ }
+  }
+  return [...existingAssets, ...created];
+}
+
+// Resolve which asset bucket a Fixed Asset task points to (assigned > category default)
+function resolveTaskAsset(task, allAssets){
+  if(!task || (task.destination_type||'store')!=='fixed_asset') return null;
+  if(task.assigned_asset_id){
+    return allAssets.find(a=>a.id===task.assigned_asset_id) || null;
+  }
+  const cat = task.fixed_asset_category;
+  if(!cat) return null;
+  return allAssets.find(a=>a.is_auto_bucket && a.category===cat) || null;
+}
+
 async function loadStore(){
   try{
-    const [recs, isss, fas, vendors, vTasks] = await Promise.all([
+    const [recs, isss, fas, vendors, vTasks, taskPays] = await Promise.all([
       fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*&order=received_date.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*&order=issued_date.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/fixed_assets?select=*&order=created_at.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       getData('vendors'),
-      fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
+      fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
 
     if(!Array.isArray(recs) || recs.error){
@@ -3654,7 +3800,10 @@ async function loadStore(){
 
     _storeReceipts = recs || [];
     _storeIssuances = isss || [];
-    _storeAssets = fas || [];
+    // Auto-create default category buckets if missing
+    _storeAssets = await ensureAutoBuckets(fas || []);
+    const _allPays = Array.isArray(taskPays) ? taskPays : [];
+    window._storeTaskPays = _allPays;
 
     // Populate vendor + task dropdowns
     const vSel = document.getElementById('rec-vendor');
@@ -3719,14 +3868,40 @@ async function loadStore(){
       const avgCost = it.recvQty ? it.recvValue/it.recvQty : 0;
       return s + remain * avgCost;
     },0);
-    const faValue = _storeIssuances.filter(i=>i.destination_type==='fixed_asset').reduce((s,i)=>s+(+i.total_value||0),0)
-                  + _storeAssets.reduce((s,a)=>s+(+a.direct_cost||0),0);
+
+    // ── FIXED ASSET VALUE — committed vs capitalized
+    // Capitalized = direct_cost on assets + issuances FROM store + paid task payments for FA-tagged tasks
+    const issuanceFA = _storeIssuances.filter(i=>i.destination_type==='fixed_asset')
+      .reduce((s,i)=>s+(+i.total_value||0),0);
+    const directFA = _storeAssets.reduce((s,a)=>s+(+a.direct_cost||0),0);
+    // Map task -> total payments
+    const paidByTask = {};
+    _allPays.forEach(p=>{ paidByTask[p.task_id] = (paidByTask[p.task_id]||0) + (+p.amount||0); });
+    // FA tasks only
+    const faTasks = vTasks.filter(t=>(t.destination_type||'store')==='fixed_asset');
+    const paidFA = faTasks.reduce((s,t)=>s+(paidByTask[t.id]||0), 0);
+    const capitalizedFA = directFA + issuanceFA + paidFA;
+    // Committed = capitalized + (FA task allocated amounts not yet paid)
+    let committedExtra = 0;
+    faTasks.forEach(t=>{
+      const v = vendors.find(x=>x.id===t.vendor_id);
+      const total = +v?.total_contract || 0;
+      const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
+      const paid = paidByTask[t.id]||0;
+      committedExtra += Math.max(0, allocated - paid);
+    });
+    const committedFA = capitalizedFA + committedExtra;
     const expenseValue = _storeIssuances.filter(i=>i.destination_type==='direct_expense').reduce((s,i)=>s+(+i.total_value||0),0);
 
     _countUpText('ss-instore', inStoreItems);
     _countUpPKR('ss-storeval', storeValue);
-    _countUpPKR('ss-favalue', faValue);
+    _countUpPKR('ss-favalue', capitalizedFA);
     _countUpPKR('ss-expense', expenseValue);
+    // Stash for Overview to use
+    window._faNumbers = { committed: committedFA, capitalized: capitalizedFA, store: storeValue };
+    // Also update sub-text on FA KPI to show committed
+    const faSub = document.querySelector('#ss-favalue + .stat-sub');
+    if(faSub) faSub.innerHTML = `capitalized · <span style="color:var(--gold);">committed ${fmtPKR(committedFA)}</span>`;
 
     // Current Store table
     const ctb = document.getElementById('store-current-tbody');
@@ -3809,23 +3984,54 @@ async function loadStore(){
     }
 
     // Fixed Assets table
+    // Fixed Assets table — Committed + Capitalized per bucket
     const fatb = document.getElementById('store-fa-tbody');
     if(!_storeAssets.length){
-      fatb.innerHTML = '<tr class="empty-row"><td colspan="8">No fixed assets yet. Click "+ New Asset" to create your first bucket.</td></tr>';
+      fatb.innerHTML = '<tr class="empty-row"><td colspan="10">No fixed assets yet. Click "+ New Asset" to create your first bucket.</td></tr>';
     } else {
-      fatb.innerHTML = _storeAssets.map(a=>{
+      // Pre-compute per-asset task allocations & payments
+      const perAsset = {};
+      _storeAssets.forEach(a=>{ perAsset[a.id] = {tasksCommitted:0, tasksPaid:0, taskCount:0}; });
+      faTasks.forEach(t=>{
+        const target = resolveTaskAsset(t, _storeAssets);
+        if(!target) return;
+        const v = vendors.find(x=>x.id===t.vendor_id);
+        const total = +v?.total_contract || 0;
+        const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
+        const paid = paidByTask[t.id]||0;
+        perAsset[target.id].tasksCommitted += allocated;
+        perAsset[target.id].tasksPaid += paid;
+        perAsset[target.id].taskCount += 1;
+      });
+
+      // Sort: auto buckets first, alphabetical inside
+      const sortedAssets = [..._storeAssets].sort((a,b)=>{
+        if(a.is_auto_bucket && !b.is_auto_bucket) return -1;
+        if(!a.is_auto_bucket && b.is_auto_bucket) return 1;
+        return (a.name||'').localeCompare(b.name||'');
+      });
+
+      fatb.innerHTML = sortedAssets.map(a=>{
         const fromStore = _storeIssuances.filter(i=>i.fixed_asset_id===a.id).reduce((s,i)=>s+(+i.total_value||0),0);
-        const itemCount = _storeIssuances.filter(i=>i.fixed_asset_id===a.id).length;
-        const total = (+a.direct_cost||0) + fromStore;
+        const issuanceCount = _storeIssuances.filter(i=>i.fixed_asset_id===a.id).length;
+        const meta = perAsset[a.id] || {tasksCommitted:0, tasksPaid:0, taskCount:0};
+        const direct = +a.direct_cost||0;
+        const capitalized = direct + fromStore + meta.tasksPaid;
+        const unpaidExposure = Math.max(0, meta.tasksCommitted - meta.tasksPaid);
+        const committed = capitalized + unpaidExposure;
         const stColor = a.status==='Commissioned'?'#4caf7d':a.status==='Retired'?'#888':'#e08a4c';
+        const autoTag = a.is_auto_bucket ? '<span style="font-size:9px;color:var(--text-muted);background:rgba(120,120,120,.12);padding:1px 5px;border-radius:3px;margin-left:6px;">AUTO</span>' : '';
+        const totalItems = issuanceCount + meta.taskCount;
         return `<tr style="cursor:pointer;" onclick="openFaDetail('${a.id}')">
-          <td><b>${_esc(a.name)}</b></td>
+          <td><b>${_esc(a.name)}</b>${autoTag}</td>
           <td>${_esc(a.category||'—')}</td>
           <td><span class="badge" style="background:${stColor}22;color:${stColor};">${_esc(a.status||'—')}</span></td>
-          <td>PKR ${fmt(a.direct_cost)}</td>
+          <td>PKR ${fmt(direct)}</td>
           <td style="color:var(--green);">PKR ${fmt(fromStore)}</td>
-          <td style="font-weight:500;">PKR ${fmt(total)}</td>
-          <td>${itemCount}</td>
+          <td style="color:var(--green);">PKR ${fmt(meta.tasksPaid)}</td>
+          <td style="font-weight:600;color:var(--gold);">PKR ${fmt(capitalized)}</td>
+          <td style="font-weight:500;color:#4a9eff;">PKR ${fmt(committed)}</td>
+          <td>${totalItems}</td>
           <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openFaDetail('${a.id}')">View</button></td>
         </tr>`;
       }).join('');
@@ -4063,24 +4269,75 @@ async function saveFixedAsset(){
 
 // ── FIXED ASSET DETAIL ──
 let _fadId = null;
-function openFaDetail(id){
+async function openFaDetail(id){
   const a = _storeAssets.find(x=>x.id===id);
   if(!a) return;
   _fadId = id;
   document.getElementById('fad-name').textContent = a.name;
-  document.getElementById('fad-meta').textContent = `${a.category||'—'} · ${a.status||'—'}${a.commissioned_date?' · Commissioned '+fmtDate(a.commissioned_date):''}`;
+  document.getElementById('fad-meta').textContent = `${a.category||'—'} · ${a.status||'—'}${a.is_auto_bucket?' · auto-bucket':''}${a.commissioned_date?' · Commissioned '+fmtDate(a.commissioned_date):''}`;
+
+  // Issuances from store to this asset
   const issForA = _storeIssuances.filter(i=>i.fixed_asset_id===id);
   const fromStore = issForA.reduce((s,i)=>s+(+i.total_value||0),0);
-  const total = (+a.direct_cost||0) + fromStore;
-  document.getElementById('fad-direct').textContent = fmtPKR(+a.direct_cost||0);
-  document.getElementById('fad-store').textContent = fmtPKR(fromStore);
-  document.getElementById('fad-total').textContent = fmtPKR(total);
 
+  // Tasks pointing to this asset
+  const allTasks = window._storeVTasks || [];
+  const allVendors = window._storeVendors || [];
+  const allPays = window._storeTaskPays || [];
+  const paidByTask = {};
+  allPays.forEach(p=>{ paidByTask[p.task_id] = (paidByTask[p.task_id]||0) + (+p.amount||0); });
+
+  const tasksForA = allTasks.filter(t => {
+    if((t.destination_type||'store') !== 'fixed_asset') return false;
+    const target = resolveTaskAsset(t, _storeAssets);
+    return target && target.id === id;
+  });
+  let tasksCommitted = 0, tasksPaid = 0;
+  tasksForA.forEach(t=>{
+    const v = allVendors.find(x=>x.id===t.vendor_id);
+    const total = +v?.total_contract || 0;
+    const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
+    tasksCommitted += allocated;
+    tasksPaid += paidByTask[t.id]||0;
+  });
+
+  const direct = +a.direct_cost||0;
+  const capitalized = direct + fromStore + tasksPaid;
+  const committed = capitalized + Math.max(0, tasksCommitted - tasksPaid);
+
+  document.getElementById('fad-direct').textContent = fmtPKR(direct);
+  document.getElementById('fad-store').textContent = fmtPKR(fromStore + tasksPaid);
+  document.getElementById('fad-total').innerHTML = `${fmtPKR(capitalized)}<div style="font-size:10px;color:#4a9eff;margin-top:2px;">Committed: ${fmtPKR(committed)}</div>`;
+
+  // Combined list: tasks first, then issuances
   const list = document.getElementById('fad-issuances');
-  if(!issForA.length){
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No items issued yet.</div>';
-  } else {
-    list.innerHTML = issForA.map(i=>`
+  let html = '';
+  if(tasksForA.length){
+    html += '<div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin:6px 0 6px;">📐 Direct Tasks</div>';
+    html += tasksForA.map(t=>{
+      const v = allVendors.find(x=>x.id===t.vendor_id);
+      const total = +v?.total_contract || 0;
+      const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
+      const paid = paidByTask[t.id]||0;
+      const remaining = allocated - paid;
+      return `<div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(v?.vendor_name||'—')}${t.responsible_employee?' · '+_esc(t.responsible_employee):''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:12px;color:var(--gold);font-weight:500;">${fmtPKR(allocated)} <span style="font-size:9px;color:var(--text-muted);">committed</span></div>
+            <div style="font-size:11px;color:var(--green);margin-top:2px;">${fmtPKR(paid)} <span style="font-size:9px;color:var(--text-muted);">paid</span></div>
+            ${remaining>0?`<div style="font-size:10px;color:#4a9eff;margin-top:2px;">${fmtPKR(remaining)} pending</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(issForA.length){
+    html += '<div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin:14px 0 6px;">📦 From Store</div>';
+    html += issForA.map(i=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;">
         <div style="flex:1;min-width:0;">
           <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(i.item_name)} · ${(+i.qty||0).toFixed(2)} units</div>
@@ -4090,6 +4347,11 @@ function openFaDetail(id){
       </div>
     `).join('');
   }
+  if(!html){
+    html = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks or items assigned to this asset yet.</div>';
+  }
+  list.innerHTML = html;
+
   document.getElementById('fa-detail-modal').style.display = 'flex';
 }
 function closeFaDetail(){ document.getElementById('fa-detail-modal').style.display = 'none'; }
