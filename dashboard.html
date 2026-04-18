@@ -464,6 +464,18 @@ tr:hover td{background:var(--green-bg);}
         <div id="ov-cashflow" class="ov-cashflow"><div class="ov-muted" style="padding:18px;">loading…</div></div>
       </div>
     </div>
+
+    <!-- Room Progress Grid -->
+    <div class="ov-panel" style="margin-top:20px;">
+      <div class="ov-panel-head">
+        <div>
+          <div class="ov-panel-title">Room Progress</div>
+          <div class="ov-panel-hint" id="ov-rooms-hint">—</div>
+        </div>
+        <button class="ov-btn ov-btn-ghost" onclick="showSection('rooms')">View Details →</button>
+      </div>
+      <div id="ov-rooms-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;padding:8px;"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+    </div>
   </div>
 </div>
 <!-- /OVERVIEW -->
@@ -882,6 +894,24 @@ tr:hover td{background:var(--green-bg);}
     <button class="btn btn-primary" onclick="addRoom()">+ Add Room</button>
   </div>
   <div class="card"><div class="card-title">Room-by-Room Completion</div><div class="table-wrap"><table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Responsible</th><th>Progress</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rooms-tbody"></tbody></table></div></div>
+
+  <!-- ROOM CHECKLIST DETAIL -->
+  <div class="card" style="margin-top:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div class="card-title" style="margin-bottom:2px;">Room Detail & Checklist</div>
+        <div style="font-size:11px;color:var(--text-muted);">Click a room to expand. Tap any item to cycle its status (pending → in progress → done).</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="rc-filter" placeholder="Filter…" oninput="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);width:140px;">
+        <select id="rc-type-filter" onchange="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="">All types</option>
+          <option>Standard</option><option>Deluxe</option><option>Suite</option><option>Penthouse</option><option>Common Area</option>
+        </select>
+      </div>
+    </div>
+    <div id="rc-grid"></div>
+  </div>
 </div>
 
 <!-- BUDGET -->
@@ -2056,6 +2086,9 @@ async function loadOverview(){
         document.getElementById('ov-asset-total-bar').style.width = '100%';
       }, 240);
     } catch(e) { console.warn('Asset KPIs:', e); }
+
+    // ---------- Room progress grid ----------
+    renderOverviewRoomsGrid();
 
     // ---------- Task Sparkline Wall (30-day heart-monitor) ----------
     renderTaskSparkwall(_allVendorTasks, _allPayments);
@@ -3657,6 +3690,22 @@ ALTER TABLE vendors
   ADD COLUMN IF NOT EXISTS default_fixed_asset_pct NUMERIC DEFAULT 100,
   ADD COLUMN IF NOT EXISTS default_fixed_asset_category TEXT DEFAULT 'Building';
 
+-- Room checklist (line items per room)
+CREATE TABLE IF NOT EXISTS room_checklist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
+  item_name TEXT NOT NULL,
+  category TEXT,
+  status TEXT DEFAULT 'pending',
+  notes TEXT,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
+  vendor_task_id UUID REFERENCES vendor_tasks(id) ON DELETE SET NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rc_room ON room_checklist(room_id);
+
 -- Vendor destination (new simplified model)
 ALTER TABLE vendors
   ADD COLUMN IF NOT EXISTS destination_type TEXT DEFAULT 'fixed_asset',
@@ -4366,7 +4415,408 @@ async function loadInventory(){try{const data=await getData('inventory');const t
 async function addInventory(){if(!isAdmin())return;const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}}
 
 // ROOMS
-async function loadRooms(){try{const data=await getData('rooms');const tbody=document.getElementById('rooms-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No rooms added yet.</td></tr>';return;}tbody.innerHTML=data.map(r=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td>`:'<td></td>';return`<tr><td><b>${r.room_name||'—'}</b></td><td>${r.floor||'—'}</td><td>${r.room_type||'—'}</td><td>${r.responsible||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${r.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${r.percent_complete||0}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td><td style="max-width:150px;font-size:12px;">${r.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load rooms','error');}}
+// ============================================================
+// ROOM CHECKLIST MODULE — per-room line items with auto %
+// ============================================================
+
+// Default checklists per room type
+const ROOM_TEMPLATES = {
+  'Standard': [
+    {cat:'Civil',      item:'Walls & Plaster'},
+    {cat:'Civil',      item:'Paint & Finish'},
+    {cat:'Civil',      item:'Flooring / Tiles'},
+    {cat:'Civil',      item:'Ceiling'},
+    {cat:'Electrical', item:'Wiring'},
+    {cat:'Electrical', item:'Light Fixtures'},
+    {cat:'Electrical', item:'Sockets & Switches'},
+    {cat:'Electrical', item:'AC Unit'},
+    {cat:'Plumbing',   item:'Bathroom Fittings'},
+    {cat:'Plumbing',   item:'Toilet Accessories'},
+    {cat:'Furnishing', item:'Door (Entry)'},
+    {cat:'Furnishing', item:'Bed'},
+    {cat:'Furnishing', item:'Wardrobe'},
+    {cat:'Furnishing', item:'Curtains & Blinds'},
+    {cat:'Furnishing', item:'TV & Mount'}
+  ],
+  'Deluxe': [
+    {cat:'Civil',      item:'Walls & Plaster'},
+    {cat:'Civil',      item:'Paint & Finish'},
+    {cat:'Civil',      item:'Flooring / Tiles'},
+    {cat:'Civil',      item:'Ceiling (with cove)'},
+    {cat:'Electrical', item:'Wiring'},
+    {cat:'Electrical', item:'Premium Light Fixtures'},
+    {cat:'Electrical', item:'Sockets & Switches'},
+    {cat:'Electrical', item:'AC Unit (inverter)'},
+    {cat:'Electrical', item:'Smart Controls'},
+    {cat:'Plumbing',   item:'Bathroom Fittings (premium)'},
+    {cat:'Plumbing',   item:'Rainfall Shower'},
+    {cat:'Plumbing',   item:'Toilet Accessories'},
+    {cat:'Furnishing', item:'Door (solid wood)'},
+    {cat:'Furnishing', item:'King Bed'},
+    {cat:'Furnishing', item:'Wardrobe (walk-in)'},
+    {cat:'Furnishing', item:'Curtains (blackout)'},
+    {cat:'Furnishing', item:'TV & Mount (55")'},
+    {cat:'Furnishing', item:'Mini Fridge'},
+    {cat:'Furnishing', item:'Coffee Maker'}
+  ],
+  'Suite': [
+    {cat:'Civil',      item:'Walls & Plaster'},
+    {cat:'Civil',      item:'Paint & Finish (custom)'},
+    {cat:'Civil',      item:'Flooring / Hardwood'},
+    {cat:'Civil',      item:'Ceiling (custom)'},
+    {cat:'Electrical', item:'Wiring'},
+    {cat:'Electrical', item:'Designer Lighting'},
+    {cat:'Electrical', item:'Chandelier'},
+    {cat:'Electrical', item:'Sockets & Switches (premium)'},
+    {cat:'Electrical', item:'AC System (zoned)'},
+    {cat:'Electrical', item:'Smart Home System'},
+    {cat:'Plumbing',   item:'Bathroom Fittings (luxury)'},
+    {cat:'Plumbing',   item:'Jacuzzi / Bathtub'},
+    {cat:'Plumbing',   item:'Rainfall Shower'},
+    {cat:'Plumbing',   item:'Toilet Accessories (premium)'},
+    {cat:'Furnishing', item:'Door (designer)'},
+    {cat:'Furnishing', item:'King Bed (custom)'},
+    {cat:'Furnishing', item:'Walk-in Wardrobe'},
+    {cat:'Furnishing', item:'Living Area Sofa'},
+    {cat:'Furnishing', item:'Curtains (custom)'},
+    {cat:'Furnishing', item:'TV & Mount (65"+)'},
+    {cat:'Furnishing', item:'Mini Bar'},
+    {cat:'Furnishing', item:'Work Desk'}
+  ],
+  'Penthouse': [
+    {cat:'Civil',      item:'Walls & Plaster (premium)'},
+    {cat:'Civil',      item:'Paint & Finish (designer)'},
+    {cat:'Civil',      item:'Flooring (marble/hardwood)'},
+    {cat:'Civil',      item:'Ceiling (vaulted/custom)'},
+    {cat:'Civil',      item:'Terrace Flooring'},
+    {cat:'Electrical', item:'Wiring'},
+    {cat:'Electrical', item:'Designer Lighting Package'},
+    {cat:'Electrical', item:'Chandeliers'},
+    {cat:'Electrical', item:'AC System (multi-zone)'},
+    {cat:'Electrical', item:'Full Smart Home'},
+    {cat:'Electrical', item:'Security System'},
+    {cat:'Plumbing',   item:'Master Bath Fittings'},
+    {cat:'Plumbing',   item:'Guest Bath Fittings'},
+    {cat:'Plumbing',   item:'Jacuzzi'},
+    {cat:'Plumbing',   item:'Rainfall Shower'},
+    {cat:'Plumbing',   item:'Outdoor Shower (terrace)'},
+    {cat:'Furnishing', item:'Main Door (designer)'},
+    {cat:'Furnishing', item:'Bedroom Doors'},
+    {cat:'Furnishing', item:'King Bed (custom)'},
+    {cat:'Furnishing', item:'Walk-in Wardrobes'},
+    {cat:'Furnishing', item:'Living Room Set'},
+    {cat:'Furnishing', item:'Dining Set'},
+    {cat:'Furnishing', item:'Kitchenette'},
+    {cat:'Furnishing', item:'Premium TVs (multi-room)'},
+    {cat:'Furnishing', item:'Outdoor Furniture (terrace)'}
+  ],
+  'Common Area': [
+    {cat:'Civil',      item:'Flooring'},
+    {cat:'Civil',      item:'Paint & Finish'},
+    {cat:'Civil',      item:'Ceiling'},
+    {cat:'Electrical', item:'Lighting'},
+    {cat:'Electrical', item:'AC / HVAC'},
+    {cat:'Furnishing', item:'Fixtures'},
+    {cat:'Furnishing', item:'Decor'},
+    {cat:'Furnishing', item:'Signage'}
+  ]
+};
+
+let _rcRooms = [];
+let _rcItems = []; // all room_checklist rows
+let _rcExpanded = {}; // roomId -> boolean
+
+async function loadRooms(){
+  try{
+    const [rooms, items] = await Promise.all([
+      getData('rooms'),
+      fetch(`${SB_URL}/rest/v1/room_checklist?select=*&order=sort_order.asc`,{headers})
+        .then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    _rcRooms = rooms || [];
+    _rcItems = Array.isArray(items) ? items : [];
+
+    // Render top table
+    const tbody = document.getElementById('rooms-tbody');
+    if(!_rcRooms.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No rooms added yet.</td></tr>';
+    } else {
+      tbody.innerHTML = _rcRooms.map(r=>{
+        const pct = computeRoomPct(r.id, r.percent_complete);
+        const adminBtn = isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td>` : '<td></td>';
+        return `<tr><td><b>${_esc(r.room_name||'—')}</b></td><td>${_esc(r.floor||'—')}</td><td>${_esc(r.room_type||'—')}</td><td>${_esc(r.responsible||'—')}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${Math.round(pct)}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${pct}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td><td style="max-width:150px;font-size:12px;">${_esc(r.notes||'')}</td>${adminBtn}</tr>`;
+      }).join('');
+    }
+
+    renderRoomCards();
+  }catch(e){ console.error('loadRooms:', e); toast('Failed to load rooms','error'); }
+}
+
+// Compute % for a room: avg of checklist item statuses
+function computeRoomPct(roomId, fallbackPct){
+  const items = _rcItems.filter(i=>i.room_id===roomId);
+  if(!items.length) return +fallbackPct || 0;
+  const sum = items.reduce((s,i)=>{
+    if(i.status==='done') return s + 100;
+    if(i.status==='in_progress') return s + 50;
+    return s + 0;
+  },0);
+  return sum / items.length;
+}
+
+function renderRoomCards(){
+  const grid = document.getElementById('rc-grid');
+  if(!grid) return;
+  if(!_rcRooms.length){
+    grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms yet. Add one above.</div>';
+    return;
+  }
+  const filter = (document.getElementById('rc-filter')?.value||'').toLowerCase();
+  const typeFilter = document.getElementById('rc-type-filter')?.value || '';
+  const filtered = _rcRooms.filter(r=>{
+    if(typeFilter && r.room_type !== typeFilter) return false;
+    if(filter){
+      const hay = `${r.room_name||''} ${r.floor||''} ${r.responsible||''}`.toLowerCase();
+      if(!hay.includes(filter)) return false;
+    }
+    return true;
+  });
+  if(!filtered.length){
+    grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms match filter.</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(r=>{
+    const pct = computeRoomPct(r.id, r.percent_complete);
+    const items = _rcItems.filter(i=>i.room_id===r.id);
+    const expanded = _rcExpanded[r.id];
+    const pctColor = pct >= 95 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : '#888';
+
+    let itemsHtml = '';
+    if(expanded){
+      if(items.length === 0){
+        itemsHtml = `<div style="padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">No checklist yet for this room.</div>
+          ${canWrite()?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();initRoomChecklist('${r.id}','${_esc(r.room_type||'Standard')}')">⚡ Initialize ${_esc(r.room_type||'Standard')} Checklist</button>`:''}
+        </div>`;
+      } else {
+        // Group by category
+        const byCat = {};
+        items.forEach(it=>{ const c=it.category||'Other'; if(!byCat[c])byCat[c]=[]; byCat[c].push(it); });
+        itemsHtml = Object.keys(byCat).map(cat=>{
+          const catItems = byCat[cat];
+          const catDone = catItems.filter(i=>i.status==='done').length;
+          return `<div style="margin-bottom:10px;">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${_esc(cat)}</span><span style="color:var(--gold);">${catDone}/${catItems.length}</span></div>
+            <div style="display:grid;gap:4px;">
+              ${catItems.map(it=>{
+                const s = it.status || 'pending';
+                const bg = s==='done' ? 'rgba(76,175,125,.1)' : s==='in_progress' ? 'rgba(184,149,88,.1)' : 'var(--surface2)';
+                const border = s==='done' ? '#4caf7d55' : s==='in_progress' ? '#b8955855' : 'var(--border)';
+                const icon = s==='done' ? '✓' : s==='in_progress' ? '◐' : '○';
+                const iconColor = s==='done' ? '#4caf7d' : s==='in_progress' ? '#b89558' : '#888';
+                const canEdit = canWrite() ? `onclick="event.stopPropagation();cycleChecklistItem('${it.id}')"` : '';
+                const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();deleteChecklistItem('${it.id}')">✕</button>` : '';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border:1px solid ${border};border-radius:6px;cursor:${canWrite()?'pointer':'default'};font-size:12px;" ${canEdit}>
+                  <span style="color:${iconColor};font-size:14px;width:16px;text-align:center;">${icon}</span>
+                  <span style="flex:1;color:var(--text);${s==='done'?'text-decoration:line-through;opacity:0.6;':''}">${_esc(it.item_name)}</span>
+                  ${it.notes?`<span style="font-size:10px;color:var(--text-muted);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(it.notes)}</span>`:''}
+                  ${delBtn}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('');
+        // Add-item inline form
+        if(canWrite()){
+          itemsHtml += `<div style="display:flex;gap:6px;padding:8px;background:var(--surface2);border:1px dashed var(--border);border-radius:6px;margin-top:8px;">
+            <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;background:transparent;border:none;color:var(--text);font-size:12px;outline:none;">
+            <select id="rc-newcat-${r.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);"><option>Civil</option><option>Electrical</option><option>Plumbing</option><option>Furnishing</option><option>Other</option></select>
+            <button class="btn btn-primary btn-sm" style="padding:3px 10px;font-size:11px;" onclick="event.stopPropagation();addChecklistItem('${r.id}')">+ Add</button>
+          </div>`;
+        }
+      }
+    }
+
+    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:var(--surface);">
+      <div style="padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;" onclick="toggleRoomExpand('${r.id}')">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;">${expanded?'▼':'▶'}</span>
+            <b style="font-size:14px;">${_esc(r.room_name||'—')}</b>
+            <span style="background:rgba(184,149,88,.1);color:var(--gold);padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${_esc(r.room_type||'—')}</span>
+            ${r.floor?`<span style="color:var(--text-muted);font-size:11px;">${_esc(r.floor)}</span>`:''}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;margin-left:22px;">
+            ${r.responsible?`👤 ${_esc(r.responsible)} · `:''}${items.length} items${items.length?' · '+items.filter(i=>i.status==='done').length+' done':''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;min-width:140px;">
+          <div style="font-size:16px;font-weight:600;color:${pctColor};">${Math.round(pct)}%</div>
+          <div style="width:120px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px;">
+            <div style="height:100%;background:${pctColor};width:${pct}%;transition:width .3s;"></div>
+          </div>
+        </div>
+      </div>
+      ${expanded?`<div style="border-top:1px solid var(--border);padding:14px;background:rgba(0,0,0,0.02);">${itemsHtml}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function toggleRoomExpand(roomId){
+  _rcExpanded[roomId] = !_rcExpanded[roomId];
+  renderRoomCards();
+}
+
+async function initRoomChecklist(roomId, roomType){
+  if(!canWrite()) return;
+  const template = ROOM_TEMPLATES[roomType] || ROOM_TEMPLATES['Standard'];
+  if(!template.length){ toast('No template for this room type','error'); return; }
+  if(!confirm(`Add ${template.length} checklist items from the ${roomType} template?`)) return;
+  const payload = template.map((t,idx)=>({
+    room_id: roomId,
+    item_name: t.item,
+    category: t.cat,
+    status: 'pending',
+    sort_order: idx
+  }));
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'return=minimal'},
+      body: JSON.stringify(payload)
+    });
+    if(!r.ok){
+      const err = await r.text();
+      if(/room_checklist/i.test(err) && /does not exist|relation/i.test(err)){
+        toast('Run SQL migration first (room_checklist table)','error');
+        showMigrationBanner();
+        return;
+      }
+      throw new Error(err);
+    }
+    toast(`${template.length} items added ✓`);
+    loadRooms();
+  }catch(e){ console.error(e); toast('Error seeding checklist','error'); }
+}
+
+async function cycleChecklistItem(itemId){
+  if(!canWrite()) return;
+  const item = _rcItems.find(i=>i.id===itemId);
+  if(!item) return;
+  const cycle = {pending:'in_progress', in_progress:'done', done:'pending'};
+  const newStatus = cycle[item.status||'pending'];
+  // Optimistic update
+  item.status = newStatus;
+  renderRoomCards();
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/room_checklist?id=eq.${itemId}`,{
+      method:'PATCH', headers,
+      body: JSON.stringify({ status: newStatus, updated_at: new Date().toISOString() })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    // Auto-update room's percent_complete
+    const roomPct = computeRoomPct(item.room_id);
+    try {
+      await fetch(`${SB_URL}/rest/v1/rooms?id=eq.${item.room_id}`,{
+        method:'PATCH', headers,
+        body: JSON.stringify({ percent_complete: Math.round(roomPct) })
+      });
+    }catch(e){/*ignore*/}
+    delete cache['rooms'];
+    // Refresh top table quietly
+    const rooms = await getData('rooms');
+    _rcRooms = rooms;
+    renderRoomCards();
+    // Refresh overview if visible
+    if(document.getElementById('section-overview')?.classList.contains('active')){
+      renderOverviewRoomsGrid();
+    }
+  }catch(e){ console.error(e); toast('Save failed','error'); item.status = item.status; }
+}
+
+async function addChecklistItem(roomId){
+  if(!canWrite()) return;
+  const input = document.getElementById(`rc-newitem-${roomId}`);
+  const cat = document.getElementById(`rc-newcat-${roomId}`).value;
+  const name = (input?.value||'').trim();
+  if(!name){ toast('Item name required','error'); return; }
+  const existing = _rcItems.filter(i=>i.room_id===roomId).length;
+  const payload = { room_id: roomId, item_name: name, category: cat, status:'pending', sort_order: existing };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    if(input) input.value = '';
+    loadRooms();
+  }catch(e){ console.error(e); toast('Error adding item','error'); }
+}
+
+async function deleteChecklistItem(itemId){
+  if(!isAdmin()) return;
+  if(!confirm('Remove this item?')) return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/room_checklist?id=eq.${itemId}`,{method:'DELETE',headers});
+    _rcItems = _rcItems.filter(i=>i.id!==itemId);
+    renderRoomCards();
+  }catch(e){ toast('Error','error'); }
+}
+
+// Overview grid renderer — called from loadOverview
+async function renderOverviewRoomsGrid(){
+  const grid = document.getElementById('ov-rooms-grid');
+  const hint = document.getElementById('ov-rooms-hint');
+  if(!grid) return;
+  try{
+    const [rooms, items] = await Promise.all([
+      getData('rooms'),
+      fetch(`${SB_URL}/rest/v1/room_checklist?select=room_id,status`,{headers})
+        .then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    if(!rooms.length){
+      grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms yet.</div>';
+      if(hint) hint.textContent = '—';
+      return;
+    }
+    const itemList = Array.isArray(items) ? items : [];
+    // Compute pct per room
+    const withPct = rooms.map(r=>{
+      const its = itemList.filter(i=>i.room_id===r.id);
+      let pct = +r.percent_complete || 0;
+      if(its.length){
+        const sum = its.reduce((s,i)=>{
+          if(i.status==='done') return s+100;
+          if(i.status==='in_progress') return s+50;
+          return s;
+        },0);
+        pct = sum / its.length;
+      }
+      return {...r, _pct: pct};
+    }).sort((a,b)=>{
+      // Sort by room_name natural-ish
+      const an = String(a.room_name||''), bn = String(b.room_name||'');
+      return an.localeCompare(bn, undefined, {numeric:true});
+    });
+
+    const doneCount = withPct.filter(r=>r._pct >= 95).length;
+    const progressCount = withPct.filter(r=>r._pct > 0 && r._pct < 95).length;
+    const notStartedCount = withPct.filter(r=>r._pct === 0).length;
+    if(hint) hint.innerHTML = `<span style="color:#4caf7d;">✓ ${doneCount} done</span> · <span style="color:#b89558;">◐ ${progressCount} in progress</span> · <span style="color:#888;">○ ${notStartedCount} not started</span>`;
+
+    grid.innerHTML = withPct.map(r=>{
+      const pct = r._pct;
+      const color = pct >= 95 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : '#555';
+      const bg = pct >= 95 ? 'rgba(76,175,125,.15)' : pct >= 50 ? 'rgba(184,149,88,.12)' : pct > 0 ? 'rgba(224,138,76,.1)' : 'rgba(120,120,120,.08)';
+      return `<div title="${_esc(r.room_name||'')} · ${_esc(r.room_type||'')} · ${Math.round(pct)}%" onclick="showSection('rooms')" style="cursor:pointer;background:${bg};border:1px solid ${color}55;border-radius:8px;padding:8px 6px;text-align:center;transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="font-size:12px;font-weight:600;color:var(--text);line-height:1;">${_esc(r.room_name||'—')}</div>
+        <div style="font-size:13px;font-weight:700;color:${color};margin-top:4px;">${Math.round(pct)}%</div>
+      </div>`;
+    }).join('');
+  }catch(e){ console.error('rooms grid:', e); grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">—</div>'; }
+}
+
+// ============================================================
+// END ROOM CHECKLIST MODULE
+// ============================================================
+
 async function addRoom(){if(!isAdmin())return;const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}}
 
 // BUDGET
