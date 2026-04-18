@@ -510,6 +510,26 @@ tr:hover td{background:var(--green-bg);}
         <select id="v-agreement"><option value="Draft">Draft</option><option value="Approved">Approved ✓</option></select>
         <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Only Approved agreements feed actual cashflow. Drafts show in the Liability report.</div>
       </div>
+      <div class="form-group"><label>Destination</label>
+        <select id="v-destination" onchange="onAddVendorDestChange()">
+          <option value="fixed_asset">📐 Fixed Asset</option>
+          <option value="store">📦 Store</option>
+          <option value="both">🔀 Both</option>
+        </select>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Configure split in the Edit modal after saving.</div>
+      </div>
+      <div class="form-group" id="v-fa-cat-wrap"><label>Fixed Asset Category</label>
+        <select id="v-fa-cat">
+          <option>Building</option>
+          <option>Furniture & Fixtures</option>
+          <option>Equipment</option>
+          <option>Vehicle</option>
+          <option>HVAC</option>
+          <option>Electrical Infrastructure</option>
+          <option>IT & Software</option>
+          <option>Other</option>
+        </select>
+      </div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="v-notes"></textarea></div>
     <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
@@ -1130,74 +1150,98 @@ tr:hover td{background:var(--green-bg);}
       <div class="form-group"><label>Vendor Name *</label><input id="ev-name"></div>
       <div class="form-group"><label>Category</label><input id="ev-cat"></div>
       <div class="form-group"><label>Person Responsible</label><input id="ev-resp"></div>
-      <div class="form-group"><label>Total Contract (PKR)</label><input id="ev-total" type="number" oninput="recalcVendorAllocation()"></div>
-      <div class="form-group">
-        <label>Amount Paid (PKR) <span id="ev-paid-mode-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--text-muted);margin-left:4px;">AUTO</span></label>
-        <input id="ev-paid" type="number">
-        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:6px;">
-          <input type="checkbox" id="ev-paid-manual" onchange="togglePaidManualOverride()" style="margin:0;">
-          <label for="ev-paid-manual" style="margin:0;cursor:pointer;font-size:10px;text-transform:none;letter-spacing:0;color:var(--text-muted);">Manual override (ignore task payments)</label>
-        </div>
-      </div>
+      <div class="form-group"><label>Total Contract (PKR) *</label><input id="ev-total" type="number" oninput="updateVendorSplitPreview()"></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number"><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Manual entry — updates as you log cashflow payments</div></div>
       <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
       <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
       <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
     </div>
     <div class="form-group" style="margin-bottom:16px;"><label>Notes</label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
 
-    <!-- TASKS NESTED UNDER VENDOR -->
+    <!-- DESTINATION — Fixed Asset / Store / Both -->
     <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:8px;">
+      <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Where does this contract's value go?</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" id="ev-dest-fa"    class="btn btn-secondary btn-sm" onclick="setVendorDestination('fixed_asset')">📐 Fixed Asset</button>
+        <button type="button" id="ev-dest-store" class="btn btn-secondary btn-sm" onclick="setVendorDestination('store')">📦 Store</button>
+        <button type="button" id="ev-dest-both"  class="btn btn-secondary btn-sm" onclick="setVendorDestination('both')">🔀 Both</button>
+      </div>
+      <input type="hidden" id="ev-destination">
+
+      <!-- FA category (visible if fixed_asset or both) -->
+      <div class="form-group" id="ev-fa-cat-wrap" style="display:none;margin-bottom:10px;">
+        <label>Fixed Asset Category *</label>
+        <select id="ev-fa-cat">
+          <option>Building</option>
+          <option>Furniture & Fixtures</option>
+          <option>Equipment</option>
+          <option>Vehicle</option>
+          <option>HVAC</option>
+          <option>Electrical Infrastructure</option>
+          <option>IT & Software</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <!-- Split inputs (visible if both) -->
+      <div id="ev-split-wrap" style="display:none;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+        <div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="ev-split-mode" value="pkr" id="ev-split-mode-pkr" checked onchange="updateVendorSplitPreview()"> Enter as PKR</label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="ev-split-mode" value="pct" id="ev-split-mode-pct" onchange="updateVendorSplitPreview()"> Enter as %</label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group"><label>To Fixed Asset</label><input id="ev-split-fa" type="number" placeholder="0" oninput="updateVendorSplitPreview()"></div>
+          <div class="form-group"><label>To Store</label><input id="ev-split-store" type="number" placeholder="0" oninput="updateVendorSplitPreview()"></div>
+        </div>
+        <div id="ev-split-preview" style="font-size:11px;color:var(--text-muted);margin-top:8px;">—</div>
+      </div>
+      <div id="ev-dest-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Pick where this vendor's value flows. Fixed Asset capitalizes directly. Store holds until issued.</div>
+    </div>
+
+    <!-- PAYMENT SCHEDULE (brought into the modal) -->
+    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Payment Schedule <span id="ev-sched-status" style="color:var(--gold);font-size:10px;margin-left:6px;"></span></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">+ Milestone</button>
+      </div>
+      <div id="ev-milestone-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group"><label>% of Total *</label><input id="ev-m-pct" type="number" min="1" max="100" placeholder="e.g. 30" oninput="updateEvMilestonePreview()"></div>
+          <div class="form-group"><label>Due Date *</label><input id="ev-m-date" type="date"></div>
+          <div class="form-group"><label>Priority</label><select id="ev-m-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+        </div>
+        <div class="form-group" style="margin-bottom:8px;"><label>Description</label><input id="ev-m-desc" placeholder="e.g. Foundation completion payment"></div>
+        <div id="ev-m-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">—</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="addEvMilestone()">Save Milestone</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="ev-milestones-list" style="margin-bottom:8px;"></div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">When vendor is marked <b>Approved</b>, milestones auto-create cashflow entries on their due dates.</div>
+    </div>
+
+    <!-- TASKS (tracking only — no money) -->
+    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div>
-          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Vendor Tasks</div>
-          <div id="ev-task-allocation" style="font-size:11px;color:var(--text-muted);margin-top:2px;">—</div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Vendor Tasks <span style="color:var(--text-muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;">(tracking — no money)</span></div>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="openAddTask()">+ Add Task</button>
       </div>
-      <div id="ev-tasks-list" style="margin-bottom:8px;"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet. Add a task to break the contract into deliverables.</div></div>
+      <div id="ev-tasks-list" style="margin-bottom:8px;"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet.</div></div>
 
-      <!-- ADD TASK FORM -->
+      <!-- ADD TASK FORM — simplified, no money -->
       <div id="ev-add-task-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:10px;">
         <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">New Task</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
           <div class="form-group"><label>Task Name *</label><input id="vt-name" placeholder="e.g. Foundation work"></div>
           <div class="form-group"><label>Responsible Employee</label><input id="vt-resp" placeholder="Name"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div class="form-group"><label>Lock By</label>
-            <select id="vt-lockmode" onchange="onLockModeChange()">
-              <option value="pct">% of Contract</option>
-              <option value="pkr">Fixed PKR</option>
-            </select>
-          </div>
-          <div class="form-group" id="vt-pct-wrap"><label>% of Total</label><input id="vt-pct" type="number" min="0" max="100" placeholder="e.g. 30" oninput="updateVtPreview()"></div>
-          <div class="form-group" id="vt-pkr-wrap" style="display:none;"><label>Fixed Amount (PKR)</label><input id="vt-pkr" type="number" placeholder="0" oninput="updateVtPreview()"></div>
-        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
           <div class="form-group"><label>Start Date</label><input id="vt-start" type="date"></div>
-          <div class="form-group"><label>Proposed Completion *</label><input id="vt-due" type="date"></div>
+          <div class="form-group"><label>Proposed Completion *</label><input id="vt-due" type="date"><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">You can change this later</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:rgba(184,149,88,0.05);border:1px solid var(--border);border-radius:6px;">
-          <div class="form-group"><label>Destination Type *</label>
-            <select id="vt-desttype" onchange="onVtDestTypeChange()">
-              <option value="store">📦 Store (will be issued later)</option>
-              <option value="fixed_asset">📐 Fixed Asset (capitalize directly)</option>
-            </select>
-          </div>
-          <div class="form-group" id="vt-fa-cat-wrap" style="display:none;"><label>Fixed Asset Category *</label>
-            <select id="vt-fa-cat">
-              <option>Building</option>
-              <option>Furniture & Fixtures</option>
-              <option>Equipment</option>
-              <option>Vehicle</option>
-              <option>HVAC</option>
-              <option>Electrical Infrastructure</option>
-              <option>IT & Software</option>
-              <option>Other</option>
-            </select>
-          </div>
-        </div>
-        <div id="vt-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">—</div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-primary btn-sm" onclick="saveVendorTask()">Save Task</button>
           <button class="btn btn-secondary btn-sm" onclick="closeAddTask()">Cancel</button>
@@ -1224,90 +1268,23 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <input type="hidden" id="td-id">
 
-    <!-- STATUS STRIP -->
-    <div id="td-status-strip" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Allocated</div>
-        <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:4px;" id="td-allocated">—</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Paid</div>
-        <div style="font-size:15px;font-weight:600;color:var(--green);margin-top:4px;" id="td-paid">—</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Remaining</div>
-        <div style="font-size:15px;font-weight:600;color:var(--gold);margin-top:4px;" id="td-remaining">—</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Progress</div>
-        <div style="font-size:15px;font-weight:600;color:var(--blue);margin-top:4px;" id="td-progress">—</div>
-      </div>
-    </div>
-
     <!-- TIMELINE INDICATOR -->
     <div id="td-timeline" style="margin-bottom:16px;"></div>
 
-    <!-- EDIT FIELDS -->
+    <!-- EDIT FIELDS — no money -->
     <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Task Details</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div class="form-group"><label>Task Name</label><input id="td-e-name"></div>
       <div class="form-group"><label>Responsible Employee</label><input id="td-e-resp"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-      <div class="form-group"><label>Lock By</label>
-        <select id="td-e-lockmode"><option value="pct">% of Contract</option><option value="pkr">Fixed PKR</option></select>
-      </div>
-      <div class="form-group"><label>% of Total</label><input id="td-e-pct" type="number"></div>
-      <div class="form-group"><label>Fixed Amount (PKR)</label><input id="td-e-pkr" type="number"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
       <div class="form-group"><label>Start Date</label><input id="td-e-start" type="date"></div>
       <div class="form-group"><label>Proposed Completion</label><input id="td-e-due" type="date"></div>
       <div class="form-group"><label>Progress %</label><input id="td-e-progress" type="number" min="0" max="100"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:rgba(184,149,88,0.05);border:1px solid var(--border);border-radius:6px;">
-      <div class="form-group"><label>Destination Type</label>
-        <select id="td-e-desttype" onchange="onTdDestTypeChange()">
-          <option value="store">📦 Store (will be issued later)</option>
-          <option value="fixed_asset">📐 Fixed Asset (capitalize directly)</option>
-        </select>
-      </div>
-      <div class="form-group" id="td-e-fa-cat-wrap" style="display:none;"><label>Fixed Asset Category</label>
-        <select id="td-e-fa-cat">
-          <option>Building</option>
-          <option>Furniture & Fixtures</option>
-          <option>Equipment</option>
-          <option>Vehicle</option>
-          <option>HVAC</option>
-          <option>Electrical Infrastructure</option>
-          <option>IT & Software</option>
-          <option>Other</option>
-        </select>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:20px;">
+    <div style="display:flex;gap:8px;">
       <button class="btn btn-primary btn-sm" onclick="saveTaskDetail()">💾 Save Task</button>
       <button class="btn btn-danger btn-sm" onclick="deleteVendorTask()">✕ Delete Task</button>
-    </div>
-
-    <!-- PAYMENTS LOG -->
-    <div style="border-top:1px solid var(--border);padding-top:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Payment Log</div>
-        <button class="btn btn-secondary btn-sm" onclick="togglePaymentForm()">+ Log Payment</button>
-      </div>
-      <div id="td-payment-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;margin-bottom:8px;">
-          <div class="form-group"><label>Amount (PKR)</label><input id="td-p-amount" type="number" placeholder="0"></div>
-          <div class="form-group"><label>Date</label><input id="td-p-date" type="date"></div>
-          <div class="form-group"><label>Note</label><input id="td-p-note" placeholder="e.g. Bank transfer ref #"></div>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary btn-sm" onclick="savePayment()">Save</button>
-          <button class="btn btn-secondary btn-sm" onclick="togglePaymentForm()">Cancel</button>
-        </div>
-      </div>
-      <div id="td-payments-list"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No payments logged.</div></div>
     </div>
   </div>
 </div>
@@ -2954,8 +2931,10 @@ function taskPaidTotal(payments){
   return (payments||[]).reduce((s,p)=>s+(+p.amount||0), 0);
 }
 
-// ── EDIT VENDOR MODAL ENHANCEMENTS ──────────────────────────
-let _evTasks = []; let _evPayments = [];
+// ── EDIT VENDOR MODAL ──────────────────────────
+let _evTasks = [];
+let _evMilestones = []; // payment schedule milestones (from localStorage for now)
+let _evVendorOriginalApproval = null; // track if approval just changed
 
 async function openEditVendor(id){
   if(!canWrite())return;
@@ -2972,20 +2951,53 @@ async function openEditVendor(id){
   document.getElementById('ev-status').value = v.status||'Pending';
   document.getElementById('ev-approval').value = v.approval||'Pending Approval';
   document.getElementById('ev-notes').value = v.notes||'';
-  document.getElementById('ev-paid-manual').checked = !!v.paid_manual_override;
+  _evVendorOriginalApproval = v.approval || 'Pending Approval';
+
   // Agreement status
   const ag = v.agreement_status || 'Draft';
   document.getElementById('ev-agreement').value = ag;
   updateAgreementUI(ag);
+
+  // Destination — prefer new fields, fall back to old pct-based ones for existing data
+  const dest = v.destination_type
+    || (v.default_inventory_pct > 0 && v.default_fixed_asset_pct > 0 ? 'both'
+      : v.default_inventory_pct > 0 ? 'store'
+      : 'fixed_asset');
+  document.getElementById('ev-destination').value = dest;
+  document.getElementById('ev-fa-cat').value = v.fixed_asset_category || v.default_fixed_asset_category || 'Building';
+  // Restore split values
+  if(dest === 'both'){
+    const mode = v.split_mode || 'pkr';
+    if(mode === 'pct' && document.getElementById('ev-split-mode-pct')){
+      document.getElementById('ev-split-mode-pct').checked = true;
+      document.getElementById('ev-split-fa').value = (v.total_contract && v.fa_amount) ? ((v.fa_amount/v.total_contract)*100).toFixed(1) : (v.default_fixed_asset_pct||0);
+      document.getElementById('ev-split-store').value = (v.total_contract && v.store_amount) ? ((v.store_amount/v.total_contract)*100).toFixed(1) : (v.default_inventory_pct||0);
+    } else {
+      if(document.getElementById('ev-split-mode-pkr')) document.getElementById('ev-split-mode-pkr').checked = true;
+      document.getElementById('ev-split-fa').value = v.fa_amount || '';
+      document.getElementById('ev-split-store').value = v.store_amount || '';
+    }
+  } else {
+    document.getElementById('ev-split-fa').value = '';
+    document.getElementById('ev-split-store').value = '';
+  }
+  updateVendorDestinationUI();
+
   // Reset task form state
   closeAddTask();
+  toggleEvMilestoneForm(true); // force-close
+
+  // Load milestones (use existing localStorage getVendorSchedule since that's what's been working)
+  _evMilestones = (typeof getVendorSchedule === 'function' ? getVendorSchedule(v.id) : []) || [];
+  renderEvMilestonesList();
+
   document.getElementById('edit-vendor-modal').style.display = 'flex';
-  // Fetch tasks + payments for this vendor
+
+  // Fetch tasks for this vendor
   _evTasks = await fetchVendorTasks(v.id);
-  _evPayments = await fetchVendorPayments(v.id);
   renderEvTasksList();
-  updatePaidDisplay();
 }
+
 function updateAgreementUI(status){
   const disp = document.getElementById('ev-agreement-display');
   const note = document.getElementById('ev-agreement-note');
@@ -3007,50 +3019,143 @@ function setAgreementStatus(s){
   document.getElementById('ev-agreement').value = s;
   updateAgreementUI(s);
 }
-function togglePaidManualOverride(){
-  updatePaidDisplay();
+
+// ── DESTINATION ──
+function setVendorDestination(type){
+  document.getElementById('ev-destination').value = type;
+  updateVendorDestinationUI();
+  updateVendorSplitPreview();
 }
-function updatePaidDisplay(){
-  const manual = document.getElementById('ev-paid-manual').checked;
-  const badge = document.getElementById('ev-paid-mode-badge');
-  const paidInput = document.getElementById('ev-paid');
-  if(manual){
-    badge.textContent = 'MANUAL'; badge.style.color = '#d4b47a';
-    paidInput.readOnly = false;
+function updateVendorDestinationUI(){
+  const dest = document.getElementById('ev-destination').value || '';
+  const faBtn = document.getElementById('ev-dest-fa');
+  const stBtn = document.getElementById('ev-dest-store');
+  const bothBtn = document.getElementById('ev-dest-both');
+  const faCatWrap = document.getElementById('ev-fa-cat-wrap');
+  const splitWrap = document.getElementById('ev-split-wrap');
+  const hint = document.getElementById('ev-dest-hint');
+
+  faBtn.className = dest==='fixed_asset' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  stBtn.className = dest==='store' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  bothBtn.className = dest==='both' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+
+  faCatWrap.style.display = (dest==='fixed_asset' || dest==='both') ? 'block' : 'none';
+  splitWrap.style.display = dest==='both' ? 'block' : 'none';
+
+  if(dest==='fixed_asset') hint.textContent = 'Full contract value capitalized to Fixed Asset in the picked category.';
+  else if(dest==='store') hint.textContent = 'Full contract value goes to Store. Storeman issues items out later.';
+  else if(dest==='both') hint.textContent = 'Split contract value between Fixed Asset and Store. Enter amounts below.';
+  else hint.textContent = 'Pick where this vendor\'s value flows. Fixed Asset capitalizes directly. Store holds until issued.';
+}
+function updateVendorSplitPreview(){
+  const total = +document.getElementById('ev-total').value || 0;
+  const dest = document.getElementById('ev-destination').value;
+  if(dest !== 'both'){ return; }
+  const mode = document.querySelector('input[name="ev-split-mode"]:checked')?.value || 'pkr';
+  const faRaw = +document.getElementById('ev-split-fa').value || 0;
+  const stRaw = +document.getElementById('ev-split-store').value || 0;
+  let faPkr, stPkr, faPct, stPct;
+  if(mode === 'pkr'){
+    faPkr = faRaw; stPkr = stRaw;
+    faPct = total ? (faPkr/total)*100 : 0;
+    stPct = total ? (stPkr/total)*100 : 0;
   } else {
-    badge.textContent = 'AUTO'; badge.style.color = 'var(--text-muted)';
-    // Auto-compute from task payments
-    const sum = _evPayments.reduce((s,p)=>s+(+p.amount||0), 0);
-    if(_evTasks.length && sum){ paidInput.value = sum; paidInput.readOnly = true; }
-    else { paidInput.readOnly = false; }
+    faPct = faRaw; stPct = stRaw;
+    faPkr = total * (faPct/100);
+    stPkr = total * (stPct/100);
   }
+  const sum = faPkr + stPkr;
+  const tolerance = Math.max(1, total * 0.01);
+  const matchesTotal = total > 0 && Math.abs(sum - total) <= tolerance;
+  const color = matchesTotal ? '#4caf7d' : '#e08a4c';
+  const warning = total > 0 && !matchesTotal ? ` · ⚠ doesn't match total` : '';
+  document.getElementById('ev-split-preview').innerHTML =
+    `<span style="color:${color};">FA: ${fmtPKR(faPkr)} (${faPct.toFixed(1)}%) · Store: ${fmtPKR(stPkr)} (${stPct.toFixed(1)}%) · Sum: ${fmtPKR(sum)}${warning}</span>`;
 }
 
-// Render nested task list in vendor modal
-function renderEvTasksList(){
-  const list = document.getElementById('ev-tasks-list');
-  const total = +document.getElementById('ev-total').value || 0;
-  if(!_evTasks.length){
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet. Add a task to break the contract into deliverables.</div>';
-    document.getElementById('ev-task-allocation').textContent = '—';
+// ── PAYMENT SCHEDULE (in the vendor modal) ──
+function toggleEvMilestoneForm(forceClose){
+  const f = document.getElementById('ev-milestone-form');
+  const showing = f.style.display !== 'none';
+  if(forceClose===true || showing){
+    f.style.display = 'none';
     return;
   }
-  // Payments per task
-  const payByTask = {};
-  _evPayments.forEach(p=>{ (payByTask[p.task_id]=payByTask[p.task_id]||[]).push(p); });
+  f.style.display = 'block';
+  ['ev-m-pct','ev-m-date','ev-m-desc'].forEach(id=>document.getElementById(id).value='');
+  updateEvMilestonePreview();
+}
+function updateEvMilestonePreview(){
+  const total = +document.getElementById('ev-total').value || 0;
+  const pct = +document.getElementById('ev-m-pct').value || 0;
+  const amt = total * (pct/100);
+  document.getElementById('ev-m-preview').textContent = amt > 0 ? `Value at this milestone: ${fmtPKR(amt)}` : '—';
+}
+function addEvMilestone(){
+  const pct = +document.getElementById('ev-m-pct').value || 0;
+  const date = document.getElementById('ev-m-date').value;
+  const desc = document.getElementById('ev-m-desc').value.trim();
+  const priority = document.getElementById('ev-m-priority').value;
+  if(!pct || !date){ toast('% and date required','error'); return; }
+  const scheduled = _evMilestones.reduce((s,m)=>s+(+m.pct||0),0);
+  if(scheduled + pct > 100.01){
+    if(!confirm(`This would make the schedule total ${(scheduled+pct).toFixed(1)}%. Save anyway?`)) return;
+  }
+  _evMilestones.push({ pct, date, desc, priority, payStatus:'Scheduled', paidAmt:0 });
+  _evMilestones.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  toggleEvMilestoneForm(true);
+  renderEvMilestonesList();
+}
+function removeEvMilestone(idx){
+  if(!confirm('Remove this milestone?')) return;
+  _evMilestones.splice(idx,1);
+  renderEvMilestonesList();
+}
+function renderEvMilestonesList(){
+  const list = document.getElementById('ev-milestones-list');
+  const status = document.getElementById('ev-sched-status');
+  const total = +document.getElementById('ev-total').value || 0;
+  if(!_evMilestones.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No milestones yet.</div>';
+    status.textContent = '';
+    return;
+  }
+  const sumPct = _evMilestones.reduce((s,m)=>s+(+m.pct||0),0);
+  const sumAmt = total * (sumPct/100);
+  const col = sumPct > 100.01 ? '#d04040' : sumPct < 99 ? '#e08a4c' : '#4caf7d';
+  status.innerHTML = `<span style="color:${col};">${sumPct.toFixed(1)}% scheduled · ${fmtPKR(sumAmt)}</span>`;
+  list.innerHTML = _evMilestones.map((m,i)=>{
+    const amt = total * ((+m.pct||0)/100);
+    const today = new Date().toISOString().slice(0,10);
+    const overdue = m.date < today && m.payStatus !== 'Paid';
+    const paidBadge = m.payStatus === 'Paid' ? '<span style="background:rgba(76,175,125,.15);color:#4caf7d;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">✓ PAID</span>'
+                    : overdue ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">⚠ OVERDUE</span>'
+                    : '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">SCHEDULED</span>';
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-size:14px;color:var(--gold);">${(+m.pct||0).toFixed(1)}%</b>
+          <span style="color:var(--text-muted);font-size:11px;">on ${fmtDate(m.date)}</span>
+          ${paidBadge}
+        </div>
+        ${m.desc?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${_esc(m.desc)}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:13px;font-weight:500;color:var(--text);">${fmtPKR(amt)}</div>
+        <button class="btn btn-danger btn-sm" style="margin-top:4px;" onclick="removeEvMilestone(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  let allocPkr = 0;
-  let allocPct = 0;
-  _evTasks.forEach(t=>{
-    const amt = taskAmount(t, total);
-    allocPkr += amt;
-    if(t.lock_mode==='pct') allocPct += +t.pct_of_contract||0;
-    else if(total) allocPct += (amt/total)*100;
-  });
-
+// ── TASK LIST — simplified, no money ──
+function renderEvTasksList(){
+  const list = document.getElementById('ev-tasks-list');
+  if(!_evTasks.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet.</div>';
+    return;
+  }
   list.innerHTML = _evTasks.map(t=>{
-    const amt = taskAmount(t, total);
-    const paid = taskPaidTotal(payByTask[t.id]||[]);
     const progress = +t.progress_pct || 0;
     const proposedInfo = t.proposed_date
       ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`
@@ -3059,41 +3164,22 @@ function renderEvTasksList(){
     const flagBadge = behindFlag === 'critical' ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">⚠ OVERDUE</span>'
                     : behindFlag === 'warning' ? '<span style="background:rgba(224,138,76,.15);color:#e08a4c;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">BEHIND</span>'
                     : '';
-    const destType = t.destination_type || 'store';
-    const destBadge = destType === 'fixed_asset'
-      ? `<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">📐 ${_esc(t.fixed_asset_category||'Fixed Asset')}</span>`
-      : `<span style="background:rgba(184,149,88,.15);color:#b89558;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">📦 STORE</span>`;
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}${destBadge}${flagBadge}</div>
+          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}${flagBadge}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
             ${t.responsible_employee?('👤 '+_esc(t.responsible_employee)+' · '):''}
             ${proposedInfo}
           </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:12px;font-weight:500;color:var(--gold);">${fmtPKR(amt)}</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Paid ${fmtPKR(paid)}</div>
-        </div>
+        <div style="text-align:right;flex-shrink:0;font-size:11px;color:var(--text-muted);">${Math.round(progress)}%</div>
       </div>
-      <div style="margin-top:8px;background:var(--border);border-radius:10px;height:5px;overflow:hidden;">
+      <div style="margin-top:8px;background:var(--border);border-radius:10px;height:4px;overflow:hidden;">
         <div style="height:100%;background:${progress>=100?'#4caf7d':'#b89558'};border-radius:10px;width:${Math.min(100,progress)}%;transition:width .3s;"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px;">
-        <span>${Math.round(progress)}% complete</span>
-        <span>${t.lock_mode==='pct'?((+t.pct_of_contract||0)+'% of contract'):'Fixed PKR'}</span>
       </div>
     </div>`;
   }).join('');
-
-  // Allocation summary
-  const pctTxt = total ? `${Math.round(allocPct)}% of contract allocated` : `${fmtPKR(allocPkr)} allocated`;
-  const overAlloc = allocPct > 101;
-  const underAlloc = allocPct < 99 && total;
-  const color = overAlloc ? '#d04040' : (underAlloc ? '#e08a4c' : '#4caf7d');
-  document.getElementById('ev-task-allocation').innerHTML =
-    `<span style="color:${color};">${pctTxt}</span> · ${fmtPKR(allocPkr)} allocated of ${fmtPKR(total)}`;
 }
 
 // Check if a task is behind schedule
@@ -3122,48 +3208,10 @@ function _esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':
 // ── ADD TASK FORM ──────────────────────────────────────────
 function openAddTask(){
   document.getElementById('ev-add-task-form').style.display = 'block';
-  ['vt-name','vt-resp','vt-pct','vt-pkr','vt-start','vt-due'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('vt-lockmode').value = 'pct';
-  document.getElementById('vt-desttype').value = 'store';
-  document.getElementById('vt-fa-cat').value = 'Building';
-  onLockModeChange();
-  onVtDestTypeChange();
-  updateVtPreview();
+  ['vt-name','vt-resp','vt-start','vt-due'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 function closeAddTask(){
   document.getElementById('ev-add-task-form').style.display = 'none';
-}
-function onLockModeChange(){
-  const m = document.getElementById('vt-lockmode').value;
-  document.getElementById('vt-pct-wrap').style.display = m==='pct' ? 'block' : 'none';
-  document.getElementById('vt-pkr-wrap').style.display = m==='pkr' ? 'block' : 'none';
-  updateVtPreview();
-}
-function onVtDestTypeChange(){
-  const t = document.getElementById('vt-desttype').value;
-  document.getElementById('vt-fa-cat-wrap').style.display = t==='fixed_asset' ? 'block' : 'none';
-}
-function onTdDestTypeChange(){
-  const t = document.getElementById('td-e-desttype').value;
-  document.getElementById('td-e-fa-cat-wrap').style.display = t==='fixed_asset' ? 'block' : 'none';
-}
-function updateVtPreview(){
-  const total = +document.getElementById('ev-total').value || 0;
-  const m = document.getElementById('vt-lockmode').value;
-  let amount = 0, pct = 0;
-  if(m === 'pct'){
-    pct = +document.getElementById('vt-pct').value || 0;
-    amount = (pct/100) * total;
-  } else {
-    amount = +document.getElementById('vt-pkr').value || 0;
-    pct = total ? (amount/total)*100 : 0;
-  }
-  const msg = `Preview: ${fmtPKR(amount)} (${Math.round(pct*10)/10}% of contract)`;
-  document.getElementById('vt-preview').textContent = msg;
-}
-function recalcVendorAllocation(){
-  renderEvTasksList();
-  updateVtPreview();
 }
 
 async function saveVendorTask(){
@@ -3172,95 +3220,58 @@ async function saveVendorTask(){
   if(!vendorId){ toast('Save the vendor first','error'); return; }
   const name = document.getElementById('vt-name').value.trim();
   if(!name){ toast('Task name required','error'); return; }
-  const lockMode = document.getElementById('vt-lockmode').value;
-  const destType = document.getElementById('vt-desttype').value;
   const payload = {
     vendor_id: vendorId,
     task_name: name,
     responsible_employee: document.getElementById('vt-resp').value.trim() || null,
-    lock_mode: lockMode,
-    pct_of_contract: lockMode==='pct' ? (+document.getElementById('vt-pct').value||0) : 0,
-    fixed_amount: lockMode==='pkr' ? (+document.getElementById('vt-pkr').value||0) : 0,
     start_date: document.getElementById('vt-start').value || null,
     proposed_date: document.getElementById('vt-due').value || null,
-    destination_type: destType,
-    fixed_asset_category: destType==='fixed_asset' ? document.getElementById('vt-fa-cat').value : null,
     progress_pct: 0,
     status: 'Not Started'
   };
   try{
-    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
-    if(!r.ok){
-      const err = await r.text();
-      // Graceful fallback if destination columns don't exist
-      if(/destination_type|fixed_asset_category/i.test(err) && /column/i.test(err)){
-        delete payload.destination_type;
-        delete payload.fixed_asset_category;
-        r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
-        if(!r.ok) throw new Error(await r.text());
-        toast('Task saved (run SQL migration to enable destination tagging)','error');
-      } else { throw new Error(err); }
-    } else {
-      toast('Task added ✓');
-    }
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Task added ✓');
     closeAddTask();
     _evTasks = await fetchVendorTasks(vendorId);
     renderEvTasksList();
   }catch(e){ console.error(e); toast('Error adding task','error'); }
 }
 
-// ── TASK DETAIL MODAL ──────────────────────────────────────
-let _tdTask = null; let _tdPayments = [];
+// ── TASK DETAIL MODAL — simplified ──
+let _tdTask = null;
 
-async function openTaskDetail(taskId){
+function openTaskDetail(taskId){
   const task = _evTasks.find(t=>t.id===taskId);
   if(!task) return;
   _tdTask = task;
   const vendorId = document.getElementById('ev-id').value;
   const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
-  const total = +vendor?.total_contract || 0;
-  const amt = taskAmount(task, total);
 
   document.getElementById('td-id').value = task.id;
   document.getElementById('td-name').textContent = task.task_name;
   document.getElementById('td-vendor').textContent = (vendor?.vendor_name||'—') + ' · ' + (task.responsible_employee||'Unassigned');
 
-  _tdPayments = await fetchTaskPayments(task.id);
-  const paidSum = taskPaidTotal(_tdPayments);
-
-  document.getElementById('td-allocated').textContent = fmtPKR(amt);
-  document.getElementById('td-paid').textContent = fmtPKR(paidSum);
-  document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
-  document.getElementById('td-progress').textContent = Math.round(+task.progress_pct||0) + '%';
-
-  // Edit fields
+  // Edit fields (no money)
   document.getElementById('td-e-name').value = task.task_name||'';
   document.getElementById('td-e-resp').value = task.responsible_employee||'';
-  document.getElementById('td-e-lockmode').value = task.lock_mode||'pct';
-  document.getElementById('td-e-pct').value = task.pct_of_contract||0;
-  document.getElementById('td-e-pkr').value = task.fixed_amount||0;
   document.getElementById('td-e-start').value = task.start_date||'';
   document.getElementById('td-e-due').value = task.proposed_date||'';
   document.getElementById('td-e-progress').value = task.progress_pct||0;
-  document.getElementById('td-e-desttype').value = task.destination_type || 'store';
-  document.getElementById('td-e-fa-cat').value = task.fixed_asset_category || 'Building';
-  onTdDestTypeChange();
 
   // Timeline indicator
   renderTaskTimeline(task);
-
-  // Payments list
-  renderTaskPayments(amt, paidSum);
 
   document.getElementById('task-detail-modal').style.display = 'flex';
 }
 function closeTaskDetail(){
   document.getElementById('task-detail-modal').style.display = 'none';
-  document.getElementById('td-payment-form').style.display = 'none';
 }
 
 function renderTaskTimeline(task){
   const el = document.getElementById('td-timeline');
+  if(!el) return;
   if(!task.proposed_date){ el.innerHTML=''; return; }
   const today = new Date(); today.setHours(0,0,0,0);
   const due = new Date(task.proposed_date);
@@ -3291,140 +3302,53 @@ function renderTaskTimeline(task){
   </div>`;
 }
 
-function renderTaskPayments(allocated, paid){
-  const el = document.getElementById('td-payments-list');
-  if(!_tdPayments.length){
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No payments logged.</div>';
-    return;
-  }
-  el.innerHTML = _tdPayments.map(p=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:500;font-size:13px;color:var(--green);">${fmtPKR(+p.amount||0)}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${new Date(p.paid_date||p.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}${p.note?' · '+_esc(p.note):''}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">✕</button>
-    </div>
-  `).join('');
-}
-
-function togglePaymentForm(){
-  const f = document.getElementById('td-payment-form');
-  const showing = f.style.display !== 'none';
-  f.style.display = showing ? 'none' : 'block';
-  if(!showing){
-    const today = new Date().toISOString().slice(0,10);
-    document.getElementById('td-p-date').value = today;
-    document.getElementById('td-p-amount').value = '';
-    document.getElementById('td-p-note').value = '';
-  }
-}
-
-async function savePayment(){
-  if(!canWrite())return;
-  const taskId = document.getElementById('td-id').value;
-  const vendorId = document.getElementById('ev-id').value;
-  const amount = +document.getElementById('td-p-amount').value;
-  if(!amount || amount <= 0){ toast('Amount required','error'); return; }
-  const payload = {
-    task_id: taskId, vendor_id: vendorId, amount,
-    paid_date: document.getElementById('td-p-date').value || new Date().toISOString().slice(0,10),
-    note: document.getElementById('td-p-note').value.trim() || null
-  };
-  try{
-    const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`,{ method:'POST', headers, body: JSON.stringify(payload) });
-    if(!r.ok) throw new Error(await r.text());
-    toast('Payment logged ✓');
-    togglePaymentForm();
-    // Reload
-    _tdPayments = await fetchTaskPayments(taskId);
-    _evPayments = await fetchVendorPayments(vendorId);
-    const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
-    const total = +vendor?.total_contract || 0;
-    const amt = taskAmount(_tdTask, total);
-    const paidSum = taskPaidTotal(_tdPayments);
-    document.getElementById('td-paid').textContent = fmtPKR(paidSum);
-    document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
-    renderTaskPayments(amt, paidSum);
-    updatePaidDisplay();
-    renderEvTasksList();
-  }catch(e){ console.error(e); toast('Error saving payment','error'); }
-}
-async function deletePayment(id){
-  if(!canWrite())return;
-  if(!confirm('Remove this payment?'))return;
-  try{
-    await fetch(`${SB_URL}/rest/v1/vendor_task_payments?id=eq.${id}`,{ method:'DELETE', headers });
-    toast('Payment removed ✓');
-    const taskId = document.getElementById('td-id').value;
-    const vendorId = document.getElementById('ev-id').value;
-    _tdPayments = await fetchTaskPayments(taskId);
-    _evPayments = await fetchVendorPayments(vendorId);
-    const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
-    const total = +vendor?.total_contract || 0;
-    const amt = taskAmount(_tdTask, total);
-    const paidSum = taskPaidTotal(_tdPayments);
-    document.getElementById('td-paid').textContent = fmtPKR(paidSum);
-    document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
-    renderTaskPayments(amt, paidSum);
-    renderEvTasksList();
-    updatePaidDisplay();
-  }catch(e){ toast('Error','error'); }
-}
-
 async function saveTaskDetail(){
   if(!canWrite())return;
   const taskId = document.getElementById('td-id').value;
   const vendorId = document.getElementById('ev-id').value;
-  const destType = document.getElementById('td-e-desttype').value;
   const payload = {
     task_name: document.getElementById('td-e-name').value.trim(),
     responsible_employee: document.getElementById('td-e-resp').value.trim() || null,
-    lock_mode: document.getElementById('td-e-lockmode').value,
-    pct_of_contract: +document.getElementById('td-e-pct').value || 0,
-    fixed_amount: +document.getElementById('td-e-pkr').value || 0,
     start_date: document.getElementById('td-e-start').value || null,
     proposed_date: document.getElementById('td-e-due').value || null,
-    progress_pct: +document.getElementById('td-e-progress').value || 0,
-    destination_type: destType,
-    fixed_asset_category: destType==='fixed_asset' ? document.getElementById('td-e-fa-cat').value : null
+    progress_pct: +document.getElementById('td-e-progress').value || 0
   };
   try{
-    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
-    if(!r.ok){
-      const err = await r.text();
-      if(/destination_type|fixed_asset_category/i.test(err) && /column/i.test(err)){
-        delete payload.destination_type;
-        delete payload.fixed_asset_category;
-        r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
-        if(!r.ok) throw new Error(await r.text());
-        toast('Saved (run SQL migration to enable destination tagging)','error');
-      } else { throw new Error(err); }
-    } else {
-      toast('Task saved ✓');
-    }
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Task saved ✓');
     _evTasks = await fetchVendorTasks(vendorId);
     _tdTask = _evTasks.find(t=>t.id===taskId);
     renderEvTasksList();
     renderTaskTimeline(_tdTask);
-    document.getElementById('td-progress').textContent = Math.round(payload.progress_pct)+'%';
   }catch(e){ console.error(e); toast('Error saving task','error'); }
 }
 async function deleteVendorTask(){
   if(!canWrite())return;
   const taskId = document.getElementById('td-id').value;
   const vendorId = document.getElementById('ev-id').value;
-  if(!confirm('Delete this task and all its payments? This cannot be undone.')) return;
+  if(!confirm('Delete this task? This cannot be undone.')) return;
   try{
     await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`,{ method:'DELETE', headers });
     toast('Task deleted ✓');
     closeTaskDetail();
     _evTasks = await fetchVendorTasks(vendorId);
-    _evPayments = await fetchVendorPayments(vendorId);
     renderEvTasksList();
-    updatePaidDisplay();
   }catch(e){ toast('Error','error'); }
 }
+
+// No-op stubs for removed payment functions (kept so any stray references don't blow up)
+function togglePaymentForm(){}
+async function savePayment(){}
+async function deletePayment(){}
+function renderTaskPayments(){}
+function onLockModeChange(){}
+function onVtDestTypeChange(){}
+function onTdDestTypeChange(){}
+function updateVtPreview(){}
+function recalcVendorAllocation(){}
+function togglePaidManualOverride(){}
+function updatePaidDisplay(){}
 
 // ── DRAFT LIABILITY REPORT ─────────────────────────────────
 async function loadDraftLiability(){
@@ -3615,7 +3539,61 @@ async function loadVendors(){
     }).join('');
   }catch(e){console.error(e);toast('Failed to load vendors','error');}
 }
-async function addVendor(){if(!isAdmin())return;const name=document.getElementById('v-name').value.trim();if(!name){toast('Vendor name required','error');return;}try{const payload={vendor_name:name,category:document.getElementById('v-cat').value,responsible:document.getElementById('v-resp').value,total_contract:+document.getElementById('v-total').value||null,amount_paid:+document.getElementById('v-paid').value||null,due_date:document.getElementById('v-due').value||null,status:document.getElementById('v-status').value,approval:document.getElementById('v-approval').value,agreement_status:document.getElementById('v-agreement').value,notes:document.getElementById('v-notes').value};try{await sbInsert('vendors',payload);}catch(err){if(/agreement_status/i.test(String(err))){delete payload.agreement_status;await sbInsert('vendors',payload);showMigrationBanner();}else{throw err;}}toast('Vendor added ✓');['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>document.getElementById(id).value='');delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error adding vendor','error');}}
+async function addVendor(){
+  if(!isAdmin())return;
+  const name=document.getElementById('v-name').value.trim();
+  if(!name){toast('Vendor name required','error');return;}
+  try{
+    const total = +document.getElementById('v-total').value || null;
+    const dest = document.getElementById('v-destination')?.value || 'fixed_asset';
+    const faCat = document.getElementById('v-fa-cat')?.value || 'Building';
+    const payload = {
+      vendor_name: name,
+      category: document.getElementById('v-cat').value,
+      responsible: document.getElementById('v-resp').value,
+      total_contract: total,
+      amount_paid: +document.getElementById('v-paid').value||null,
+      due_date: document.getElementById('v-due').value||null,
+      status: document.getElementById('v-status').value,
+      approval: document.getElementById('v-approval').value,
+      agreement_status: document.getElementById('v-agreement').value,
+      destination_type: dest,
+      fixed_asset_category: faCat,
+      split_mode: 'pkr',
+      fa_amount: dest==='fixed_asset' ? total : (dest==='both' ? null : 0),
+      store_amount: dest==='store' ? total : (dest==='both' ? null : 0),
+      notes: document.getElementById('v-notes').value
+    };
+    // Recursive retry — strip new columns if schema isn't migrated
+    const tryInsert = async (p) => {
+      try{ await sbInsert('vendors', p); return true; }
+      catch(err){
+        const msg = String(err);
+        const stripCols = ['destination_type','fixed_asset_category','split_mode','fa_amount','store_amount','agreement_status'];
+        let removed = false;
+        stripCols.forEach(c=>{
+          if(new RegExp(c,'i').test(msg)){ delete p[c]; removed = true; }
+        });
+        if(removed){ showMigrationBanner(); return await tryInsert(p); }
+        throw err;
+      }
+    };
+    await tryInsert(payload);
+    toast('Vendor added ✓');
+    ['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    delete cache['vendors'];
+    loadVendors();
+    loadOverview();
+    loadAlerts();
+  }catch(e){ console.error(e); toast('Error adding vendor','error'); }
+}
+
+function onAddVendorDestChange(){
+  const dest = document.getElementById('v-destination')?.value;
+  const wrap = document.getElementById('v-fa-cat-wrap');
+  if(!wrap) return;
+  wrap.style.display = (dest==='fixed_asset' || dest==='both') ? 'block' : 'none';
+}
 
 // WIP
 async function loadWip(){
@@ -3678,6 +3656,19 @@ ALTER TABLE vendors
   ADD COLUMN IF NOT EXISTS default_inventory_pct NUMERIC DEFAULT 0,
   ADD COLUMN IF NOT EXISTS default_fixed_asset_pct NUMERIC DEFAULT 100,
   ADD COLUMN IF NOT EXISTS default_fixed_asset_category TEXT DEFAULT 'Building';
+
+-- Vendor destination (new simplified model)
+ALTER TABLE vendors
+  ADD COLUMN IF NOT EXISTS destination_type TEXT DEFAULT 'fixed_asset',
+  ADD COLUMN IF NOT EXISTS fixed_asset_category TEXT DEFAULT 'Building',
+  ADD COLUMN IF NOT EXISTS split_mode TEXT DEFAULT 'pkr',
+  ADD COLUMN IF NOT EXISTS fa_amount NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS store_amount NUMERIC DEFAULT 0;
+
+-- Link cashflow entries back to their source vendor for auto-updates
+ALTER TABLE cashflow
+  ADD COLUMN IF NOT EXISTS source_vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS source_milestone_idx INTEGER;
 
 -- Task overrides
 ALTER TABLE vendor_tasks
@@ -4479,48 +4470,161 @@ const dz=document.getElementById('drop-zone');
 if(dz){dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f){document.getElementById('xero-file').files=e.dataTransfer.files;handleXeroFile({files:[f]});}});}
 
 // EDIT VENDOR
-function openEditVendor(id){if(!canWrite())return;const vendors=cache['vendors']||[];const v=vendors.find(x=>x.id===id);if(!v)return;document.getElementById('ev-id').value=v.id;document.getElementById('ev-name').value=v.vendor_name||'';document.getElementById('ev-cat').value=v.category||'';document.getElementById('ev-resp').value=v.responsible||'';document.getElementById('ev-total').value=v.total_contract||'';document.getElementById('ev-paid').value=v.amount_paid||'';document.getElementById('ev-due').value=v.due_date||'';document.getElementById('ev-status').value=v.status||'Pending';document.getElementById('ev-approval').value=v.approval||'Pending Approval';document.getElementById('ev-notes').value=v.notes||'';document.getElementById('edit-vendor-modal').style.display='flex';}
+// (openEditVendor defined earlier — this old one-liner has been removed)
 function closeEditVendor(){document.getElementById('edit-vendor-modal').style.display='none';}
 async function saveEditVendor(){
   if(!canWrite())return;
   const id=document.getElementById('ev-id').value;
   const name=document.getElementById('ev-name').value.trim();
   if(!name){toast('Vendor name is required','error');return;}
+
+  const total = +document.getElementById('ev-total').value||0;
+  const destination = document.getElementById('ev-destination').value || 'fixed_asset';
+  const faCat = document.getElementById('ev-fa-cat').value || 'Building';
+  // Split mode
+  const splitModeEl = document.querySelector('input[name="ev-split-mode"]:checked');
+  const splitMode = splitModeEl ? splitModeEl.value : 'pkr';
+  let faAmt = 0, storeAmt = 0;
+  if(destination === 'fixed_asset'){
+    faAmt = total;
+  } else if(destination === 'store'){
+    storeAmt = total;
+  } else if(destination === 'both'){
+    const a = +document.getElementById('ev-split-fa').value || 0;
+    const b = +document.getElementById('ev-split-store').value || 0;
+    if(splitMode === 'pct'){
+      faAmt = (a/100)*total;
+      storeAmt = (b/100)*total;
+    } else {
+      faAmt = a;
+      storeAmt = b;
+    }
+  }
+
+  // Paid manual override checkbox may not exist anymore
+  const manualEl = document.getElementById('ev-paid-manual');
+
   const payload = {
     vendor_name:name,
     category:document.getElementById('ev-cat').value,
     responsible:document.getElementById('ev-resp').value,
-    total_contract:+document.getElementById('ev-total').value||null,
+    total_contract: total || null,
     amount_paid:+document.getElementById('ev-paid').value||null,
     due_date:document.getElementById('ev-due').value||null,
     status:document.getElementById('ev-status').value,
     approval:document.getElementById('ev-approval').value,
     agreement_status:document.getElementById('ev-agreement').value||'Draft',
-    paid_manual_override:document.getElementById('ev-paid-manual').checked,
+    destination_type: destination,
+    fixed_asset_category: faCat,
+    split_mode: splitMode,
+    fa_amount: faAmt || null,
+    store_amount: storeAmt || null,
     notes:document.getElementById('ev-notes').value
   };
+  if(manualEl) payload.paid_manual_override = manualEl.checked;
+
+  // Save milestones to localStorage (existing behavior)
+  try{ saveVendorSchedule(id, _evMilestones); }catch(e){}
+
   try{
     let r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
     if(!r.ok){
       const err = await r.text();
-      // Graceful fallback if new columns don't exist yet
-      if(/agreement_status|paid_manual_override/i.test(err) && /column/i.test(err)){
-        delete payload.agreement_status;
-        delete payload.paid_manual_override;
+      // Graceful fallback — strip new columns if they don't exist
+      const stripCols = ['destination_type','fixed_asset_category','split_mode','fa_amount','store_amount','agreement_status','paid_manual_override'];
+      let stripped = false;
+      stripCols.forEach(c=>{
+        if(new RegExp(c,'i').test(err) && /column/i.test(err)){ delete payload[c]; stripped = true; }
+      });
+      if(stripped){
         r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
         if(!r.ok) throw new Error(await r.text());
-        toast('Vendor saved (run SQL migration to enable agreement tracking)','error');
+        toast('Vendor saved (run SQL migration for full features)','error');
         showMigrationBanner();
       } else { throw new Error(err); }
     } else {
       toast('Vendor updated ✓');
     }
+
+    // Auto-push to cashflow if vendor is Approved
+    if(payload.agreement_status === 'Approved'){
+      await pushVendorScheduleToCashflow(id, name, total, _evMilestones);
+    }
+
     closeEditVendor();
     delete cache['vendors'];
+    delete cache['cashflow'];
     loadVendors();
     loadOverview();
     loadAlerts();
   }catch(e){ console.error(e); toast('Error saving changes','error'); }
+}
+
+// ── AUTO-PUSH: sync a vendor's schedule to the cashflow table ──
+// Uses source_vendor_id + source_milestone_idx to upsert — delete old, re-create fresh each save
+async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milestones){
+  if(!vendorId || !total || !milestones || !milestones.length) {
+    // Still clear any stale entries for this vendor
+    try{
+      await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}`,{method:'DELETE',headers});
+    }catch(e){ /* column may not exist */ }
+    return;
+  }
+  // 1. Delete existing cashflow rows for this vendor (so we don't duplicate)
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}`,{method:'DELETE',headers});
+    // If column doesn't exist, we'll skip gracefully
+    if(!r.ok){
+      const err = await r.text();
+      if(/source_vendor_id/i.test(err) && /column/i.test(err)){
+        toast('Cashflow auto-push needs SQL migration (source_vendor_id column)','error');
+        showMigrationBanner();
+        return;
+      }
+    }
+  }catch(e){ console.warn('Delete existing cashflow for vendor failed:', e); }
+
+  // 2. Insert fresh entries from milestones
+  let inserted = 0;
+  for(let i=0; i<milestones.length; i++){
+    const m = milestones[i];
+    const pct = +m.pct||0;
+    const amt = total * (pct/100);
+    if(!amt || !m.date) continue;
+    const month = (m.date||'').slice(0,7);
+    const payload = {
+      month,
+      description: m.desc || `${vendorName} — ${pct}% payment`,
+      amount: Math.round(amt),
+      category: 'Vendor Payment',
+      priority: m.priority || 'Medium',
+      responsible: '',
+      source_vendor_id: vendorId,
+      source_milestone_idx: i
+    };
+    try{
+      let r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+        method:'POST',
+        headers:{...headers,'Prefer':'return=minimal'},
+        body: JSON.stringify(payload)
+      });
+      if(!r.ok){
+        const err = await r.text();
+        if(/source_vendor_id|source_milestone_idx/i.test(err) && /column/i.test(err)){
+          delete payload.source_vendor_id;
+          delete payload.source_milestone_idx;
+          r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+            method:'POST', headers:{...headers,'Prefer':'return=minimal'},
+            body: JSON.stringify(payload)
+          });
+        }
+      }
+      if(r.ok) inserted++;
+    }catch(e){ console.warn('Cashflow insert failed:', e); }
+  }
+  if(inserted > 0){
+    toast(`${inserted} cashflow entr${inserted===1?'y':'ies'} synced ✓`);
+  }
 }
 
 // PAYMENT SCHEDULE
