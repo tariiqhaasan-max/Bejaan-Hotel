@@ -1149,6 +1149,26 @@ tr:hover td{background:var(--green-bg);}
           <div class="form-group"><label>Start Date</label><input id="vt-start" type="date"></div>
           <div class="form-group"><label>Proposed Completion *</label><input id="vt-due" type="date"></div>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:rgba(184,149,88,0.05);border:1px solid var(--border);border-radius:6px;">
+          <div class="form-group"><label>Destination Type *</label>
+            <select id="vt-desttype" onchange="onVtDestTypeChange()">
+              <option value="store">📦 Store (will be issued later)</option>
+              <option value="fixed_asset">📐 Fixed Asset (capitalize directly)</option>
+            </select>
+          </div>
+          <div class="form-group" id="vt-fa-cat-wrap" style="display:none;"><label>Fixed Asset Category *</label>
+            <select id="vt-fa-cat">
+              <option>Building</option>
+              <option>Furniture & Fixtures</option>
+              <option>Equipment</option>
+              <option>Vehicle</option>
+              <option>HVAC</option>
+              <option>Electrical Infrastructure</option>
+              <option>IT & Software</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
         <div id="vt-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">—</div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-primary btn-sm" onclick="saveVendorTask()">Save Task</button>
@@ -1216,6 +1236,26 @@ tr:hover td{background:var(--green-bg);}
       <div class="form-group"><label>Start Date</label><input id="td-e-start" type="date"></div>
       <div class="form-group"><label>Proposed Completion</label><input id="td-e-due" type="date"></div>
       <div class="form-group"><label>Progress %</label><input id="td-e-progress" type="number" min="0" max="100"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:10px;background:rgba(184,149,88,0.05);border:1px solid var(--border);border-radius:6px;">
+      <div class="form-group"><label>Destination Type</label>
+        <select id="td-e-desttype" onchange="onTdDestTypeChange()">
+          <option value="store">📦 Store (will be issued later)</option>
+          <option value="fixed_asset">📐 Fixed Asset (capitalize directly)</option>
+        </select>
+      </div>
+      <div class="form-group" id="td-e-fa-cat-wrap" style="display:none;"><label>Fixed Asset Category</label>
+        <select id="td-e-fa-cat">
+          <option>Building</option>
+          <option>Furniture & Fixtures</option>
+          <option>Equipment</option>
+          <option>Vehicle</option>
+          <option>HVAC</option>
+          <option>Electrical Infrastructure</option>
+          <option>IT & Software</option>
+          <option>Other</option>
+        </select>
+      </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:20px;">
       <button class="btn btn-primary btn-sm" onclick="saveTaskDetail()">💾 Save Task</button>
@@ -2918,10 +2958,14 @@ function renderEvTasksList(){
     const flagBadge = behindFlag === 'critical' ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">⚠ OVERDUE</span>'
                     : behindFlag === 'warning' ? '<span style="background:rgba(224,138,76,.15);color:#e08a4c;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">BEHIND</span>'
                     : '';
+    const destType = t.destination_type || 'store';
+    const destBadge = destType === 'fixed_asset'
+      ? `<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">📐 ${_esc(t.fixed_asset_category||'Fixed Asset')}</span>`
+      : `<span style="background:rgba(184,149,88,.15);color:#b89558;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">📦 STORE</span>`;
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}${flagBadge}</div>
+          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}${destBadge}${flagBadge}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
             ${t.responsible_employee?('👤 '+_esc(t.responsible_employee)+' · '):''}
             ${proposedInfo}
@@ -2979,7 +3023,10 @@ function openAddTask(){
   document.getElementById('ev-add-task-form').style.display = 'block';
   ['vt-name','vt-resp','vt-pct','vt-pkr','vt-start','vt-due'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('vt-lockmode').value = 'pct';
+  document.getElementById('vt-desttype').value = 'store';
+  document.getElementById('vt-fa-cat').value = 'Building';
   onLockModeChange();
+  onVtDestTypeChange();
   updateVtPreview();
 }
 function closeAddTask(){
@@ -2990,6 +3037,14 @@ function onLockModeChange(){
   document.getElementById('vt-pct-wrap').style.display = m==='pct' ? 'block' : 'none';
   document.getElementById('vt-pkr-wrap').style.display = m==='pkr' ? 'block' : 'none';
   updateVtPreview();
+}
+function onVtDestTypeChange(){
+  const t = document.getElementById('vt-desttype').value;
+  document.getElementById('vt-fa-cat-wrap').style.display = t==='fixed_asset' ? 'block' : 'none';
+}
+function onTdDestTypeChange(){
+  const t = document.getElementById('td-e-desttype').value;
+  document.getElementById('td-e-fa-cat-wrap').style.display = t==='fixed_asset' ? 'block' : 'none';
 }
 function updateVtPreview(){
   const total = +document.getElementById('ev-total').value || 0;
@@ -3017,6 +3072,7 @@ async function saveVendorTask(){
   const name = document.getElementById('vt-name').value.trim();
   if(!name){ toast('Task name required','error'); return; }
   const lockMode = document.getElementById('vt-lockmode').value;
+  const destType = document.getElementById('vt-desttype').value;
   const payload = {
     vendor_id: vendorId,
     task_name: name,
@@ -3026,13 +3082,26 @@ async function saveVendorTask(){
     fixed_amount: lockMode==='pkr' ? (+document.getElementById('vt-pkr').value||0) : 0,
     start_date: document.getElementById('vt-start').value || null,
     proposed_date: document.getElementById('vt-due').value || null,
+    destination_type: destType,
+    fixed_asset_category: destType==='fixed_asset' ? document.getElementById('vt-fa-cat').value : null,
     progress_pct: 0,
     status: 'Not Started'
   };
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
-    if(!r.ok) throw new Error(await r.text());
-    toast('Task added ✓');
+    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok){
+      const err = await r.text();
+      // Graceful fallback if destination columns don't exist
+      if(/destination_type|fixed_asset_category/i.test(err) && /column/i.test(err)){
+        delete payload.destination_type;
+        delete payload.fixed_asset_category;
+        r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+        if(!r.ok) throw new Error(await r.text());
+        toast('Task saved (run SQL migration to enable destination tagging)','error');
+      } else { throw new Error(err); }
+    } else {
+      toast('Task added ✓');
+    }
     closeAddTask();
     _evTasks = await fetchVendorTasks(vendorId);
     renderEvTasksList();
@@ -3072,6 +3141,9 @@ async function openTaskDetail(taskId){
   document.getElementById('td-e-start').value = task.start_date||'';
   document.getElementById('td-e-due').value = task.proposed_date||'';
   document.getElementById('td-e-progress').value = task.progress_pct||0;
+  document.getElementById('td-e-desttype').value = task.destination_type || 'store';
+  document.getElementById('td-e-fa-cat').value = task.fixed_asset_category || 'Building';
+  onTdDestTypeChange();
 
   // Timeline indicator
   renderTaskTimeline(task);
@@ -3203,6 +3275,7 @@ async function saveTaskDetail(){
   if(!canWrite())return;
   const taskId = document.getElementById('td-id').value;
   const vendorId = document.getElementById('ev-id').value;
+  const destType = document.getElementById('td-e-desttype').value;
   const payload = {
     task_name: document.getElementById('td-e-name').value.trim(),
     responsible_employee: document.getElementById('td-e-resp').value.trim() || null,
@@ -3211,12 +3284,24 @@ async function saveTaskDetail(){
     fixed_amount: +document.getElementById('td-e-pkr').value || 0,
     start_date: document.getElementById('td-e-start').value || null,
     proposed_date: document.getElementById('td-e-due').value || null,
-    progress_pct: +document.getElementById('td-e-progress').value || 0
+    progress_pct: +document.getElementById('td-e-progress').value || 0,
+    destination_type: destType,
+    fixed_asset_category: destType==='fixed_asset' ? document.getElementById('td-e-fa-cat').value : null
   };
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
-    if(!r.ok) throw new Error(await r.text());
-    toast('Task saved ✓');
+    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
+    if(!r.ok){
+      const err = await r.text();
+      if(/destination_type|fixed_asset_category/i.test(err) && /column/i.test(err)){
+        delete payload.destination_type;
+        delete payload.fixed_asset_category;
+        r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
+        if(!r.ok) throw new Error(await r.text());
+        toast('Saved (run SQL migration to enable destination tagging)','error');
+      } else { throw new Error(err); }
+    } else {
+      toast('Task saved ✓');
+    }
     _evTasks = await fetchVendorTasks(vendorId);
     _tdTask = _evTasks.find(t=>t.id===taskId);
     renderEvTasksList();
@@ -3497,7 +3582,8 @@ ALTER TABLE vendors
 ALTER TABLE vendor_tasks
   ADD COLUMN IF NOT EXISTS inventory_pct NUMERIC,
   ADD COLUMN IF NOT EXISTS fixed_asset_pct NUMERIC,
-  ADD COLUMN IF NOT EXISTS fixed_asset_category TEXT;
+  ADD COLUMN IF NOT EXISTS fixed_asset_category TEXT,
+  ADD COLUMN IF NOT EXISTS destination_type TEXT DEFAULT 'store';
 
 -- Inventory receipts (every "goods in" event)
 CREATE TABLE IF NOT EXISTS inventory_receipts (
@@ -3575,19 +3661,24 @@ async function loadStore(){
     if(vSel){
       vSel.innerHTML = '<option value="">— None —</option>' + vendors.map(v=>`<option value="${v.id}">${_esc(v.vendor_name||'—')}</option>`).join('');
     }
+    // Cache for handlers
+    window._storeVTasks = vTasks;
+    window._storeVendors = vendors;
+    const taskOptionsHtml = vTasks.map(t=>{
+      const vn = (vendors.find(v=>v.id===t.vendor_id)?.vendor_name)||'';
+      const dt = t.destination_type || 'store';
+      const tag = dt==='fixed_asset' ? `📐 ${t.fixed_asset_category||'FA'}` : '📦 STORE';
+      return `<option value="${t.id}" data-desttype="${dt}" data-facat="${_esc(t.fixed_asset_category||'')}">${_esc(t.task_name)} ${vn?'· '+_esc(vn):''} · ${tag}</option>`;
+    }).join('');
     const tSel = document.getElementById('rec-task');
     if(tSel){
-      tSel.innerHTML = '<option value="">— None —</option>' + vTasks.map(t=>{
-        const vn = (vendors.find(v=>v.id===t.vendor_id)?.vendor_name)||'';
-        return `<option value="${t.id}">${_esc(t.task_name)} ${vn?'· '+_esc(vn):''}</option>`;
-      }).join('');
+      tSel.innerHTML = '<option value="">— None —</option>' + taskOptionsHtml;
+      tSel.onchange = onRecTaskChange;
     }
     const issTaskSel = document.getElementById('iss-task');
     if(issTaskSel){
-      issTaskSel.innerHTML = '<option value="">— Optional —</option>' + vTasks.map(t=>{
-        const vn = (vendors.find(v=>v.id===t.vendor_id)?.vendor_name)||'';
-        return `<option value="${t.id}">${_esc(t.task_name)} ${vn?'· '+_esc(vn):''}</option>`;
-      }).join('');
+      issTaskSel.innerHTML = '<option value="">— Optional —</option>' + taskOptionsHtml;
+      issTaskSel.onchange = onIssTaskChange;
     }
     const issFaSel = document.getElementById('iss-fa');
     if(issFaSel){
@@ -3744,6 +3835,47 @@ async function loadStore(){
 
 function copyStoreSQL(){
   navigator.clipboard.writeText(STORE_SQL_MIGRATION).then(()=>toast('Store SQL copied ✓'),()=>toast('Copy failed','error'));
+}
+
+// When picking a task on the Receive form, show what type it is
+function onRecTaskChange(){
+  const sel = document.getElementById('rec-task');
+  const opt = sel.options[sel.selectedIndex];
+  const dt = opt?.dataset?.desttype || '';
+  const cat = opt?.dataset?.facat || '';
+  let hint = '';
+  if(dt === 'fixed_asset'){
+    hint = `<div style="background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.3);color:#4a9eff;padding:6px 10px;border-radius:6px;font-size:11px;margin-top:6px;">📐 This task is tagged <b>Fixed Asset → ${_esc(cat||'—')}</b>. After receiving, issue these items directly to a ${_esc(cat||'')} asset bucket.</div>`;
+  } else if(dt === 'store') {
+    hint = `<div style="background:rgba(184,149,88,.1);border:1px solid rgba(184,149,88,.3);color:#b89558;padding:6px 10px;border-radius:6px;font-size:11px;margin-top:6px;">📦 This task is tagged <b>Store</b>. Items will sit in inventory until issued out.</div>`;
+  }
+  // Inject hint right after rec-task wrapper
+  let hintEl = document.getElementById('rec-task-hint');
+  if(!hintEl){
+    hintEl = document.createElement('div');
+    hintEl.id = 'rec-task-hint';
+    sel.parentElement.appendChild(hintEl);
+  }
+  hintEl.innerHTML = hint;
+}
+
+// When picking a task on the Issue form, auto-prefill destination type + FA category
+function onIssTaskChange(){
+  const sel = document.getElementById('iss-task');
+  const opt = sel.options[sel.selectedIndex];
+  const dt = opt?.dataset?.desttype || '';
+  const cat = opt?.dataset?.facat || '';
+  if(dt === 'fixed_asset'){
+    document.getElementById('iss-type').value = 'fixed_asset';
+    onIssueTypeChange();
+    if(cat){
+      const catSel = document.getElementById('iss-fa-quick-cat');
+      if(catSel){
+        // Find matching option, or just leave default
+        for(const o of catSel.options){ if(o.value.toLowerCase()===cat.toLowerCase()){ catSel.value = o.value; break; } }
+      }
+    }
+  }
 }
 
 function switchStoreTab(tabId){
