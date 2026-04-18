@@ -273,6 +273,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
       <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
       <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
+      <div class="nav-item" onclick="showSection('draft_liability')"><span class="nav-icon">📝</span>Draft Liability</div>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Management</div>
@@ -436,13 +437,32 @@ tr:hover td{background:var(--green-bg);}
       <div class="form-group"><label>Payment Due Date</label><input id="v-due" type="date"></div>
       <div class="form-group"><label>Status</label><select id="v-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
       <div class="form-group"><label>Approval</label><select id="v-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
+      <div class="form-group"><label>Agreement Status <span style="color:var(--gold);font-size:10px;">NEW</span></label>
+        <select id="v-agreement"><option value="Draft">Draft</option><option value="Approved">Approved ✓</option></select>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Only Approved agreements feed actual cashflow. Drafts show in the Liability report.</div>
+      </div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="v-notes"></textarea></div>
     <button class="btn btn-primary" onclick="addVendor()">+ Add Vendor</button>
   </div>
+  <!-- SQL MIGRATION BANNER -->
+  <div class="card admin-only" id="sql-migration-banner" style="display:none;border-left:3px solid #b89558;background:rgba(184,149,88,0.06);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div style="flex:1">
+        <div class="card-title" style="margin-bottom:4px;">⚙ One-time setup needed</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Run the SQL below in your Supabase SQL editor to enable agreement tracking, vendor tasks, and auto-bottleneck detection. Safe to re-run — uses <code>IF NOT EXISTS</code>.</div>
+        <pre id="sql-migration-code" style="background:#0a0a0a;border:1px solid var(--border);border-radius:6px;padding:12px;color:#d4b47a;font-family:'DM Mono',monospace;font-size:11px;overflow-x:auto;white-space:pre-wrap;line-height:1.5;margin:0;"></pre>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="copySqlMigration()">📋 Copy SQL</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sql-migration-banner').style.display='none'">Dismiss for now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-title">All Vendors & Payments</div>
-    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Total</th><th>Paid</th><th>Balance</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Agreement</th><th>Total</th><th>Paid</th><th>Balance</th><th>Tasks</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
   </div>
 </div>
 
@@ -636,6 +656,27 @@ tr:hover td{background:var(--green-bg);}
   <div class="card"><div class="card-title">Cashflow Schedule</div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
 </div>
 
+<!-- DRAFT LIABILITY (Pending Agreements) -->
+<div class="section" id="section-draft_liability">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Draft Liability Report</div>
+      <div class="page-subtitle">Vendors with Draft agreements — what our actual cashflow will look like if these contracts get approved</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="loadDraftLiability()">↻ Refresh</button>
+  </div>
+  <div class="stat-grid" id="dl-stats" style="margin-bottom:18px;">
+    <div class="stat-card gold"><div class="stat-label">Draft Agreements</div><div class="stat-value" id="dl-count">—</div><div class="stat-sub">not yet approved</div></div>
+    <div class="stat-card blue"><div class="stat-label">Potential Total</div><div class="stat-value" id="dl-total">—</div><div class="stat-sub">contract value at risk</div></div>
+    <div class="stat-card green"><div class="stat-label">Already Paid (Drafts)</div><div class="stat-value" id="dl-paid">—</div><div class="stat-sub">paid before approval</div></div>
+    <div class="stat-card red"><div class="stat-label">Unpaid Potential</div><div class="stat-value" id="dl-unpaid">—</div><div class="stat-sub">if all approved</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Draft Contracts</div>
+    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Total</th><th>Paid</th><th>Remaining</th><th>Due</th><th>Notes</th><th></th></tr></thead><tbody id="dl-tbody"></tbody></table></div>
+  </div>
+</div>
+
 <!-- CONTACTS -->
 <div class="section" id="section-contacts">
   <div class="page-header"><div class="page-title">Team & Contacts</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('contacts')">Export CSV</button></div>
@@ -817,26 +858,171 @@ tr:hover td{background:var(--green-bg);}
 
 <!-- EDIT VENDOR MODAL -->
 <div id="edit-vendor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeEditVendor()">
-  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:880px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div style="font-family:'Playfair Display',serif;font-size:18px;">Edit Vendor</div>
       <button class="btn btn-secondary btn-sm" onclick="closeEditVendor()">✕ Close</button>
     </div>
     <input type="hidden" id="ev-id">
+
+    <!-- AGREEMENT STATUS HERO -->
+    <div id="ev-agreement-hero" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <div>
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Agreement Status</div>
+        <div id="ev-agreement-display" style="font-family:'Playfair Display',serif;font-size:20px;">—</div>
+        <div id="ev-agreement-note" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button type="button" id="ev-agreement-draft-btn" class="btn btn-secondary btn-sm" onclick="setAgreementStatus('Draft')">📝 Draft</button>
+        <button type="button" id="ev-agreement-approved-btn" class="btn btn-primary btn-sm" onclick="setAgreementStatus('Approved')">✓ Approved</button>
+      </div>
+    </div>
+    <input type="hidden" id="ev-agreement">
+
+    <!-- BASIC DETAILS -->
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Vendor Details</div>
     <div class="form-grid">
       <div class="form-group"><label>Vendor Name *</label><input id="ev-name"></div>
       <div class="form-group"><label>Category</label><input id="ev-cat"></div>
       <div class="form-group"><label>Person Responsible</label><input id="ev-resp"></div>
-      <div class="form-group"><label>Total Contract (PKR)</label><input id="ev-total" type="number"></div>
-      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number"></div>
+      <div class="form-group"><label>Total Contract (PKR)</label><input id="ev-total" type="number" oninput="recalcVendorAllocation()"></div>
+      <div class="form-group">
+        <label>Amount Paid (PKR) <span id="ev-paid-mode-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--text-muted);margin-left:4px;">AUTO</span></label>
+        <input id="ev-paid" type="number">
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="ev-paid-manual" onchange="togglePaidManualOverride()" style="margin:0;">
+          <label for="ev-paid-manual" style="margin:0;cursor:pointer;font-size:10px;text-transform:none;letter-spacing:0;color:var(--text-muted);">Manual override (ignore task payments)</label>
+        </div>
+      </div>
       <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
       <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
       <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
     </div>
     <div class="form-group" style="margin-bottom:16px;"><label>Notes</label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+
+    <!-- TASKS NESTED UNDER VENDOR -->
+    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Vendor Tasks</div>
+          <div id="ev-task-allocation" style="font-size:11px;color:var(--text-muted);margin-top:2px;">—</div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openAddTask()">+ Add Task</button>
+      </div>
+      <div id="ev-tasks-list" style="margin-bottom:8px;"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet. Add a task to break the contract into deliverables.</div></div>
+
+      <!-- ADD TASK FORM -->
+      <div id="ev-add-task-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:10px;">
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">New Task</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Task Name *</label><input id="vt-name" placeholder="e.g. Foundation work"></div>
+          <div class="form-group"><label>Responsible Employee</label><input id="vt-resp" placeholder="Name"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Lock By</label>
+            <select id="vt-lockmode" onchange="onLockModeChange()">
+              <option value="pct">% of Contract</option>
+              <option value="pkr">Fixed PKR</option>
+            </select>
+          </div>
+          <div class="form-group" id="vt-pct-wrap"><label>% of Total</label><input id="vt-pct" type="number" min="0" max="100" placeholder="e.g. 30" oninput="updateVtPreview()"></div>
+          <div class="form-group" id="vt-pkr-wrap" style="display:none;"><label>Fixed Amount (PKR)</label><input id="vt-pkr" type="number" placeholder="0" oninput="updateVtPreview()"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Start Date</label><input id="vt-start" type="date"></div>
+          <div class="form-group"><label>Proposed Completion *</label><input id="vt-due" type="date"></div>
+        </div>
+        <div id="vt-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">—</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveVendorTask()">Save Task</button>
+          <button class="btn btn-secondary btn-sm" onclick="closeAddTask()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
       <button class="btn btn-secondary" onclick="closeEditVendor()">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditVendor()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK PROGRESS & PAYMENTS MODAL -->
+<div id="task-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:520;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeTaskDetail()">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;" id="td-name">Task</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="td-vendor">—</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeTaskDetail()">✕ Close</button>
+    </div>
+    <input type="hidden" id="td-id">
+
+    <!-- STATUS STRIP -->
+    <div id="td-status-strip" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Allocated</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:4px;" id="td-allocated">—</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Paid</div>
+        <div style="font-size:15px;font-weight:600;color:var(--green);margin-top:4px;" id="td-paid">—</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Remaining</div>
+        <div style="font-size:15px;font-weight:600;color:var(--gold);margin-top:4px;" id="td-remaining">—</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Progress</div>
+        <div style="font-size:15px;font-weight:600;color:var(--blue);margin-top:4px;" id="td-progress">—</div>
+      </div>
+    </div>
+
+    <!-- TIMELINE INDICATOR -->
+    <div id="td-timeline" style="margin-bottom:16px;"></div>
+
+    <!-- EDIT FIELDS -->
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Task Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div class="form-group"><label>Task Name</label><input id="td-e-name"></div>
+      <div class="form-group"><label>Responsible Employee</label><input id="td-e-resp"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div class="form-group"><label>Lock By</label>
+        <select id="td-e-lockmode"><option value="pct">% of Contract</option><option value="pkr">Fixed PKR</option></select>
+      </div>
+      <div class="form-group"><label>% of Total</label><input id="td-e-pct" type="number"></div>
+      <div class="form-group"><label>Fixed Amount (PKR)</label><input id="td-e-pkr" type="number"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div class="form-group"><label>Start Date</label><input id="td-e-start" type="date"></div>
+      <div class="form-group"><label>Proposed Completion</label><input id="td-e-due" type="date"></div>
+      <div class="form-group"><label>Progress %</label><input id="td-e-progress" type="number" min="0" max="100"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button class="btn btn-primary btn-sm" onclick="saveTaskDetail()">💾 Save Task</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVendorTask()">✕ Delete Task</button>
+    </div>
+
+    <!-- PAYMENTS LOG -->
+    <div style="border-top:1px solid var(--border);padding-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Payment Log</div>
+        <button class="btn btn-secondary btn-sm" onclick="togglePaymentForm()">+ Log Payment</button>
+      </div>
+      <div id="td-payment-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group"><label>Amount (PKR)</label><input id="td-p-amount" type="number" placeholder="0"></div>
+          <div class="form-group"><label>Date</label><input id="td-p-date" type="date"></div>
+          <div class="form-group"><label>Note</label><input id="td-p-note" placeholder="e.g. Bank transfer ref #"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="savePayment()">Save</button>
+          <button class="btn btn-secondary btn-sm" onclick="togglePaymentForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="td-payments-list"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No payments logged.</div></div>
     </div>
   </div>
 </div>
@@ -1426,7 +1612,7 @@ async function getData(t){cache[t]=await sbGet(t);return cache[t];}
 const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
-async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
 async function loadAll(){await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));loadOverview();loadAlerts();loadBottlenecks();}
 
 // OVERVIEW
@@ -1716,6 +1902,649 @@ function renderVendorBar(id,labels,paidData,balData){const ctx=document.getEleme
 function renderBar(id,labels,data,label,color){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:color+'99',borderColor:color,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'},max:100}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
 function renderGroupedBar(id,labels,d1,d2){const ctx=document.getElementById(id);if(!ctx)return;if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Budgeted',data:d1,backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1},{label:'Actual',data:d2,backgroundColor:'#e05c5c99',borderColor:'#e05c5c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}
 
+// ============================================================
+// VENDOR-SPINE MODULE
+// Tasks nested under vendors, agreement gating, auto-bottlenecks
+// ============================================================
+
+// SQL migration script — shown if columns/tables are missing
+const SQL_MIGRATION = `-- Bejaan Hotel — Vendor-spine migration
+-- Run in Supabase SQL editor. Safe to re-run.
+
+-- 1. Agreement status on vendors
+ALTER TABLE vendors
+  ADD COLUMN IF NOT EXISTS agreement_status TEXT DEFAULT 'Draft',
+  ADD COLUMN IF NOT EXISTS paid_manual_override BOOLEAN DEFAULT false;
+
+-- 2. Vendor tasks table (tasks nested under each vendor)
+CREATE TABLE IF NOT EXISTS vendor_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
+  task_name TEXT NOT NULL,
+  responsible_employee TEXT,
+  lock_mode TEXT DEFAULT 'pct',        -- 'pct' or 'pkr'
+  pct_of_contract NUMERIC DEFAULT 0,
+  fixed_amount NUMERIC DEFAULT 0,
+  start_date DATE,
+  proposed_date DATE,
+  progress_pct NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'Not Started',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vendor_tasks_vendor ON vendor_tasks(vendor_id);
+
+-- 3. Task payments log
+CREATE TABLE IF NOT EXISTS vendor_task_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES vendor_tasks(id) ON DELETE CASCADE,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  paid_date DATE DEFAULT CURRENT_DATE,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_task_pay_task ON vendor_task_payments(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_pay_vendor ON vendor_task_payments(vendor_id);`;
+
+function copySqlMigration(){
+  navigator.clipboard.writeText(SQL_MIGRATION).then(()=>toast('SQL copied to clipboard ✓'),()=>toast('Copy failed','error'));
+}
+
+// Check if schema migration is needed on page load — show banner if so
+async function checkSchemaReady(){
+  try{
+    // try to read agreement_status — if error, banner shows
+    const r = await fetch(`${SB_URL}/rest/v1/vendors?select=id,agreement_status&limit=1`,{headers});
+    if(!r.ok){ showMigrationBanner(); return false; }
+    const r2 = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=id&limit=1`,{headers});
+    if(!r2.ok){ showMigrationBanner(); return false; }
+    return true;
+  }catch(e){ showMigrationBanner(); return false; }
+}
+function showMigrationBanner(){
+  const banner = document.getElementById('sql-migration-banner');
+  const pre = document.getElementById('sql-migration-code');
+  if(banner && pre){ pre.textContent = SQL_MIGRATION; banner.style.display='block'; }
+}
+
+// ── VENDOR TASKS DATA ──────────────────────────────────────
+let _vtCache = {}; // vendorId -> tasks[]
+let _vtPayCache = {}; // vendorId -> payments[]
+
+async function fetchVendorTasks(vendorId){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?vendor_id=eq.${vendorId}&select=*&order=created_at.asc`,{headers});
+    if(!r.ok) return [];
+    const d = await r.json();
+    _vtCache[vendorId] = d;
+    return d;
+  }catch(e){ return []; }
+}
+async function fetchAllVendorTasks(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers});
+    if(!r.ok) return [];
+    return await r.json();
+  }catch(e){ return []; }
+}
+async function fetchTaskPayments(taskId){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments?task_id=eq.${taskId}&select=*&order=paid_date.desc`,{headers});
+    if(!r.ok) return [];
+    return await r.json();
+  }catch(e){ return []; }
+}
+async function fetchVendorPayments(vendorId){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments?vendor_id=eq.${vendorId}&select=*`,{headers});
+    if(!r.ok) return [];
+    const d = await r.json();
+    _vtPayCache[vendorId] = d;
+    return d;
+  }catch(e){ return []; }
+}
+
+// Compute the effective PKR value of a task
+function taskAmount(task, contractTotal){
+  if(task.lock_mode === 'pkr') return +task.fixed_amount || 0;
+  return ((+task.pct_of_contract||0) / 100) * (+contractTotal || 0);
+}
+
+// Compute auto-sum paid from task payments
+function taskPaidTotal(payments){
+  return (payments||[]).reduce((s,p)=>s+(+p.amount||0), 0);
+}
+
+// ── EDIT VENDOR MODAL ENHANCEMENTS ──────────────────────────
+let _evTasks = []; let _evPayments = [];
+
+async function openEditVendor(id){
+  if(!canWrite())return;
+  const vendors = cache['vendors'] || [];
+  const v = vendors.find(x=>x.id===id);
+  if(!v) return;
+  document.getElementById('ev-id').value = v.id;
+  document.getElementById('ev-name').value = v.vendor_name||'';
+  document.getElementById('ev-cat').value = v.category||'';
+  document.getElementById('ev-resp').value = v.responsible||'';
+  document.getElementById('ev-total').value = v.total_contract||'';
+  document.getElementById('ev-paid').value = v.amount_paid||'';
+  document.getElementById('ev-due').value = v.due_date||'';
+  document.getElementById('ev-status').value = v.status||'Pending';
+  document.getElementById('ev-approval').value = v.approval||'Pending Approval';
+  document.getElementById('ev-notes').value = v.notes||'';
+  document.getElementById('ev-paid-manual').checked = !!v.paid_manual_override;
+  // Agreement status
+  const ag = v.agreement_status || 'Draft';
+  document.getElementById('ev-agreement').value = ag;
+  updateAgreementUI(ag);
+  // Reset task form state
+  closeAddTask();
+  document.getElementById('edit-vendor-modal').style.display = 'flex';
+  // Fetch tasks + payments for this vendor
+  _evTasks = await fetchVendorTasks(v.id);
+  _evPayments = await fetchVendorPayments(v.id);
+  renderEvTasksList();
+  updatePaidDisplay();
+}
+function updateAgreementUI(status){
+  const disp = document.getElementById('ev-agreement-display');
+  const note = document.getElementById('ev-agreement-note');
+  const draftBtn = document.getElementById('ev-agreement-draft-btn');
+  const apprBtn = document.getElementById('ev-agreement-approved-btn');
+  if(status === 'Approved'){
+    disp.innerHTML = '<span style="color:#4caf7d;">✓ Approved</span>';
+    note.textContent = 'This agreement feeds the actual cashflow.';
+    draftBtn.className = 'btn btn-secondary btn-sm';
+    apprBtn.className = 'btn btn-primary btn-sm';
+  } else {
+    disp.innerHTML = '<span style="color:#d4b47a;">📝 Draft</span>';
+    note.textContent = 'Appears in the Draft Liability report only, not in actual cashflow.';
+    draftBtn.className = 'btn btn-primary btn-sm';
+    apprBtn.className = 'btn btn-secondary btn-sm';
+  }
+}
+function setAgreementStatus(s){
+  document.getElementById('ev-agreement').value = s;
+  updateAgreementUI(s);
+}
+function togglePaidManualOverride(){
+  updatePaidDisplay();
+}
+function updatePaidDisplay(){
+  const manual = document.getElementById('ev-paid-manual').checked;
+  const badge = document.getElementById('ev-paid-mode-badge');
+  const paidInput = document.getElementById('ev-paid');
+  if(manual){
+    badge.textContent = 'MANUAL'; badge.style.color = '#d4b47a';
+    paidInput.readOnly = false;
+  } else {
+    badge.textContent = 'AUTO'; badge.style.color = 'var(--text-muted)';
+    // Auto-compute from task payments
+    const sum = _evPayments.reduce((s,p)=>s+(+p.amount||0), 0);
+    if(_evTasks.length && sum){ paidInput.value = sum; paidInput.readOnly = true; }
+    else { paidInput.readOnly = false; }
+  }
+}
+
+// Render nested task list in vendor modal
+function renderEvTasksList(){
+  const list = document.getElementById('ev-tasks-list');
+  const total = +document.getElementById('ev-total').value || 0;
+  if(!_evTasks.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet. Add a task to break the contract into deliverables.</div>';
+    document.getElementById('ev-task-allocation').textContent = '—';
+    return;
+  }
+  // Payments per task
+  const payByTask = {};
+  _evPayments.forEach(p=>{ (payByTask[p.task_id]=payByTask[p.task_id]||[]).push(p); });
+
+  let allocPkr = 0;
+  let allocPct = 0;
+  _evTasks.forEach(t=>{
+    const amt = taskAmount(t, total);
+    allocPkr += amt;
+    if(t.lock_mode==='pct') allocPct += +t.pct_of_contract||0;
+    else if(total) allocPct += (amt/total)*100;
+  });
+
+  list.innerHTML = _evTasks.map(t=>{
+    const amt = taskAmount(t, total);
+    const paid = taskPaidTotal(payByTask[t.id]||[]);
+    const progress = +t.progress_pct || 0;
+    const proposedInfo = t.proposed_date
+      ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`
+      : 'No due date';
+    const behindFlag = _taskBehindFlag(t);
+    const flagBadge = behindFlag === 'critical' ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">⚠ OVERDUE</span>'
+                    : behindFlag === 'warning' ? '<span style="background:rgba(224,138,76,.15);color:#e08a4c;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin-left:4px;">BEHIND</span>'
+                    : '';
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(t.task_name)}${flagBadge}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+            ${t.responsible_employee?('👤 '+_esc(t.responsible_employee)+' · '):''}
+            ${proposedInfo}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:12px;font-weight:500;color:var(--gold);">${fmtPKR(amt)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Paid ${fmtPKR(paid)}</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;background:var(--border);border-radius:10px;height:5px;overflow:hidden;">
+        <div style="height:100%;background:${progress>=100?'#4caf7d':'#b89558'};border-radius:10px;width:${Math.min(100,progress)}%;transition:width .3s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px;">
+        <span>${Math.round(progress)}% complete</span>
+        <span>${t.lock_mode==='pct'?((+t.pct_of_contract||0)+'% of contract'):'Fixed PKR'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Allocation summary
+  const pctTxt = total ? `${Math.round(allocPct)}% of contract allocated` : `${fmtPKR(allocPkr)} allocated`;
+  const overAlloc = allocPct > 101;
+  const underAlloc = allocPct < 99 && total;
+  const color = overAlloc ? '#d04040' : (underAlloc ? '#e08a4c' : '#4caf7d');
+  document.getElementById('ev-task-allocation').innerHTML =
+    `<span style="color:${color};">${pctTxt}</span> · ${fmtPKR(allocPkr)} allocated of ${fmtPKR(total)}`;
+}
+
+// Check if a task is behind schedule
+function _taskBehindFlag(t){
+  if(!t.proposed_date) return null;
+  const progress = +t.progress_pct || 0;
+  if(progress >= 100) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(t.proposed_date);
+  if(today > due) return 'critical';
+  if(t.start_date){
+    const start = new Date(t.start_date);
+    const total = due - start;
+    if(total > 0){
+      const elapsed = today - start;
+      const expectedPct = (elapsed / total) * 100;
+      if(progress < expectedPct - 10) return 'warning';
+    }
+  }
+  return null;
+}
+
+// Escape HTML
+function _esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+// ── ADD TASK FORM ──────────────────────────────────────────
+function openAddTask(){
+  document.getElementById('ev-add-task-form').style.display = 'block';
+  ['vt-name','vt-resp','vt-pct','vt-pkr','vt-start','vt-due'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('vt-lockmode').value = 'pct';
+  onLockModeChange();
+  updateVtPreview();
+}
+function closeAddTask(){
+  document.getElementById('ev-add-task-form').style.display = 'none';
+}
+function onLockModeChange(){
+  const m = document.getElementById('vt-lockmode').value;
+  document.getElementById('vt-pct-wrap').style.display = m==='pct' ? 'block' : 'none';
+  document.getElementById('vt-pkr-wrap').style.display = m==='pkr' ? 'block' : 'none';
+  updateVtPreview();
+}
+function updateVtPreview(){
+  const total = +document.getElementById('ev-total').value || 0;
+  const m = document.getElementById('vt-lockmode').value;
+  let amount = 0, pct = 0;
+  if(m === 'pct'){
+    pct = +document.getElementById('vt-pct').value || 0;
+    amount = (pct/100) * total;
+  } else {
+    amount = +document.getElementById('vt-pkr').value || 0;
+    pct = total ? (amount/total)*100 : 0;
+  }
+  const msg = `Preview: ${fmtPKR(amount)} (${Math.round(pct*10)/10}% of contract)`;
+  document.getElementById('vt-preview').textContent = msg;
+}
+function recalcVendorAllocation(){
+  renderEvTasksList();
+  updateVtPreview();
+}
+
+async function saveVendorTask(){
+  if(!canWrite())return;
+  const vendorId = document.getElementById('ev-id').value;
+  if(!vendorId){ toast('Save the vendor first','error'); return; }
+  const name = document.getElementById('vt-name').value.trim();
+  if(!name){ toast('Task name required','error'); return; }
+  const lockMode = document.getElementById('vt-lockmode').value;
+  const payload = {
+    vendor_id: vendorId,
+    task_name: name,
+    responsible_employee: document.getElementById('vt-resp').value.trim() || null,
+    lock_mode: lockMode,
+    pct_of_contract: lockMode==='pct' ? (+document.getElementById('vt-pct').value||0) : 0,
+    fixed_amount: lockMode==='pkr' ? (+document.getElementById('vt-pkr').value||0) : 0,
+    start_date: document.getElementById('vt-start').value || null,
+    proposed_date: document.getElementById('vt-due').value || null,
+    progress_pct: 0,
+    status: 'Not Started'
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Task added ✓');
+    closeAddTask();
+    _evTasks = await fetchVendorTasks(vendorId);
+    renderEvTasksList();
+  }catch(e){ console.error(e); toast('Error adding task','error'); }
+}
+
+// ── TASK DETAIL MODAL ──────────────────────────────────────
+let _tdTask = null; let _tdPayments = [];
+
+async function openTaskDetail(taskId){
+  const task = _evTasks.find(t=>t.id===taskId);
+  if(!task) return;
+  _tdTask = task;
+  const vendorId = document.getElementById('ev-id').value;
+  const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
+  const total = +vendor?.total_contract || 0;
+  const amt = taskAmount(task, total);
+
+  document.getElementById('td-id').value = task.id;
+  document.getElementById('td-name').textContent = task.task_name;
+  document.getElementById('td-vendor').textContent = (vendor?.vendor_name||'—') + ' · ' + (task.responsible_employee||'Unassigned');
+
+  _tdPayments = await fetchTaskPayments(task.id);
+  const paidSum = taskPaidTotal(_tdPayments);
+
+  document.getElementById('td-allocated').textContent = fmtPKR(amt);
+  document.getElementById('td-paid').textContent = fmtPKR(paidSum);
+  document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
+  document.getElementById('td-progress').textContent = Math.round(+task.progress_pct||0) + '%';
+
+  // Edit fields
+  document.getElementById('td-e-name').value = task.task_name||'';
+  document.getElementById('td-e-resp').value = task.responsible_employee||'';
+  document.getElementById('td-e-lockmode').value = task.lock_mode||'pct';
+  document.getElementById('td-e-pct').value = task.pct_of_contract||0;
+  document.getElementById('td-e-pkr').value = task.fixed_amount||0;
+  document.getElementById('td-e-start').value = task.start_date||'';
+  document.getElementById('td-e-due').value = task.proposed_date||'';
+  document.getElementById('td-e-progress').value = task.progress_pct||0;
+
+  // Timeline indicator
+  renderTaskTimeline(task);
+
+  // Payments list
+  renderTaskPayments(amt, paidSum);
+
+  document.getElementById('task-detail-modal').style.display = 'flex';
+}
+function closeTaskDetail(){
+  document.getElementById('task-detail-modal').style.display = 'none';
+  document.getElementById('td-payment-form').style.display = 'none';
+}
+
+function renderTaskTimeline(task){
+  const el = document.getElementById('td-timeline');
+  if(!task.proposed_date){ el.innerHTML=''; return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(task.proposed_date);
+  const start = task.start_date ? new Date(task.start_date) : null;
+  const progress = +task.progress_pct || 0;
+  const behindFlag = _taskBehindFlag(task);
+
+  let expectedPct = null;
+  if(start && due > start){
+    expectedPct = Math.min(100, Math.max(0, ((today-start)/(due-start))*100));
+  }
+  let msg = '', color = '#4caf7d', icon = '✓';
+  if(behindFlag === 'critical'){
+    const daysOver = Math.round((today-due)/86400000);
+    msg = `Overdue by ${daysOver} day${daysOver!==1?'s':''} · still at ${Math.round(progress)}%`;
+    color = '#d04040'; icon = '⚠';
+  } else if(behindFlag === 'warning' && expectedPct!=null){
+    msg = `Behind schedule · expected ${Math.round(expectedPct)}% by now, at ${Math.round(progress)}%`;
+    color = '#e08a4c'; icon = '!';
+  } else if(expectedPct != null){
+    msg = `On track · ${Math.round(progress)}% complete (expected ${Math.round(expectedPct)}%)`;
+  } else {
+    msg = `Progress ${Math.round(progress)}%`;
+  }
+  el.innerHTML = `<div style="background:${color}22;border:1px solid ${color}55;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+    <div style="font-size:18px;color:${color};">${icon}</div>
+    <div style="font-size:12px;color:var(--text);flex:1;">${_esc(msg)}</div>
+  </div>`;
+}
+
+function renderTaskPayments(allocated, paid){
+  const el = document.getElementById('td-payments-list');
+  if(!_tdPayments.length){
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No payments logged.</div>';
+    return;
+  }
+  el.innerHTML = _tdPayments.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:500;font-size:13px;color:var(--green);">${fmtPKR(+p.amount||0)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${new Date(p.paid_date||p.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}${p.note?' · '+_esc(p.note):''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function togglePaymentForm(){
+  const f = document.getElementById('td-payment-form');
+  const showing = f.style.display !== 'none';
+  f.style.display = showing ? 'none' : 'block';
+  if(!showing){
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('td-p-date').value = today;
+    document.getElementById('td-p-amount').value = '';
+    document.getElementById('td-p-note').value = '';
+  }
+}
+
+async function savePayment(){
+  if(!canWrite())return;
+  const taskId = document.getElementById('td-id').value;
+  const vendorId = document.getElementById('ev-id').value;
+  const amount = +document.getElementById('td-p-amount').value;
+  if(!amount || amount <= 0){ toast('Amount required','error'); return; }
+  const payload = {
+    task_id: taskId, vendor_id: vendorId, amount,
+    paid_date: document.getElementById('td-p-date').value || new Date().toISOString().slice(0,10),
+    note: document.getElementById('td-p-note').value.trim() || null
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Payment logged ✓');
+    togglePaymentForm();
+    // Reload
+    _tdPayments = await fetchTaskPayments(taskId);
+    _evPayments = await fetchVendorPayments(vendorId);
+    const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
+    const total = +vendor?.total_contract || 0;
+    const amt = taskAmount(_tdTask, total);
+    const paidSum = taskPaidTotal(_tdPayments);
+    document.getElementById('td-paid').textContent = fmtPKR(paidSum);
+    document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
+    renderTaskPayments(amt, paidSum);
+    updatePaidDisplay();
+    renderEvTasksList();
+  }catch(e){ console.error(e); toast('Error saving payment','error'); }
+}
+async function deletePayment(id){
+  if(!canWrite())return;
+  if(!confirm('Remove this payment?'))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/vendor_task_payments?id=eq.${id}`,{ method:'DELETE', headers });
+    toast('Payment removed ✓');
+    const taskId = document.getElementById('td-id').value;
+    const vendorId = document.getElementById('ev-id').value;
+    _tdPayments = await fetchTaskPayments(taskId);
+    _evPayments = await fetchVendorPayments(vendorId);
+    const vendor = (cache['vendors']||[]).find(x=>x.id===vendorId);
+    const total = +vendor?.total_contract || 0;
+    const amt = taskAmount(_tdTask, total);
+    const paidSum = taskPaidTotal(_tdPayments);
+    document.getElementById('td-paid').textContent = fmtPKR(paidSum);
+    document.getElementById('td-remaining').textContent = fmtPKR(amt - paidSum);
+    renderTaskPayments(amt, paidSum);
+    renderEvTasksList();
+    updatePaidDisplay();
+  }catch(e){ toast('Error','error'); }
+}
+
+async function saveTaskDetail(){
+  if(!canWrite())return;
+  const taskId = document.getElementById('td-id').value;
+  const vendorId = document.getElementById('ev-id').value;
+  const payload = {
+    task_name: document.getElementById('td-e-name').value.trim(),
+    responsible_employee: document.getElementById('td-e-resp').value.trim() || null,
+    lock_mode: document.getElementById('td-e-lockmode').value,
+    pct_of_contract: +document.getElementById('td-e-pct').value || 0,
+    fixed_amount: +document.getElementById('td-e-pkr').value || 0,
+    start_date: document.getElementById('td-e-start').value || null,
+    proposed_date: document.getElementById('td-e-due').value || null,
+    progress_pct: +document.getElementById('td-e-progress').value || 0
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`, { method:'PATCH', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Task saved ✓');
+    _evTasks = await fetchVendorTasks(vendorId);
+    _tdTask = _evTasks.find(t=>t.id===taskId);
+    renderEvTasksList();
+    renderTaskTimeline(_tdTask);
+    document.getElementById('td-progress').textContent = Math.round(payload.progress_pct)+'%';
+  }catch(e){ console.error(e); toast('Error saving task','error'); }
+}
+async function deleteVendorTask(){
+  if(!canWrite())return;
+  const taskId = document.getElementById('td-id').value;
+  const vendorId = document.getElementById('ev-id').value;
+  if(!confirm('Delete this task and all its payments? This cannot be undone.')) return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/vendor_tasks?id=eq.${taskId}`,{ method:'DELETE', headers });
+    toast('Task deleted ✓');
+    closeTaskDetail();
+    _evTasks = await fetchVendorTasks(vendorId);
+    _evPayments = await fetchVendorPayments(vendorId);
+    renderEvTasksList();
+    updatePaidDisplay();
+  }catch(e){ toast('Error','error'); }
+}
+
+// ── DRAFT LIABILITY REPORT ─────────────────────────────────
+async function loadDraftLiability(){
+  try{
+    const vendors = await getData('vendors');
+    const drafts = (vendors||[]).filter(v=>(v.agreement_status||'Draft')==='Draft');
+    const allTasks = await fetchAllVendorTasks();
+    const allPays = await (async ()=>{
+      try{ const r=await fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers}); return r.ok?await r.json():[]; }
+      catch(e){ return []; }
+    })();
+
+    let totalContract=0, totalPaid=0;
+    drafts.forEach(v=>{
+      totalContract += +v.total_contract || 0;
+      // Prefer auto-sum from task payments, unless manual override
+      if(v.paid_manual_override){
+        totalPaid += +v.amount_paid || 0;
+      } else {
+        const autoPaid = allPays.filter(p=>p.vendor_id===v.id).reduce((s,p)=>s+(+p.amount||0),0);
+        totalPaid += autoPaid || (+v.amount_paid||0);
+      }
+    });
+
+    document.getElementById('dl-count').textContent = drafts.length;
+    document.getElementById('dl-total').textContent = fmtPKR(totalContract);
+    document.getElementById('dl-paid').textContent = fmtPKR(totalPaid);
+    document.getElementById('dl-unpaid').textContent = fmtPKR(totalContract - totalPaid);
+
+    const tbody = document.getElementById('dl-tbody');
+    if(!drafts.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No draft agreements — all contracts approved ✓</td></tr>';
+      return;
+    }
+    tbody.innerHTML = drafts.map(v=>{
+      const autoPaid = allPays.filter(p=>p.vendor_id===v.id).reduce((s,p)=>s+(+p.amount||0),0);
+      const paid = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid || (+v.amount_paid||0));
+      const bal = (+v.total_contract||0) - paid;
+      return `<tr>
+        <td><b>${_esc(v.vendor_name||'—')}</b></td>
+        <td>${_esc(v.category||'—')}</td>
+        <td>${_esc(v.responsible||'—')}</td>
+        <td>PKR ${fmt(v.total_contract)}</td>
+        <td>PKR ${fmt(paid)}</td>
+        <td style="color:#e08a4c;">PKR ${fmt(bal)}</td>
+        <td>${fmtDate(v.due_date)}</td>
+        <td style="font-size:12px;max-width:180px;">${_esc(v.notes||'')}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')">Review</button></td>
+      </tr>`;
+    }).join('');
+  }catch(e){ console.error(e); toast('Error loading draft liability','error'); }
+}
+
+// ── AUTO-BOTTLENECK DETECTION ──────────────────────────────
+async function runBottleneckAutoCheck(){
+  try{
+    const tasks = await fetchAllVendorTasks();
+    const vendors = cache['vendors'] || await getData('vendors');
+    if(!tasks.length) return;
+    // Fetch existing bottlenecks so we don't duplicate
+    const existing = await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=id,title,status&source_task_id=not.is.null&source_task_id=in.(${tasks.map(t=>'"'+t.id+'"').join(',')})`,{headers})
+      .then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const existingByTask = {};
+    existing.forEach(b=>{ if(b.source_task_id) existingByTask[b.source_task_id] = b; });
+
+    let created = 0;
+    for(const t of tasks){
+      const flag = _taskBehindFlag(t);
+      if(!flag) continue;
+      if(existingByTask[t.id]){
+        // Already raised; optionally update impact
+        continue;
+      }
+      const vendor = vendors.find(v=>v.id===t.vendor_id);
+      const title = `${t.task_name} — ${flag==='critical'?'Overdue':'Behind schedule'}`;
+      const reason = flag==='critical'
+        ? `Proposed completion ${t.proposed_date} has passed. Task at ${Math.round(+t.progress_pct||0)}%.`
+        : `Task progress is behind linear schedule. At ${Math.round(+t.progress_pct||0)}%.`;
+      const impact = flag==='critical' ? 'critical' : 'medium';
+      const payload = {
+        title, reason, impact,
+        status:'open',
+        area: vendor ? (vendor.vendor_name||'') : '',
+        raised_date: new Date().toISOString().slice(0,10)
+      };
+      // source_task_id is optional — only send if the column exists
+      try{
+        const r = await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks`,{ method:'POST', headers, body: JSON.stringify({...payload, source_task_id: t.id}) });
+        if(!r.ok){
+          // Fallback without source_task_id
+          await fetch(`${SB_URL}/rest/v1/bcc_bottlenecks`,{ method:'POST', headers, body: JSON.stringify(payload) });
+        }
+        created++;
+      }catch(e){}
+    }
+    if(created) console.log(`[auto-bottleneck] Created ${created} new bottleneck(s)`);
+  }catch(e){ console.warn('Bottleneck auto-check failed:', e); }
+}
+
+// ============================================================
+// END VENDOR-SPINE MODULE
+// ============================================================
+
 // ALERTS
 async function loadAlerts(){
   try{
@@ -1737,7 +2566,23 @@ async function loadAlerts(){
 async function loadVendors(){
   try{
     const data=await getData('vendors');const tbody=document.getElementById('vendors-tbody');
-    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No vendors added yet.</td></tr>';return;}
+    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="14">No vendors added yet.</td></tr>';return;}
+    // Fetch all task payments once for auto-paid calc
+    let allPays = [];
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=vendor_id,amount`,{headers});
+      if(r.ok) allPays = await r.json();
+    }catch(e){}
+    let allTasks = [];
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=vendor_id`,{headers});
+      if(r.ok) allTasks = await r.json();
+    }catch(e){}
+    const taskCountByVendor = {};
+    allTasks.forEach(t=>{ taskCountByVendor[t.vendor_id] = (taskCountByVendor[t.vendor_id]||0) + 1; });
+    const paidByVendor = {};
+    allPays.forEach(p=>{ paidByVendor[p.vendor_id] = (paidByVendor[p.vendor_id]||0) + (+p.amount||0); });
+
     const today=new Date();today.setHours(0,0,0,0);
     const vStatusOpts = [
       {value:'Pending',        label:'Pending'},
@@ -1749,7 +2594,10 @@ async function loadVendors(){
       {value:'Rejected',        label:'Rejected'}
     ];
     tbody.innerHTML=data.map(v=>{
-      const bal=(+v.total_contract||0)-(+v.amount_paid||0);
+      // Auto-compute paid from task payments unless manual override
+      const autoPaid = paidByVendor[v.id] || 0;
+      const effectivePaid = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid > 0 ? autoPaid : (+v.amount_paid||0));
+      const bal=(+v.total_contract||0)-effectivePaid;
       const od=v.due_date&&new Date(v.due_date)<today&&v.status!=='Completed';
       const schedule=getVendorSchedule(v.id);
       const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);
@@ -1759,10 +2607,20 @@ async function loadVendors(){
       const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
       const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
 
-      // Inline-editable cells: Paid, Status, Notes
-      const paidCell = canWrite()
-        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="amount_paid" data-type="number" data-step="1" data-reload="loadVendors" data-raw="${v.amount_paid||0}">PKR ${fmt(v.amount_paid)}</td>`
-        : `<td>PKR ${fmt(v.amount_paid)}</td>`;
+      // Agreement badge
+      const ag = v.agreement_status || 'Draft';
+      const agBadge = ag === 'Approved'
+        ? '<span class="badge badge-green">✓ Approved</span>'
+        : '<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">📝 Draft</span>';
+
+      // Tasks count button
+      const tCount = taskCountByVendor[v.id] || 0;
+      const tasksBtn = tCount > 0
+        ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" title="Manage tasks">📋 ${tCount} task${tCount>1?'s':''}</button>`
+        : canWrite() ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" style="opacity:0.6;" title="Add tasks">+ Add</button>` : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
+
+      const paidBadge = (!v.paid_manual_override && autoPaid > 0)
+        ? `<span style="font-size:9px;color:var(--gold);margin-left:4px;">AUTO</span>` : '';
       const statusCell = canWrite()
         ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="status" data-type="select" data-options='${JSON.stringify(vStatusOpts).replace(/'/g,"&#39;")}' data-reload="loadVendors" data-raw="${v.status||'Pending'}">${statusBadge(v.status||'Pending')}</td>`
         : `<td>${statusBadge(v.status||'Pending')}</td>`;
@@ -1770,11 +2628,11 @@ async function loadVendors(){
         ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="notes" data-type="textarea" data-reload="loadVendors" data-raw="${(v.notes||'').replace(/"/g,'&quot;')}" style="max-width:150px;font-size:12px;">${v.notes||'— click to add —'}</td>`
         : `<td style="max-width:150px;font-size:12px;">${v.notes||''}</td>`;
 
-      return`<tr><td><b>${v.vendor_name||'—'}</b></td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>PKR ${fmt(v.total_contract)}</td>${paidCell}<td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
+      return`<tr><td><b>${v.vendor_name||'—'}</b></td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>${agBadge}</td><td>PKR ${fmt(v.total_contract)}</td><td>PKR ${fmt(effectivePaid)}${paidBadge}</td><td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td>${tasksBtn}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
     }).join('');
-  }catch(e){toast('Failed to load vendors','error');}
+  }catch(e){console.error(e);toast('Failed to load vendors','error');}
 }
-async function addVendor(){if(!isAdmin())return;const name=document.getElementById('v-name').value.trim();if(!name){toast('Vendor name required','error');return;}try{await sbInsert('vendors',{vendor_name:name,category:document.getElementById('v-cat').value,responsible:document.getElementById('v-resp').value,total_contract:+document.getElementById('v-total').value||null,amount_paid:+document.getElementById('v-paid').value||null,due_date:document.getElementById('v-due').value||null,status:document.getElementById('v-status').value,approval:document.getElementById('v-approval').value,notes:document.getElementById('v-notes').value});toast('Vendor added ✓');['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>document.getElementById(id).value='');delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error adding vendor','error');}}
+async function addVendor(){if(!isAdmin())return;const name=document.getElementById('v-name').value.trim();if(!name){toast('Vendor name required','error');return;}try{const payload={vendor_name:name,category:document.getElementById('v-cat').value,responsible:document.getElementById('v-resp').value,total_contract:+document.getElementById('v-total').value||null,amount_paid:+document.getElementById('v-paid').value||null,due_date:document.getElementById('v-due').value||null,status:document.getElementById('v-status').value,approval:document.getElementById('v-approval').value,agreement_status:document.getElementById('v-agreement').value,notes:document.getElementById('v-notes').value};try{await sbInsert('vendors',payload);}catch(err){if(/agreement_status/i.test(String(err))){delete payload.agreement_status;await sbInsert('vendors',payload);showMigrationBanner();}else{throw err;}}toast('Vendor added ✓');['v-name','v-cat','v-resp','v-total','v-paid','v-due','v-notes'].forEach(id=>document.getElementById(id).value='');delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error adding vendor','error');}}
 
 // WIP
 async function loadWip(){
@@ -1934,7 +2792,47 @@ if(dz){dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('d
 // EDIT VENDOR
 function openEditVendor(id){if(!canWrite())return;const vendors=cache['vendors']||[];const v=vendors.find(x=>x.id===id);if(!v)return;document.getElementById('ev-id').value=v.id;document.getElementById('ev-name').value=v.vendor_name||'';document.getElementById('ev-cat').value=v.category||'';document.getElementById('ev-resp').value=v.responsible||'';document.getElementById('ev-total').value=v.total_contract||'';document.getElementById('ev-paid').value=v.amount_paid||'';document.getElementById('ev-due').value=v.due_date||'';document.getElementById('ev-status').value=v.status||'Pending';document.getElementById('ev-approval').value=v.approval||'Pending Approval';document.getElementById('ev-notes').value=v.notes||'';document.getElementById('edit-vendor-modal').style.display='flex';}
 function closeEditVendor(){document.getElementById('edit-vendor-modal').style.display='none';}
-async function saveEditVendor(){if(!canWrite())return;const id=document.getElementById('ev-id').value;const name=document.getElementById('ev-name').value.trim();if(!name){toast('Vendor name is required','error');return;}try{const r=await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({vendor_name:name,category:document.getElementById('ev-cat').value,responsible:document.getElementById('ev-resp').value,total_contract:+document.getElementById('ev-total').value||null,amount_paid:+document.getElementById('ev-paid').value||null,due_date:document.getElementById('ev-due').value||null,status:document.getElementById('ev-status').value,approval:document.getElementById('ev-approval').value,notes:document.getElementById('ev-notes').value})});if(!r.ok)throw new Error(await r.text());toast('Vendor updated ✓');closeEditVendor();delete cache['vendors'];loadVendors();loadOverview();loadAlerts();}catch(e){toast('Error saving changes','error');}}
+async function saveEditVendor(){
+  if(!canWrite())return;
+  const id=document.getElementById('ev-id').value;
+  const name=document.getElementById('ev-name').value.trim();
+  if(!name){toast('Vendor name is required','error');return;}
+  const payload = {
+    vendor_name:name,
+    category:document.getElementById('ev-cat').value,
+    responsible:document.getElementById('ev-resp').value,
+    total_contract:+document.getElementById('ev-total').value||null,
+    amount_paid:+document.getElementById('ev-paid').value||null,
+    due_date:document.getElementById('ev-due').value||null,
+    status:document.getElementById('ev-status').value,
+    approval:document.getElementById('ev-approval').value,
+    agreement_status:document.getElementById('ev-agreement').value||'Draft',
+    paid_manual_override:document.getElementById('ev-paid-manual').checked,
+    notes:document.getElementById('ev-notes').value
+  };
+  try{
+    let r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+    if(!r.ok){
+      const err = await r.text();
+      // Graceful fallback if new columns don't exist yet
+      if(/agreement_status|paid_manual_override/i.test(err) && /column/i.test(err)){
+        delete payload.agreement_status;
+        delete payload.paid_manual_override;
+        r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+        if(!r.ok) throw new Error(await r.text());
+        toast('Vendor saved (run SQL migration to enable agreement tracking)','error');
+        showMigrationBanner();
+      } else { throw new Error(err); }
+    } else {
+      toast('Vendor updated ✓');
+    }
+    closeEditVendor();
+    delete cache['vendors'];
+    loadVendors();
+    loadOverview();
+    loadAlerts();
+  }catch(e){ console.error(e); toast('Error saving changes','error'); }
+}
 
 // PAYMENT SCHEDULE
 let currentVendorId=null,currentVendorTotal=0,currentVendorName='';
@@ -2013,6 +2911,16 @@ async function init(){
   const dot=document.getElementById('conn-dot'),txt=document.getElementById('conn-text');
   try{await sbGet('vendors','&limit=1');if(dot)dot.classList.add('connected');if(txt)txt.textContent='Supabase connected';}catch(e){if(dot)dot.classList.add('error');if(txt)txt.textContent='Connection failed';}
   loadAll();
+  // Check schema + run auto-bottleneck detection after initial load
+  setTimeout(async ()=>{
+    const ready = await checkSchemaReady();
+    if(ready){
+      await runBottleneckAutoCheck();
+      // Refresh alerts + overview to reflect any new bottlenecks
+      delete cache['bcc_bottlenecks'];
+      loadBottlenecks();
+    }
+  }, 2000);
 }
 init();
 </script>
