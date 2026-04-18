@@ -270,6 +270,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="nav-item" onclick="showSection('bottlenecks')"><span class="nav-icon">🚧</span>Bottlenecks <span id="bottle-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
       <div class="nav-item" onclick="showSection('workflow')"><span class="nav-icon">🔀</span>Workflow</div>
       <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🛋️</span>Inventory</div>
+      <div class="nav-item" onclick="showSection('store')"><span class="nav-icon">📦</span>Store & Assets</div>
       <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
       <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
       <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
@@ -638,6 +639,182 @@ tr:hover td{background:var(--green-bg);}
     <button class="btn btn-primary" onclick="addInventory()">+ Add Item</button>
   </div>
   <div class="card"><div class="card-title">Furnishing & Inventory Register</div><div class="table-wrap"><table><thead><tr><th>Item</th><th>Area</th><th>Supplier</th><th>Responsible</th><th>Ordered</th><th>Received</th><th>Unit Cost</th><th>Total</th><th>Delivery</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="inventory-tbody"></tbody></table></div></div>
+</div>
+
+<!-- STORE & FIXED ASSETS -->
+<div class="section" id="section-store">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Store & Fixed Assets</div>
+      <div class="page-subtitle">Receive goods → store holds them → storeman issues out → becomes a Fixed Asset</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="stat-grid" id="store-stats" style="margin-bottom:18px;">
+    <div class="stat-card gold"><div class="stat-label">Items in Store</div><div class="stat-value" id="ss-instore">—</div><div class="stat-sub">unique items</div></div>
+    <div class="stat-card green"><div class="stat-label">Store Value</div><div class="stat-value" id="ss-storeval">—</div><div class="stat-sub">qty × unit cost</div></div>
+    <div class="stat-card blue"><div class="stat-label">Fixed Asset Value</div><div class="stat-value" id="ss-favalue">—</div><div class="stat-sub">capitalized to assets</div></div>
+    <div class="stat-card amber"><div class="stat-label">Direct Expense</div><div class="stat-value" id="ss-expense">—</div><div class="stat-sub">consumed / written off</div></div>
+  </div>
+
+  <!-- Sub-tab nav -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);">
+    <button class="store-tab active" data-tab="store-store" onclick="switchStoreTab('store-store')">📦 Current Store</button>
+    <button class="store-tab" data-tab="store-receive" onclick="switchStoreTab('store-receive')">📥 Receiving Log</button>
+    <button class="store-tab" data-tab="store-issue" onclick="switchStoreTab('store-issue')">📤 Issuance Log</button>
+    <button class="store-tab" data-tab="store-fa" onclick="switchStoreTab('store-fa')">🏗 Fixed Assets</button>
+  </div>
+
+  <!-- TAB 1: Current Store -->
+  <div id="store-store" class="store-pane">
+    <div class="card admin-only">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">Receive New Goods</div>
+        <button class="btn btn-secondary btn-sm" onclick="toggleReceiveForm()" id="receive-toggle-btn">+ Receive</button>
+      </div>
+      <div id="receive-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Item Name *</label><input id="rec-name" placeholder="e.g. Portland Cement 50kg" list="rec-name-list"><datalist id="rec-name-list"></datalist></div>
+          <div class="form-group"><label>Unit *</label><input id="rec-unit" placeholder="bag / piece / m³"></div>
+          <div class="form-group"><label>Qty *</label><input id="rec-qty" type="number" placeholder="0" oninput="updateRecPreview()"></div>
+          <div class="form-group"><label>Unit Cost (PKR) *</label><input id="rec-cost" type="number" placeholder="0" oninput="updateRecPreview()"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Vendor</label><select id="rec-vendor"><option value="">— None —</option></select></div>
+          <div class="form-group"><label>Vendor Task (optional)</label><select id="rec-task"><option value="">— None —</option></select></div>
+          <div class="form-group"><label>Category</label><select id="rec-cat"><option>Construction Material</option><option>HVAC</option><option>Electrical</option><option>Plumbing</option><option>Furniture</option><option>Equipment</option><option>Other</option></select></div>
+          <div class="form-group"><label>Received Date</label><input id="rec-date" type="date"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Storeman Name</label><input id="rec-storeman" placeholder="Who received it"></div>
+          <div class="form-group"><label>Notes</label><input id="rec-notes" placeholder="DC# / GRN# / any reference"></div>
+        </div>
+        <div id="rec-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveReceive()">Save Receipt</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleReceiveForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Current Store Holdings</div>
+      <div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Last Received From</th><th>In Store</th><th>Issued</th><th>Avg Cost</th><th>Store Value</th><th></th></tr></thead><tbody id="store-current-tbody"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Receiving Log -->
+  <div id="store-receive" class="store-pane" style="display:none;">
+    <div class="card">
+      <div class="card-title">All Receipts</div>
+      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Vendor</th><th>For Task</th><th>Storeman</th><th>Notes</th><th></th></tr></thead><tbody id="store-receive-tbody"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Issuance Log -->
+  <div id="store-issue" class="store-pane" style="display:none;">
+    <div class="card">
+      <div class="card-title">All Issuances</div>
+      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Value</th><th>Destination</th><th>Type</th><th>Issued By</th><th>Notes</th><th></th></tr></thead><tbody id="store-issue-tbody"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Fixed Assets -->
+  <div id="store-fa" class="store-pane" style="display:none;">
+    <div class="card admin-only">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">Add Fixed Asset Bucket</div>
+        <button class="btn btn-secondary btn-sm" onclick="toggleAssetForm()" id="asset-toggle-btn">+ New Asset</button>
+      </div>
+      <div id="asset-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Asset Name *</label><input id="fa-name" placeholder="e.g. Main Building — Block A"></div>
+          <div class="form-group"><label>Category *</label><select id="fa-cat"><option>Building</option><option>Furniture</option><option>Equipment</option><option>Vehicle</option><option>HVAC</option><option>Electrical Infrastructure</option><option>Other</option></select></div>
+          <div class="form-group"><label>Status</label><select id="fa-status"><option>Under Construction</option><option>Commissioned</option><option>Retired</option></select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Direct Cost (PKR)</label><input id="fa-direct" type="number" placeholder="0"><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Labour, services, anything not from store</div></div>
+          <div class="form-group"><label>Commissioned Date</label><input id="fa-date" type="date"></div>
+          <div class="form-group"><label>Notes</label><input id="fa-notes"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveFixedAsset()">Save Asset</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleAssetForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All Fixed Assets</div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Category</th><th>Status</th><th>Direct Cost</th><th>From Store</th><th>Total Value</th><th>Items</th><th></th></tr></thead><tbody id="store-fa-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.store-tab { background:transparent; border:none; padding:10px 16px; font-size:13px; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; font-family:inherit; transition: all 0.2s; }
+.store-tab:hover { color:var(--text); }
+.store-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+</style>
+
+<!-- ISSUE FROM STORE MODAL -->
+<div id="issue-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:520;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeIssueModal()">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;">Issue From Store</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeIssueModal()">✕ Close</button>
+    </div>
+    <input type="hidden" id="iss-item-id">
+    <div id="iss-item-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text);">—</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div class="form-group"><label>Qty to Issue *</label><input id="iss-qty" type="number" placeholder="0" oninput="updateIssuePreview()"></div>
+      <div class="form-group"><label>Date</label><input id="iss-date" type="date"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label>Destination Type *</label>
+      <select id="iss-type" onchange="onIssueTypeChange()">
+        <option value="fixed_asset">📐 Fixed Asset (capitalize)</option>
+        <option value="direct_expense">💸 Direct Expense (consumed / written off)</option>
+      </select>
+    </div>
+    <div class="form-group" id="iss-fa-wrap" style="margin-bottom:10px;"><label>Destination Fixed Asset *</label>
+      <select id="iss-fa"><option value="">— Pick one or create new below —</option></select>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Or quick-create: <input id="iss-fa-quick" placeholder="New asset name" style="font-size:11px;padding:3px 6px;width:160px;"> <select id="iss-fa-quick-cat" style="font-size:11px;padding:3px 6px;"><option>Building</option><option>Furniture</option><option>Equipment</option><option>HVAC</option><option>Other</option></select> <button class="btn btn-secondary btn-sm" onclick="quickCreateAsset()" style="font-size:11px;padding:3px 8px;">Create</button></div>
+    </div>
+    <div class="form-group" id="iss-expense-wrap" style="margin-bottom:10px;display:none;"><label>Expense Note *</label><input id="iss-expense-note" placeholder="What was it consumed for?"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div class="form-group"><label>For Vendor Task</label><select id="iss-task"><option value="">— Optional —</option></select></div>
+      <div class="form-group"><label>Issued By (Storeman)</label><input id="iss-by" placeholder="Name"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label>Notes</label><input id="iss-notes"></div>
+    <div id="iss-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:12px;color:var(--text-muted);margin-bottom:14px;">—</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeIssueModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIssuance()">Confirm Issuance</button>
+    </div>
+  </div>
+</div>
+
+<!-- FIXED ASSET DETAIL MODAL -->
+<div id="fa-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:520;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeFaDetail()">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:760px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;" id="fad-name">—</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="fad-meta">—</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeFaDetail()">✕ Close</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Direct Cost</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-top:4px;" id="fad-direct">—</div></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">From Store</div><div style="font-size:15px;font-weight:600;color:var(--green);margin-top:4px;" id="fad-store">—</div></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Total Capitalized</div><div style="font-size:15px;font-weight:600;color:var(--gold);margin-top:4px;" id="fad-total">—</div></div>
+    </div>
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Items Issued to This Asset</div>
+    <div id="fad-issuances"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No items issued yet.</div></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+      <button class="btn btn-danger btn-sm" onclick="deleteFixedAsset()">✕ Delete Asset</button>
+    </div>
+  </div>
 </div>
 
 <!-- ROOMS -->
@@ -1652,7 +1829,7 @@ async function getData(t){cache[t]=await sbGet(t);return cache[t];}
 const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
-async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
 async function loadAll(){await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));loadOverview();loadAlerts();loadBottlenecks();}
 
 // OVERVIEW
@@ -3302,6 +3479,504 @@ function renderWorkflowTable(){
 }
 
 // INVENTORY
+// ============================================================
+// STORE & FIXED ASSETS MODULE
+// Receive → Store → Issue → Fixed Asset (or Direct Expense)
+// ============================================================
+
+const STORE_SQL_MIGRATION = `-- Bejaan Hotel — Store & Fixed Assets migration
+-- Run in Supabase SQL editor. Safe to re-run.
+
+-- Vendor split defaults
+ALTER TABLE vendors
+  ADD COLUMN IF NOT EXISTS default_inventory_pct NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS default_fixed_asset_pct NUMERIC DEFAULT 100,
+  ADD COLUMN IF NOT EXISTS default_fixed_asset_category TEXT DEFAULT 'Building';
+
+-- Task overrides
+ALTER TABLE vendor_tasks
+  ADD COLUMN IF NOT EXISTS inventory_pct NUMERIC,
+  ADD COLUMN IF NOT EXISTS fixed_asset_pct NUMERIC,
+  ADD COLUMN IF NOT EXISTS fixed_asset_category TEXT;
+
+-- Inventory receipts (every "goods in" event)
+CREATE TABLE IF NOT EXISTS inventory_receipts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_name TEXT NOT NULL,
+  unit TEXT,
+  qty NUMERIC NOT NULL,
+  unit_cost NUMERIC NOT NULL,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
+  vendor_task_id UUID REFERENCES vendor_tasks(id) ON DELETE SET NULL,
+  category TEXT,
+  received_date DATE DEFAULT CURRENT_DATE,
+  storeman_name TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_recv_item ON inventory_receipts(item_name);
+CREATE INDEX IF NOT EXISTS idx_recv_vendor ON inventory_receipts(vendor_id);
+
+-- Fixed asset buckets
+CREATE TABLE IF NOT EXISTS fixed_assets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  category TEXT,
+  status TEXT DEFAULT 'Under Construction',
+  direct_cost NUMERIC DEFAULT 0,
+  commissioned_date DATE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Issuances (every "goods out" event)
+CREATE TABLE IF NOT EXISTS inventory_issuances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_name TEXT NOT NULL,
+  qty NUMERIC NOT NULL,
+  unit_cost NUMERIC,
+  total_value NUMERIC,
+  destination_type TEXT NOT NULL,    -- 'fixed_asset' or 'direct_expense'
+  fixed_asset_id UUID REFERENCES fixed_assets(id) ON DELETE SET NULL,
+  expense_note TEXT,
+  vendor_task_id UUID REFERENCES vendor_tasks(id) ON DELETE SET NULL,
+  issued_date DATE DEFAULT CURRENT_DATE,
+  issued_by TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_iss_item ON inventory_issuances(item_name);
+CREATE INDEX IF NOT EXISTS idx_iss_fa ON inventory_issuances(fixed_asset_id);`;
+
+let _storeReceipts = [], _storeIssuances = [], _storeAssets = [];
+
+async function loadStore(){
+  try{
+    const [recs, isss, fas, vendors, vTasks] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*&order=received_date.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*&order=issued_date.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/fixed_assets?select=*&order=created_at.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      getData('vendors'),
+      fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+
+    if(!Array.isArray(recs) || recs.error){
+      // Schema not migrated yet
+      document.getElementById('store-current-tbody').innerHTML = '<tr class="empty-row"><td colspan="8" style="padding:20px;text-align:center;"><b style="color:#b89558;">⚙ Schema not set up</b><br><span style="font-size:11px;color:var(--text-muted);">Run the Store & Assets SQL migration in Supabase to enable this section. <button class="btn btn-secondary btn-sm" onclick="copyStoreSQL()" style="margin-left:8px;">📋 Copy SQL</button></span></td></tr>';
+      return;
+    }
+
+    _storeReceipts = recs || [];
+    _storeIssuances = isss || [];
+    _storeAssets = fas || [];
+
+    // Populate vendor + task dropdowns
+    const vSel = document.getElementById('rec-vendor');
+    if(vSel){
+      vSel.innerHTML = '<option value="">— None —</option>' + vendors.map(v=>`<option value="${v.id}">${_esc(v.vendor_name||'—')}</option>`).join('');
+    }
+    const tSel = document.getElementById('rec-task');
+    if(tSel){
+      tSel.innerHTML = '<option value="">— None —</option>' + vTasks.map(t=>{
+        const vn = (vendors.find(v=>v.id===t.vendor_id)?.vendor_name)||'';
+        return `<option value="${t.id}">${_esc(t.task_name)} ${vn?'· '+_esc(vn):''}</option>`;
+      }).join('');
+    }
+    const issTaskSel = document.getElementById('iss-task');
+    if(issTaskSel){
+      issTaskSel.innerHTML = '<option value="">— Optional —</option>' + vTasks.map(t=>{
+        const vn = (vendors.find(v=>v.id===t.vendor_id)?.vendor_name)||'';
+        return `<option value="${t.id}">${_esc(t.task_name)} ${vn?'· '+_esc(vn):''}</option>`;
+      }).join('');
+    }
+    const issFaSel = document.getElementById('iss-fa');
+    if(issFaSel){
+      issFaSel.innerHTML = '<option value="">— Pick one or create new below —</option>' + _storeAssets.map(a=>`<option value="${a.id}">${_esc(a.name)} (${_esc(a.category||'—')})</option>`).join('');
+    }
+
+    // Item-name autocomplete (from past receipts)
+    const dl = document.getElementById('rec-name-list');
+    if(dl){
+      const uniqNames = [...new Set(_storeReceipts.map(r=>r.item_name))].slice(0,50);
+      dl.innerHTML = uniqNames.map(n=>`<option value="${_esc(n)}">`).join('');
+    }
+
+    // Compute current store balances per item
+    const itemMap = {};
+    _storeReceipts.forEach(r=>{
+      const k = r.item_name;
+      if(!itemMap[k]) itemMap[k] = {name:k, category:r.category||'—', unit:r.unit||'',
+        recvQty:0, recvValue:0, lastVendor:'', lastDate:'', issQty:0, issValue:0};
+      itemMap[k].recvQty += +r.qty||0;
+      itemMap[k].recvValue += (+r.qty||0)*(+r.unit_cost||0);
+      const vName = vendors.find(v=>v.id===r.vendor_id)?.vendor_name;
+      if(vName) itemMap[k].lastVendor = vName;
+      itemMap[k].lastDate = r.received_date || itemMap[k].lastDate;
+    });
+    _storeIssuances.forEach(i=>{
+      const k = i.item_name;
+      if(!itemMap[k]) itemMap[k] = {name:k, category:'—', unit:'', recvQty:0, recvValue:0, lastVendor:'', lastDate:'', issQty:0, issValue:0};
+      itemMap[k].issQty += +i.qty||0;
+      itemMap[k].issValue += +i.total_value||0;
+    });
+    const items = Object.values(itemMap);
+
+    // KPIs
+    const inStoreItems = items.filter(it=>(it.recvQty - it.issQty) > 0).length;
+    const storeValue = items.reduce((s,it)=>{
+      const remain = it.recvQty - it.issQty;
+      const avgCost = it.recvQty ? it.recvValue/it.recvQty : 0;
+      return s + remain * avgCost;
+    },0);
+    const faValue = _storeIssuances.filter(i=>i.destination_type==='fixed_asset').reduce((s,i)=>s+(+i.total_value||0),0)
+                  + _storeAssets.reduce((s,a)=>s+(+a.direct_cost||0),0);
+    const expenseValue = _storeIssuances.filter(i=>i.destination_type==='direct_expense').reduce((s,i)=>s+(+i.total_value||0),0);
+
+    _countUpText('ss-instore', inStoreItems);
+    _countUpPKR('ss-storeval', storeValue);
+    _countUpPKR('ss-favalue', faValue);
+    _countUpPKR('ss-expense', expenseValue);
+
+    // Current Store table
+    const ctb = document.getElementById('store-current-tbody');
+    if(!items.length){
+      ctb.innerHTML = '<tr class="empty-row"><td colspan="8">No items received yet. Click "+ Receive" to log your first goods.</td></tr>';
+    } else {
+      ctb.innerHTML = items.sort((a,b)=>(b.recvQty-b.issQty)-(a.recvQty-a.issQty)).map(it=>{
+        const remain = it.recvQty - it.issQty;
+        const avgCost = it.recvQty ? it.recvValue/it.recvQty : 0;
+        const value = remain * avgCost;
+        const lowFlag = remain <= 0 ? '<span class="badge" style="background:rgba(120,120,120,0.15);color:#888;">OUT</span>' : '';
+        const issueBtn = (canWrite() && remain>0) ? `<button class="btn btn-secondary btn-sm" onclick="openIssueModal('${_esc(it.name).replace(/'/g,'&#39;')}', ${avgCost}, ${remain}, '${_esc(it.unit||'')}')">📤 Issue</button>` : '';
+        return `<tr>
+          <td><b>${_esc(it.name)}</b> ${lowFlag}</td>
+          <td>${_esc(it.category)}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${_esc(it.lastVendor||'—')}</td>
+          <td style="font-weight:500;color:${remain>0?'var(--green)':'var(--text-muted)'};">${remain.toFixed(2)} ${_esc(it.unit||'')}</td>
+          <td style="color:var(--text-muted);">${it.issQty.toFixed(2)}</td>
+          <td>PKR ${fmt(avgCost)}</td>
+          <td style="font-weight:500;">PKR ${fmt(value)}</td>
+          <td>${issueBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Receiving log
+    const rtb = document.getElementById('store-receive-tbody');
+    if(!_storeReceipts.length){
+      rtb.innerHTML = '<tr class="empty-row"><td colspan="10">No receipts logged yet.</td></tr>';
+    } else {
+      rtb.innerHTML = _storeReceipts.map(r=>{
+        const vName = vendors.find(v=>v.id===r.vendor_id)?.vendor_name||'—';
+        const tName = vTasks.find(t=>t.id===r.vendor_task_id)?.task_name||'—';
+        const total = (+r.qty||0)*(+r.unit_cost||0);
+        const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteReceipt('${r.id}')">✕</button>` : '';
+        return `<tr>
+          <td>${fmtDate(r.received_date)}</td>
+          <td><b>${_esc(r.item_name)}</b></td>
+          <td>${(+r.qty||0).toFixed(2)} ${_esc(r.unit||'')}</td>
+          <td>PKR ${fmt(r.unit_cost)}</td>
+          <td style="font-weight:500;">PKR ${fmt(total)}</td>
+          <td>${_esc(vName)}</td>
+          <td style="font-size:11px;color:var(--text-muted);">${_esc(tName)}</td>
+          <td>${_esc(r.storeman_name||'—')}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:140px;">${_esc(r.notes||'')}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Issuance log
+    const itb = document.getElementById('store-issue-tbody');
+    if(!_storeIssuances.length){
+      itb.innerHTML = '<tr class="empty-row"><td colspan="9">No issuances logged yet.</td></tr>';
+    } else {
+      itb.innerHTML = _storeIssuances.map(i=>{
+        let dest = '—';
+        if(i.destination_type==='fixed_asset'){
+          const a = _storeAssets.find(x=>x.id===i.fixed_asset_id);
+          dest = a ? `<b>${_esc(a.name)}</b> <span style="font-size:10px;color:var(--text-muted);">(${_esc(a.category||'')})</span>` : '<span style="color:var(--text-muted);">— deleted asset —</span>';
+        } else {
+          dest = `<span style="font-style:italic;color:var(--text-muted);">${_esc(i.expense_note||'Direct Expense')}</span>`;
+        }
+        const typeBadge = i.destination_type==='fixed_asset'
+          ? '<span class="badge" style="background:rgba(74,158,255,0.15);color:#4a9eff;">📐 ASSET</span>'
+          : '<span class="badge" style="background:rgba(224,138,76,0.15);color:#e08a4c;">💸 EXPENSE</span>';
+        const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteIssuance('${i.id}')">✕</button>` : '';
+        return `<tr>
+          <td>${fmtDate(i.issued_date)}</td>
+          <td><b>${_esc(i.item_name)}</b></td>
+          <td>${(+i.qty||0).toFixed(2)}</td>
+          <td>PKR ${fmt(i.total_value)}</td>
+          <td>${dest}</td>
+          <td>${typeBadge}</td>
+          <td>${_esc(i.issued_by||'—')}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:140px;">${_esc(i.notes||'')}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Fixed Assets table
+    const fatb = document.getElementById('store-fa-tbody');
+    if(!_storeAssets.length){
+      fatb.innerHTML = '<tr class="empty-row"><td colspan="8">No fixed assets yet. Click "+ New Asset" to create your first bucket.</td></tr>';
+    } else {
+      fatb.innerHTML = _storeAssets.map(a=>{
+        const fromStore = _storeIssuances.filter(i=>i.fixed_asset_id===a.id).reduce((s,i)=>s+(+i.total_value||0),0);
+        const itemCount = _storeIssuances.filter(i=>i.fixed_asset_id===a.id).length;
+        const total = (+a.direct_cost||0) + fromStore;
+        const stColor = a.status==='Commissioned'?'#4caf7d':a.status==='Retired'?'#888':'#e08a4c';
+        return `<tr style="cursor:pointer;" onclick="openFaDetail('${a.id}')">
+          <td><b>${_esc(a.name)}</b></td>
+          <td>${_esc(a.category||'—')}</td>
+          <td><span class="badge" style="background:${stColor}22;color:${stColor};">${_esc(a.status||'—')}</span></td>
+          <td>PKR ${fmt(a.direct_cost)}</td>
+          <td style="color:var(--green);">PKR ${fmt(fromStore)}</td>
+          <td style="font-weight:500;">PKR ${fmt(total)}</td>
+          <td>${itemCount}</td>
+          <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openFaDetail('${a.id}')">View</button></td>
+        </tr>`;
+      }).join('');
+    }
+  }catch(e){ console.error('loadStore error:',e); toast('Error loading store','error'); }
+}
+
+function copyStoreSQL(){
+  navigator.clipboard.writeText(STORE_SQL_MIGRATION).then(()=>toast('Store SQL copied ✓'),()=>toast('Copy failed','error'));
+}
+
+function switchStoreTab(tabId){
+  document.querySelectorAll('.store-tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tabId));
+  document.querySelectorAll('.store-pane').forEach(p=>p.style.display = p.id===tabId?'block':'none');
+}
+
+function toggleReceiveForm(){
+  const f = document.getElementById('receive-form');
+  const showing = f.style.display !== 'none';
+  f.style.display = showing ? 'none' : 'block';
+  if(!showing){
+    document.getElementById('rec-date').value = new Date().toISOString().slice(0,10);
+    ['rec-name','rec-unit','rec-qty','rec-cost','rec-storeman','rec-notes'].forEach(id=>document.getElementById(id).value='');
+    updateRecPreview();
+  }
+}
+function updateRecPreview(){
+  const q = +document.getElementById('rec-qty').value||0;
+  const c = +document.getElementById('rec-cost').value||0;
+  const total = q*c;
+  document.getElementById('rec-preview').textContent = total>0 ? `Total receipt value: ${fmtPKR(total)}` : '—';
+}
+
+async function saveReceive(){
+  if(!isAdmin())return;
+  const name = document.getElementById('rec-name').value.trim();
+  const qty = +document.getElementById('rec-qty').value||0;
+  const cost = +document.getElementById('rec-cost').value||0;
+  if(!name || qty<=0){ toast('Item name and qty required','error'); return; }
+  const payload = {
+    item_name: name,
+    unit: document.getElementById('rec-unit').value.trim() || null,
+    qty, unit_cost: cost,
+    vendor_id: document.getElementById('rec-vendor').value || null,
+    vendor_task_id: document.getElementById('rec-task').value || null,
+    category: document.getElementById('rec-cat').value,
+    received_date: document.getElementById('rec-date').value || new Date().toISOString().slice(0,10),
+    storeman_name: document.getElementById('rec-storeman').value.trim() || null,
+    notes: document.getElementById('rec-notes').value.trim() || null
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/inventory_receipts`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Receipt saved ✓');
+    toggleReceiveForm();
+    loadStore();
+  }catch(e){ console.error(e); toast('Error saving receipt','error'); }
+}
+
+async function deleteReceipt(id){
+  if(!isAdmin())return;
+  if(!confirm('Remove this receipt? Note: any issuances for this item will remain.'))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/inventory_receipts?id=eq.${id}`,{ method:'DELETE', headers });
+    toast('Receipt removed ✓');
+    loadStore();
+  }catch(e){ toast('Error','error'); }
+}
+async function deleteIssuance(id){
+  if(!isAdmin())return;
+  if(!confirm('Remove this issuance? Items will go back into store.'))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/inventory_issuances?id=eq.${id}`,{ method:'DELETE', headers });
+    toast('Issuance removed ✓');
+    loadStore();
+  }catch(e){ toast('Error','error'); }
+}
+
+// ── ISSUE FROM STORE MODAL ──
+let _issItemName = '', _issAvgCost = 0, _issAvailable = 0, _issUnit = '';
+function openIssueModal(itemName, avgCost, available, unit){
+  if(!canWrite())return;
+  _issItemName = itemName; _issAvgCost = avgCost; _issAvailable = available; _issUnit = unit;
+  document.getElementById('iss-item-info').innerHTML = `<b>${_esc(itemName)}</b> · Available: <b>${available.toFixed(2)} ${_esc(unit)}</b> · Avg cost: <b>PKR ${fmt(avgCost)}</b>`;
+  document.getElementById('iss-qty').value = '';
+  document.getElementById('iss-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('iss-type').value = 'fixed_asset';
+  document.getElementById('iss-fa').value = '';
+  document.getElementById('iss-task').value = '';
+  document.getElementById('iss-by').value = '';
+  document.getElementById('iss-notes').value = '';
+  document.getElementById('iss-expense-note').value = '';
+  document.getElementById('iss-fa-quick').value = '';
+  onIssueTypeChange();
+  updateIssuePreview();
+  document.getElementById('issue-modal').style.display = 'flex';
+}
+function closeIssueModal(){ document.getElementById('issue-modal').style.display = 'none'; }
+function onIssueTypeChange(){
+  const t = document.getElementById('iss-type').value;
+  document.getElementById('iss-fa-wrap').style.display = t==='fixed_asset'?'block':'none';
+  document.getElementById('iss-expense-wrap').style.display = t==='direct_expense'?'block':'none';
+}
+function updateIssuePreview(){
+  const q = +document.getElementById('iss-qty').value||0;
+  const value = q * _issAvgCost;
+  const ok = q > 0 && q <= _issAvailable;
+  const warn = q > _issAvailable ? `<span style="color:#c85a5a;"> · ⚠ Exceeds available stock!</span>` : '';
+  document.getElementById('iss-preview').innerHTML = q > 0
+    ? `Issuing <b>${q.toFixed(2)} ${_esc(_issUnit)}</b> of <b>${_esc(_issItemName)}</b> = <b>${fmtPKR(value)}</b>${warn}`
+    : '—';
+}
+async function quickCreateAsset(){
+  if(!canWrite())return;
+  const name = document.getElementById('iss-fa-quick').value.trim();
+  const cat = document.getElementById('iss-fa-quick-cat').value;
+  if(!name){ toast('Asset name required','error'); return; }
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/fixed_assets`,{
+      method:'POST', headers:{...headers,'Prefer':'return=representation'},
+      body: JSON.stringify({ name, category: cat, status:'Under Construction', direct_cost:0 })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const created = await r.json();
+    const newId = (Array.isArray(created)?created[0]:created)?.id;
+    toast('Asset created ✓');
+    // Refresh dropdown and select new
+    const fas = await fetch(`${SB_URL}/rest/v1/fixed_assets?select=*&order=created_at.desc`,{headers}).then(r=>r.ok?r.json():[]);
+    _storeAssets = fas;
+    const sel = document.getElementById('iss-fa');
+    sel.innerHTML = '<option value="">— Pick one or create new below —</option>' + _storeAssets.map(a=>`<option value="${a.id}" ${a.id===newId?'selected':''}>${_esc(a.name)} (${_esc(a.category||'—')})</option>`).join('');
+    document.getElementById('iss-fa-quick').value = '';
+  }catch(e){ console.error(e); toast('Error creating asset','error'); }
+}
+async function saveIssuance(){
+  if(!canWrite())return;
+  const q = +document.getElementById('iss-qty').value||0;
+  if(q<=0){ toast('Qty required','error'); return; }
+  if(q > _issAvailable && !confirm('Quantity exceeds available stock. Save anyway?')) return;
+  const dest = document.getElementById('iss-type').value;
+  const payload = {
+    item_name: _issItemName,
+    qty: q,
+    unit_cost: _issAvgCost,
+    total_value: q * _issAvgCost,
+    destination_type: dest,
+    fixed_asset_id: dest==='fixed_asset' ? (document.getElementById('iss-fa').value||null) : null,
+    expense_note: dest==='direct_expense' ? (document.getElementById('iss-expense-note').value.trim()||null) : null,
+    vendor_task_id: document.getElementById('iss-task').value || null,
+    issued_date: document.getElementById('iss-date').value || new Date().toISOString().slice(0,10),
+    issued_by: document.getElementById('iss-by').value.trim() || null,
+    notes: document.getElementById('iss-notes').value.trim() || null
+  };
+  if(dest==='fixed_asset' && !payload.fixed_asset_id){ toast('Pick a destination Fixed Asset','error'); return; }
+  if(dest==='direct_expense' && !payload.expense_note){ toast('Expense note required','error'); return; }
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/inventory_issuances`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Issuance logged ✓');
+    closeIssueModal();
+    loadStore();
+  }catch(e){ console.error(e); toast('Error logging issuance','error'); }
+}
+
+// ── FIXED ASSET FORM ──
+function toggleAssetForm(){
+  const f = document.getElementById('asset-form');
+  const showing = f.style.display !== 'none';
+  f.style.display = showing ? 'none' : 'block';
+  if(!showing){
+    ['fa-name','fa-direct','fa-date','fa-notes'].forEach(id=>document.getElementById(id).value='');
+  }
+}
+async function saveFixedAsset(){
+  if(!isAdmin())return;
+  const name = document.getElementById('fa-name').value.trim();
+  if(!name){ toast('Name required','error'); return; }
+  const payload = {
+    name,
+    category: document.getElementById('fa-cat').value,
+    status: document.getElementById('fa-status').value,
+    direct_cost: +document.getElementById('fa-direct').value||0,
+    commissioned_date: document.getElementById('fa-date').value||null,
+    notes: document.getElementById('fa-notes').value.trim()||null
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/fixed_assets`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error(await r.text());
+    toast('Asset created ✓');
+    toggleAssetForm();
+    loadStore();
+  }catch(e){ console.error(e); toast('Error creating asset','error'); }
+}
+
+// ── FIXED ASSET DETAIL ──
+let _fadId = null;
+function openFaDetail(id){
+  const a = _storeAssets.find(x=>x.id===id);
+  if(!a) return;
+  _fadId = id;
+  document.getElementById('fad-name').textContent = a.name;
+  document.getElementById('fad-meta').textContent = `${a.category||'—'} · ${a.status||'—'}${a.commissioned_date?' · Commissioned '+fmtDate(a.commissioned_date):''}`;
+  const issForA = _storeIssuances.filter(i=>i.fixed_asset_id===id);
+  const fromStore = issForA.reduce((s,i)=>s+(+i.total_value||0),0);
+  const total = (+a.direct_cost||0) + fromStore;
+  document.getElementById('fad-direct').textContent = fmtPKR(+a.direct_cost||0);
+  document.getElementById('fad-store').textContent = fmtPKR(fromStore);
+  document.getElementById('fad-total').textContent = fmtPKR(total);
+
+  const list = document.getElementById('fad-issuances');
+  if(!issForA.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No items issued yet.</div>';
+  } else {
+    list.innerHTML = issForA.map(i=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:500;font-size:13px;color:var(--text);">${_esc(i.item_name)} · ${(+i.qty||0).toFixed(2)} units</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${fmtDate(i.issued_date)}${i.issued_by?' · by '+_esc(i.issued_by):''}${i.notes?' · '+_esc(i.notes):''}</div>
+        </div>
+        <div style="font-weight:500;color:var(--green);">${fmtPKR(+i.total_value||0)}</div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('fa-detail-modal').style.display = 'flex';
+}
+function closeFaDetail(){ document.getElementById('fa-detail-modal').style.display = 'none'; }
+async function deleteFixedAsset(){
+  if(!isAdmin())return;
+  if(!_fadId) return;
+  if(!confirm('Delete this asset? Issuances pointing to it will be unlinked but remain in the issuance log.'))return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/fixed_assets?id=eq.${_fadId}`,{method:'DELETE',headers});
+    toast('Asset deleted ✓');
+    closeFaDetail();
+    loadStore();
+  }catch(e){ toast('Error','error'); }
+}
+
+// ============================================================
+// END STORE & FIXED ASSETS MODULE
+// ============================================================
+
 async function loadInventory(){try{const data=await getData('inventory');const tbody=document.getElementById('inventory-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No inventory items yet.</td></tr>';return;}tbody.innerHTML=data.map(i=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('inventory','${i.id}',loadInventory)">✕</button></td>`:'<td></td>';return`<tr><td>${i.item_name||'—'}</td><td>${i.room_area||'—'}</td><td>${i.supplier||'—'}</td><td>${i.responsible||'—'}</td><td>${i.qty_ordered||0}</td><td>${i.qty_received||0}</td><td>PKR ${fmt(i.unit_cost)}</td><td>PKR ${fmt((+i.qty_ordered||0)*(+i.unit_cost||0))}</td><td>${fmtDate(i.expected_delivery)}</td><td>${statusBadge(i.status||'Pending Order')}</td><td style="max-width:130px;font-size:12px;">${i.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load inventory','error');}}
 async function addInventory(){if(!isAdmin())return;const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}}
 
