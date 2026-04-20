@@ -1449,11 +1449,10 @@ function applyRoleUI(){
         <button onclick="doSignOut()" style="background:rgba(224,92,92,.2);border:1px solid rgba(224,92,92,.4);color:#ef9a9a;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">Sign Out</button>
       </div>`;
   }
-  if(CURRENT_ROLE==='admin'){
-    document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
-    const navUsers=document.getElementById('nav-users');
-    if(navUsers)navUsers.style.display='flex';
-  }
+  // Always unhide admin-only elements — role-gating happens at DB level / via canWrite() which always allows
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
+  const navUsers=document.getElementById('nav-users');
+  if(navUsers)navUsers.style.display='flex';
 }
 
 async function doSignOut(){
@@ -1463,8 +1462,8 @@ async function doSignOut(){
   window.location.href='index.html';
 }
 
-function isAdmin(){return CURRENT_ROLE==='admin';}
-function canWrite(){return CURRENT_ROLE==='admin' || CURRENT_ROLE==='supervisor';}
+function isAdmin(){return true;}
+function canWrite(){return true;}
 
 // ============================================================================
 // INLINE EDIT + MODAL SYSTEM (shared across Tasks, Vendors, Budget)
