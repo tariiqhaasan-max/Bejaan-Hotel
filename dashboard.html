@@ -1266,6 +1266,92 @@ tr:hover td{background:var(--green-bg);}
       <div id="ev-dest-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Pick where this vendor's value flows. Fixed Asset capitalizes directly. Store holds until issued.</div>
     </div>
 
+    <!-- CONTRACT ITEMS — line items with receive tracking -->
+    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Contract Items <span id="ev-items-summary" style="color:var(--text-muted);font-size:10px;margin-left:6px;font-weight:400;letter-spacing:0;text-transform:none;"></span></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvItemForm()">+ Add Item</button>
+      </div>
+
+      <!-- Add / Edit item form -->
+      <div id="ev-item-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <input type="hidden" id="ev-item-edit-id">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group"><label>Item Name *</label><input id="ev-item-name" placeholder="e.g. Wall-mounted toilet"></div>
+          <div class="form-group"><label>Unit</label>
+            <select id="ev-item-unit">
+              <option value="pcs">pcs</option>
+              <option value="sets">sets</option>
+              <option value="m">m (meters)</option>
+              <option value="m2">m² (sqm)</option>
+              <option value="kg">kg</option>
+              <option value="L">L (liters)</option>
+              <option value="box">box</option>
+              <option value="roll">roll</option>
+              <option value="lot">lot</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Qty Ordered *</label><input id="ev-item-qty" type="number" min="0" step="0.01" placeholder="30"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group"><label>Unit Price (PKR)</label><input id="ev-item-price" type="number" min="0" step="0.01" placeholder="0"></div>
+          <div class="form-group"><label>Model / Description</label><input id="ev-item-model" placeholder="optional"></div>
+          <div class="form-group"><label>Destination</label>
+            <select id="ev-item-dest" onchange="onEvItemDestChange()">
+              <option value="store">📦 Store</option>
+              <option value="fixed_asset">📐 Fixed Asset</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="ev-item-fa-wrap" style="display:none;margin-bottom:8px;">
+          <label>Fixed Asset Category *</label>
+          <select id="ev-item-fa-cat">
+            <option>Building</option>
+            <option>Furniture & Fixtures</option>
+            <option>Equipment</option>
+            <option>Vehicle</option>
+            <option>HVAC</option>
+            <option>Electrical Infrastructure</option>
+            <option>IT & Software</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:8px;"><label>Notes</label><input id="ev-item-notes" placeholder="optional"></div>
+        <div id="ev-item-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">—</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveEvItem()">💾 Save Item</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleEvItemForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Items list -->
+      <div id="ev-items-list" style="margin-bottom:8px;"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No items added yet.</div></div>
+
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Ticking an item as received auto-creates an entry in <b>Store</b> or <b>Fixed Assets</b> based on its destination.</div>
+    </div>
+
+    <!-- RECEIVE ITEM MODAL (opens on top of Edit Vendor) -->
+    <div id="ev-receive-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeReceiveItem()">
+      <div style="background:#fff;border-radius:12px;padding:22px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.18);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="font-family:'Playfair Display',serif;font-size:16px;">Mark Item Received</div>
+          <button class="btn btn-secondary btn-sm" onclick="closeReceiveItem()">✕</button>
+        </div>
+        <input type="hidden" id="rcv-item-id">
+        <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;" id="rcv-item-summary">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group"><label>Qty Received *</label><input id="rcv-qty" type="number" min="0.01" step="0.01"></div>
+          <div class="form-group"><label>Received Date</label><input id="rcv-date" type="date"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;"><label>Received By</label><input id="rcv-by" placeholder="Storeman name"></div>
+        <div class="form-group" style="margin-bottom:14px;"><label>Notes</label><input id="rcv-notes" placeholder="Invoice #, condition, etc."></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-secondary btn-sm" onclick="closeReceiveItem()">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmReceiveItem()">✓ Confirm Receipt</button>
+        </div>
+      </div>
+    </div>
+
     <!-- PAYMENT SCHEDULE (brought into the modal) -->
     <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -3172,6 +3258,11 @@ function switchContract(contractId){
   renderEvMilestonesList();
   const vendorId = document.getElementById('ev-id').value;
   fetchVendorTasks(vendorId, c.id).then(ts => { _evTasks = ts; renderEvTasksList(); });
+  // Re-load contract items
+  fetchContractItems(c.id).then(items => {
+    _evItems = items || [];
+    renderEvItemsList();
+  });
 }
 
 function populateFormFromContract(c){
@@ -3292,6 +3383,8 @@ async function addNewContract(){
     renderEvMilestonesList();
     _evTasks = [];
     renderEvTasksList();
+    _evItems = [];
+    renderEvItemsList();
     toast(`Contract ${nextNum} added ✓`);
   }catch(e){ console.error(e); toast('Error adding contract','error'); }
 }
@@ -3393,6 +3486,10 @@ async function openEditVendor(id){
   // Fetch tasks for this vendor (scoped to current contract if table supports it)
   _evTasks = await fetchVendorTasks(v.id, _evCurrentContractId);
   renderEvTasksList();
+
+  // Fetch contract items for the current contract
+  _evItems = (await fetchContractItems(_evCurrentContractId)) || [];
+  renderEvItemsList();
 }
 
 function updateAgreementUI(status){
@@ -3856,6 +3953,334 @@ async function runBottleneckAutoCheck(){
     if(created) console.log(`[auto-bottleneck] Created ${created} new bottleneck(s)`);
   }catch(e){ console.warn('Bottleneck auto-check failed:', e); }
 }
+
+// ============================================================
+// CONTRACT ITEMS MODULE — line items with receive tracking
+// ============================================================
+
+let _evItems = []; // items for the current contract being edited
+
+async function fetchContractItems(contractId){
+  if(!contractId) return [];
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/contract_items?contract_id=eq.${contractId}&order=sort_order.asc,created_at.asc`,{headers});
+    if(!r.ok){
+      const txt = await r.text();
+      if(/does not exist/i.test(txt)){
+        console.warn('contract_items table missing — run migration');
+        return null; // sentinel for "needs migration"
+      }
+      return [];
+    }
+    return await r.json();
+  }catch(e){ console.error(e); return []; }
+}
+
+function toggleEvItemForm(){
+  const form = document.getElementById('ev-item-form');
+  const showing = form.style.display !== 'none';
+  if(showing){
+    form.style.display = 'none';
+    // Reset
+    ['ev-item-name','ev-item-qty','ev-item-price','ev-item-model','ev-item-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('ev-item-edit-id').value = '';
+    document.getElementById('ev-item-unit').value = 'pcs';
+    document.getElementById('ev-item-dest').value = 'store';
+    onEvItemDestChange();
+    document.getElementById('ev-item-preview').textContent = '—';
+  } else {
+    form.style.display = 'block';
+    setTimeout(()=>document.getElementById('ev-item-name').focus(), 50);
+  }
+}
+
+function onEvItemDestChange(){
+  const dest = document.getElementById('ev-item-dest').value;
+  const faWrap = document.getElementById('ev-item-fa-wrap');
+  if(faWrap) faWrap.style.display = dest === 'fixed_asset' ? 'block' : 'none';
+}
+
+function updateEvItemPreview(){
+  const qty = +document.getElementById('ev-item-qty').value || 0;
+  const price = +document.getElementById('ev-item-price').value || 0;
+  const total = qty * price;
+  document.getElementById('ev-item-preview').textContent = total > 0
+    ? `Line total: PKR ${fmt(total)}`
+    : '—';
+}
+
+async function saveEvItem(){
+  if(!canWrite()) return;
+  const contractId = _evCurrentContractId;
+  if(!contractId){ toast('Save vendor and contract first','error'); return; }
+
+  const name = document.getElementById('ev-item-name').value.trim();
+  if(!name){ toast('Item name required','error'); return; }
+  const qty = +document.getElementById('ev-item-qty').value || 0;
+  if(qty <= 0){ toast('Qty must be > 0','error'); return; }
+
+  const dest = document.getElementById('ev-item-dest').value;
+  const payload = {
+    contract_id: contractId,
+    item_name: name,
+    description: document.getElementById('ev-item-notes').value || null,
+    model_number: document.getElementById('ev-item-model').value || null,
+    unit: document.getElementById('ev-item-unit').value || 'pcs',
+    qty_ordered: qty,
+    unit_price: +document.getElementById('ev-item-price').value || 0,
+    destination_type: dest,
+    fixed_asset_category: dest === 'fixed_asset' ? document.getElementById('ev-item-fa-cat').value : null,
+    notes: document.getElementById('ev-item-notes').value || null
+  };
+
+  const editId = document.getElementById('ev-item-edit-id').value;
+  try{
+    if(editId){
+      // Update existing
+      const r = await fetch(`${SB_URL}/rest/v1/contract_items?id=eq.${editId}`,{
+        method: 'PATCH',
+        headers: {...headers, 'Prefer':'return=representation'},
+        body: JSON.stringify(payload)
+      });
+      if(!r.ok) throw new Error(await r.text());
+      toast('Item updated ✓');
+    } else {
+      // Insert new
+      const r = await fetch(`${SB_URL}/rest/v1/contract_items`,{
+        method: 'POST',
+        headers: {...headers, 'Prefer':'return=representation'},
+        body: JSON.stringify(payload)
+      });
+      if(!r.ok){
+        const err = await r.text();
+        if(/does not exist/i.test(err)){
+          toast('⚠ Run contract_items migration first','error');
+          return;
+        }
+        throw new Error(err);
+      }
+      toast('Item added ✓');
+    }
+    toggleEvItemForm();
+    _evItems = await fetchContractItems(contractId) || [];
+    renderEvItemsList();
+  }catch(e){ console.error(e); toast('Error saving item','error'); }
+}
+
+function editEvItem(itemId){
+  const it = _evItems.find(x => x.id === itemId);
+  if(!it) return;
+  document.getElementById('ev-item-edit-id').value = it.id;
+  document.getElementById('ev-item-name').value  = it.item_name || '';
+  document.getElementById('ev-item-unit').value  = it.unit || 'pcs';
+  document.getElementById('ev-item-qty').value   = it.qty_ordered || '';
+  document.getElementById('ev-item-price').value = it.unit_price || '';
+  document.getElementById('ev-item-model').value = it.model_number || '';
+  document.getElementById('ev-item-dest').value  = it.destination_type || 'store';
+  onEvItemDestChange();
+  if(it.fixed_asset_category) document.getElementById('ev-item-fa-cat').value = it.fixed_asset_category;
+  document.getElementById('ev-item-notes').value = it.notes || '';
+  updateEvItemPreview();
+  document.getElementById('ev-item-form').style.display = 'block';
+  setTimeout(()=>document.getElementById('ev-item-form').scrollIntoView({behavior:'smooth', block:'center'}), 100);
+}
+
+async function deleteEvItem(itemId){
+  if(!canWrite()) return;
+  const it = _evItems.find(x => x.id === itemId);
+  if(!it) return;
+  const hasReceipts = (+it.qty_received||0) > 0;
+  const confirmMsg = hasReceipts
+    ? `Delete "${it.item_name}"?\n\nThis item has ${it.qty_received} received units already logged in Store/Fixed Assets. Those records will REMAIN but will lose their link to this contract item.\n\nContinue?`
+    : `Delete "${it.item_name}"?`;
+  if(!confirm(confirmMsg)) return;
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/contract_items?id=eq.${itemId}`,{method:'DELETE',headers});
+    if(!r.ok) throw new Error(await r.text());
+    _evItems = _evItems.filter(x => x.id !== itemId);
+    renderEvItemsList();
+    toast('Item deleted ✓');
+  }catch(e){ console.error(e); toast('Error deleting item','error'); }
+}
+
+function renderEvItemsList(){
+  const list = document.getElementById('ev-items-list');
+  const summary = document.getElementById('ev-items-summary');
+  if(!list) return;
+
+  if(!_evItems || !_evItems.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No items added yet.</div>';
+    if(summary) summary.textContent = '';
+    return;
+  }
+
+  // Summary counts
+  const total = _evItems.length;
+  const received = _evItems.filter(i => i.received_status === 'received').length;
+  const partial  = _evItems.filter(i => i.received_status === 'partial').length;
+  const pending  = total - received - partial;
+  if(summary){
+    summary.innerHTML = `<b>${received}</b>/${total} received${partial?` · ${partial} partial`:''}${pending?` · ${pending} pending`:''}`;
+  }
+
+  list.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:var(--surface2);color:var(--text-muted);text-transform:uppercase;font-size:10px;letter-spacing:0.08em;">
+          <th style="text-align:left;padding:8px 6px;">Item</th>
+          <th style="text-align:right;padding:8px 6px;">Ordered</th>
+          <th style="text-align:right;padding:8px 6px;">Received</th>
+          <th style="text-align:right;padding:8px 6px;">Unit Price</th>
+          <th style="text-align:right;padding:8px 6px;">Line Total</th>
+          <th style="text-align:center;padding:8px 6px;">Dest</th>
+          <th style="text-align:center;padding:8px 6px;">Status</th>
+          <th style="padding:8px 6px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_evItems.map(it => {
+          const qtyO = +it.qty_ordered||0;
+          const qtyR = +it.qty_received||0;
+          const price = +it.unit_price||0;
+          const lineTotal = qtyO * price;
+          const remaining = qtyO - qtyR;
+          const statusBadge =
+            it.received_status === 'received' ? '<span class="badge badge-green">✓ Received</span>' :
+            it.received_status === 'partial'  ? `<span class="badge" style="background:rgba(184,149,88,.18);color:#b89558;">◐ ${qtyR}/${qtyO}</span>` :
+            '<span class="badge badge-gray">Pending</span>';
+          const destIcon = it.destination_type === 'fixed_asset'
+            ? `<span title="Fixed Asset — ${it.fixed_asset_category||''}">📐</span>`
+            : '<span title="Store">📦</span>';
+          const receiveBtn = remaining > 0
+            ? `<button class="btn btn-primary btn-sm" style="padding:3px 8px;font-size:11px;" onclick="openReceiveItem('${it.id}')" title="Mark received">✓ Receive</button>`
+            : '';
+          return `<tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 6px;">
+              <div style="font-weight:600;">${it.item_name||'—'}</div>
+              ${it.model_number?`<div style="font-size:10px;color:var(--text-muted);">${it.model_number}</div>`:''}
+            </td>
+            <td style="text-align:right;padding:8px 6px;font-family:'DM Mono',monospace;">${qtyO} ${it.unit||''}</td>
+            <td style="text-align:right;padding:8px 6px;font-family:'DM Mono',monospace;color:${qtyR>0?'#4caf7d':'var(--text-muted)'};">${qtyR} ${it.unit||''}</td>
+            <td style="text-align:right;padding:8px 6px;font-family:'DM Mono',monospace;">${price?fmt(price):'—'}</td>
+            <td style="text-align:right;padding:8px 6px;font-family:'DM Mono',monospace;font-weight:600;">${lineTotal?fmt(lineTotal):'—'}</td>
+            <td style="text-align:center;padding:8px 6px;">${destIcon}</td>
+            <td style="text-align:center;padding:8px 6px;">${statusBadge}</td>
+            <td style="text-align:right;padding:8px 6px;white-space:nowrap;">
+              ${receiveBtn}
+              <button class="btn-icon" title="Edit" onclick="editEvItem('${it.id}')" style="margin-left:4px;">✎</button>
+              <button class="btn btn-danger btn-sm" title="Delete" onclick="deleteEvItem('${it.id}')" style="padding:3px 7px;font-size:11px;margin-left:4px;">✕</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── RECEIVE FLOW ──────────────────────────────────────────────
+function openReceiveItem(itemId){
+  const it = _evItems.find(x => x.id === itemId);
+  if(!it) return;
+  const remaining = (+it.qty_ordered||0) - (+it.qty_received||0);
+  document.getElementById('rcv-item-id').value = itemId;
+  document.getElementById('rcv-item-summary').innerHTML = `
+    <b>${it.item_name}</b> · ${it.destination_type === 'fixed_asset' ? '📐 Fixed Asset' : '📦 Store'}<br>
+    Ordered: <b>${it.qty_ordered} ${it.unit||''}</b> ·
+    Already received: <b>${it.qty_received||0} ${it.unit||''}</b> ·
+    Remaining: <b style="color:#b89558;">${remaining} ${it.unit||''}</b>`;
+  document.getElementById('rcv-qty').value = remaining > 0 ? remaining : '';
+  document.getElementById('rcv-qty').max = remaining;
+  document.getElementById('rcv-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rcv-by').value = CURRENT_NAME || '';
+  document.getElementById('rcv-notes').value = '';
+  document.getElementById('ev-receive-modal').style.display = 'flex';
+}
+
+function closeReceiveItem(){
+  document.getElementById('ev-receive-modal').style.display = 'none';
+}
+
+async function confirmReceiveItem(){
+  if(!canWrite()) return;
+  const itemId = document.getElementById('rcv-item-id').value;
+  const it = _evItems.find(x => x.id === itemId);
+  if(!it){ toast('Item not found','error'); return; }
+
+  const qty = +document.getElementById('rcv-qty').value || 0;
+  if(qty <= 0){ toast('Qty must be > 0','error'); return; }
+  const remaining = (+it.qty_ordered||0) - (+it.qty_received||0);
+  if(qty > remaining){
+    if(!confirm(`You're receiving ${qty} ${it.unit||''} but only ${remaining} remaining. Continue?`)) return;
+  }
+
+  const rDate = document.getElementById('rcv-date').value || new Date().toISOString().slice(0,10);
+  const rBy   = document.getElementById('rcv-by').value || '';
+  const rNote = document.getElementById('rcv-notes').value || '';
+  const vendorId = document.getElementById('ev-id').value;
+
+  try{
+    // 1. Auto-create Store receipt or Fixed Asset entry
+    if(it.destination_type === 'fixed_asset'){
+      const faPayload = {
+        name: it.item_name + (qty < (+it.qty_ordered||0) ? ` (${qty}/${it.qty_ordered})` : ''),
+        category: it.fixed_asset_category || 'Building',
+        status: 'Under Construction',
+        direct_cost: qty * (+it.unit_price||0),
+        notes: `Auto-created from contract item. Received ${qty} ${it.unit||''} on ${rDate}${rBy?' by '+rBy:''}. ${rNote}`,
+        contract_item_id: it.id
+      };
+      const r = await fetch(`${SB_URL}/rest/v1/fixed_assets`,{
+        method:'POST',
+        headers:{...headers,'Prefer':'return=representation'},
+        body:JSON.stringify(faPayload)
+      });
+      if(!r.ok) throw new Error('FA create: ' + await r.text());
+    } else {
+      const recPayload = {
+        item_name: it.item_name,
+        unit: it.unit || 'pcs',
+        qty: qty,
+        unit_cost: +it.unit_price || 0,
+        vendor_id: vendorId,
+        category: 'Contract Receipt',
+        received_date: rDate,
+        storeman_name: rBy,
+        notes: rNote,
+        contract_item_id: it.id
+      };
+      const r = await fetch(`${SB_URL}/rest/v1/inventory_receipts`,{
+        method:'POST',
+        headers:{...headers,'Prefer':'return=representation'},
+        body:JSON.stringify(recPayload)
+      });
+      if(!r.ok) throw new Error('Receipt create: ' + await r.text());
+    }
+
+    // 2. Update qty_received on the contract_item
+    const newReceived = (+it.qty_received||0) + qty;
+    const r2 = await fetch(`${SB_URL}/rest/v1/contract_items?id=eq.${itemId}`,{
+      method:'PATCH',
+      headers:{...headers,'Prefer':'return=representation'},
+      body:JSON.stringify({ qty_received: newReceived, updated_at: new Date().toISOString() })
+    });
+    if(!r2.ok) throw new Error('Update qty_received: ' + await r2.text());
+
+    closeReceiveItem();
+    _evItems = await fetchContractItems(_evCurrentContractId) || [];
+    renderEvItemsList();
+    const destLabel = it.destination_type === 'fixed_asset' ? 'Fixed Assets' : 'Store';
+    toast(`✓ Received ${qty} ${it.unit||''}. Added to ${destLabel}.`);
+  }catch(e){
+    console.error(e);
+    toast('Error recording receipt — ' + (e.message||e).toString().slice(0,80),'error');
+  }
+}
+
+// Wire item preview updates
+document.addEventListener('input', e => {
+  if(e.target && (e.target.id === 'ev-item-qty' || e.target.id === 'ev-item-price')){
+    updateEvItemPreview();
+  }
+});
 
 // ============================================================
 // END VENDOR-SPINE MODULE
@@ -5586,16 +6011,22 @@ function getAllSchedules(){return JSON.parse(localStorage.getItem('vendor_schedu
 function getVendorSchedule(vendorId){return(getAllSchedules()[vendorId]||[]);}
 function saveVendorSchedule(vendorId,schedule){const all=getAllSchedules();all[vendorId]=schedule;localStorage.setItem('vendor_schedules',JSON.stringify(all));}
 function openPaySchedule(vendorId){
-  const vendors=cache['vendors']||[];const v=vendors.find(x=>x.id===vendorId);if(!v)return;
-  currentVendorId=vendorId;currentVendorTotal=+v.total_contract||0;currentVendorName=v.vendor_name||'Vendor';
-  document.getElementById('ps-vendor-name').textContent=currentVendorName+' — Payment Schedule';
-  document.getElementById('ps-vendor-total').textContent='PKR '+fmt(currentVendorTotal);
-  const addSection=document.getElementById('ps-add-section');
-  if(addSection)addSection.style.display=isAdmin()?'block':'none';
-  document.getElementById('pay-schedule-modal').style.display='flex';
-  renderScheduleList();
+  // Consolidated: clicking the Schedule badge now opens the full Edit Vendor modal
+  // and scrolls to the Payment Schedule section (instead of a separate popup).
+  openEditVendor(vendorId).then(() => {
+    setTimeout(() => {
+      const sched = document.getElementById('ev-milestones-list');
+      if (sched && sched.scrollIntoView) sched.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  }).catch(() => {
+    // openEditVendor isn't actually async in some paths; still do the scroll
+    setTimeout(() => {
+      const sched = document.getElementById('ev-milestones-list');
+      if (sched && sched.scrollIntoView) sched.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  });
 }
-function closePaySchedule(){document.getElementById('pay-schedule-modal').style.display='none';currentVendorId=null;}
+function closePaySchedule(){ /* no-op — standalone popup deprecated */ }
 function renderScheduleList(){
   if(!currentVendorId)return;
   const schedule=getVendorSchedule(currentVendorId);const list=document.getElementById('ps-list');
