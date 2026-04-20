@@ -491,7 +491,7 @@ tr:hover td{background:var(--green-bg);}
   <div class="page-header">
     <div><div class="page-title">Vendors & Payments</div></div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary btn-sm" onclick="toggleVendorAddForm()" id="vendor-add-toggle">+ Add Vendor</button>
+      <button class="btn btn-primary btn-sm admin-only" onclick="toggleVendorAddForm()" id="vendor-add-toggle">+ Add Vendor</button>
       <button class="btn btn-secondary btn-sm" onclick="exportCSV('vendors')">Export CSV</button>
       <button class="btn btn-secondary btn-sm admin-only" onclick="toggleXero()">⬆ Import from Xero</button>
     </div>
@@ -1416,6 +1416,22 @@ async function checkAuth(){
   if(!session){window.location.href='index.html';return false;}
   CURRENT_ROLE=sessionStorage.getItem('bejaan_role')||'viewer';
   CURRENT_NAME=sessionStorage.getItem('bejaan_name')||session.user.email;
+  // If sessionStorage didn't have a role (or had 'viewer' by default), verify against the DB
+  // This avoids the case where the user signed in but the role never got cached.
+  if(!sessionStorage.getItem('bejaan_role') || CURRENT_ROLE === 'viewer'){
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/bejaan_profiles?select=role,full_name&id=eq.${session.user.id}`,{headers});
+      if(r.ok){
+        const [prof] = await r.json();
+        if(prof){
+          CURRENT_ROLE = prof.role || CURRENT_ROLE;
+          if(prof.full_name) CURRENT_NAME = prof.full_name;
+          sessionStorage.setItem('bejaan_role', CURRENT_ROLE);
+          sessionStorage.setItem('bejaan_name', CURRENT_NAME);
+        }
+      }
+    }catch(e){ /* non-fatal, fallback to sessionStorage value */ }
+  }
   applyRoleUI();
   return true;
 }
