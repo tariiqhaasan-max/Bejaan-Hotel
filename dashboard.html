@@ -1404,6 +1404,15 @@ const SB_URL='https://vnqsmzgebjpdizwtysnw.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZucXNtemdlYmpwZGl6d3R5c253Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTk2NjQsImV4cCI6MjA5MDE5NTY2NH0.vNHFEGyoT44lq6SzmiAl9i453iw2KHIrmoSFXvrkcL0';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 const headers={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=representation'};
+// After sign-in, swap Authorization to the user's JWT so RLS 'authenticated' policies apply
+async function refreshAuthHeaders(){
+  try{
+    const {data:{session}} = await sb.auth.getSession();
+    if(session?.access_token){
+      headers['Authorization'] = 'Bearer ' + session.access_token;
+    }
+  }catch(e){ /* fall back to anon key */ }
+}
 
 // ============================================================
 // AUTH
@@ -1414,6 +1423,7 @@ let CURRENT_NAME='';
 async function checkAuth(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){window.location.href='index.html';return false;}
+  await refreshAuthHeaders();  // Use user JWT for RLS-authenticated policies
   CURRENT_ROLE=sessionStorage.getItem('bejaan_role')||'viewer';
   CURRENT_NAME=sessionStorage.getItem('bejaan_name')||session.user.email;
   // If sessionStorage didn't have a role (or had 'viewer' by default), verify against the DB
