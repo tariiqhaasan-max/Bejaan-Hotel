@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,7 +93,7 @@ tr:hover td{background:var(--green-bg);}
 .wf-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--text-muted);}
 .wf-legend-item{display:flex;align-items:center;gap:6px;}
 .wf-legend-dot{width:12px;height:12px;border-radius:3px;}
-.admin-only{display:none;}
+.admin-only{}  /* disabled — permissions allowed for all signed-in users */
 
 /* ============ INLINE EDIT + MODAL SYSTEM ============ */
 .edit-cell{cursor:text;transition:background .12s;position:relative;}
@@ -1451,7 +1450,10 @@ function applyRoleUI(){
       </div>`;
   }
   // Always unhide admin-only elements — role-gating happens at DB level / via canWrite() which always allows
-  document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
+  document.querySelectorAll('.admin-only').forEach(el => {
+    // Buttons default to inline-block, divs/nav items to block. Use 'revert' then let natural CSS take over.
+    el.style.display = (el.tagName === 'BUTTON' || el.tagName === 'SPAN') ? 'inline-block' : 'block';
+  });
   const navUsers=document.getElementById('nav-users');
   if(navUsers)navUsers.style.display='flex';
 }
