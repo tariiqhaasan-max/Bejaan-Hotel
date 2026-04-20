@@ -1270,7 +1270,7 @@ tr:hover td{background:var(--green-bg);}
     <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Payment Schedule <span id="ev-sched-status" style="color:var(--gold);font-size:10px;margin-left:6px;"></span></div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">+ Milestone</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">+ Payment</button>
       </div>
       <div id="ev-milestone-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -1281,12 +1281,12 @@ tr:hover td{background:var(--green-bg);}
         <div class="form-group" style="margin-bottom:8px;"><label>Description</label><input id="ev-m-desc" placeholder="e.g. Foundation completion payment"></div>
         <div id="ev-m-preview" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">—</div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary btn-sm" onclick="addEvMilestone()">Save Milestone</button>
+          <button class="btn btn-primary btn-sm" onclick="addEvMilestone()">Save Payment</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">Cancel</button>
         </div>
       </div>
       <div id="ev-milestones-list" style="margin-bottom:8px;"></div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">When vendor is marked <b>Approved</b>, milestones auto-create cashflow entries on their due dates.</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">When vendor is marked <b>Approved</b>, payments auto-create cashflow entries on their due dates.</div>
     </div>
 
     <!-- TASKS (tracking only — no money) -->
@@ -1366,7 +1366,7 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Total Contract: <b id="ps-vendor-total">—</b></div>
     <div id="ps-add-section" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:none;">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Add Payment Milestone</div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Add Scheduled Payment</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
         <div class="form-group"><label>% of Total *</label><input type="number" id="ps-pct" min="1" max="100" placeholder="e.g. 30"></div>
         <div class="form-group"><label>Due Date *</label><input type="date" id="ps-date"></div>
@@ -3486,7 +3486,7 @@ function updateEvMilestonePreview(){
   const total = +document.getElementById('ev-total').value || 0;
   const pct = +document.getElementById('ev-m-pct').value || 0;
   const amt = total * (pct/100);
-  document.getElementById('ev-m-preview').textContent = amt > 0 ? `Value at this milestone: ${fmtPKR(amt)}` : '—';
+  document.getElementById('ev-m-preview').textContent = amt > 0 ? `Value at this payment: ${fmtPKR(amt)}` : '—';
 }
 function addEvMilestone(){
   const pct = +document.getElementById('ev-m-pct').value || 0;
@@ -3506,7 +3506,7 @@ function addEvMilestone(){
   renderEvMilestonesList();
 }
 function removeEvMilestone(idx){
-  if(!confirm('Remove this milestone?')) return;
+  if(!confirm('Remove this payment?')) return;
   _evMilestones.splice(idx,1);
   if(_evCurrentContractId) saveContractSchedule(_evCurrentContractId, _evMilestones);
   renderEvMilestonesList();
@@ -3516,7 +3516,7 @@ function renderEvMilestonesList(){
   const status = document.getElementById('ev-sched-status');
   const total = +document.getElementById('ev-total').value || 0;
   if(!_evMilestones.length){
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No milestones yet.</div>';
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">No payments scheduled yet.</div>';
     status.textContent = '';
     return;
   }
@@ -3956,7 +3956,7 @@ async function loadVendors(){
       const paidCount=schedule.filter(s=>s.payStatus==='Paid').length;
       const overdueCount=schedule.filter(s=>s.date<new Date().toISOString().slice(0,10)&&s.payStatus==='Scheduled').length;
       totalOverdue += overdueCount;
-      let schedBadge=!schedule.length?'<span class="badge badge-gray">No schedule</span>':overdueCount?`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`:paidCount===schedule.length?'<span class="badge badge-green">✓ All paid</span>':`<span class="badge badge-blue">${schedule.length} milestone${schedule.length>1?'s':''} · ${totalPct}%</span>`;
+      let schedBadge=!schedule.length?'<span class="badge badge-gray">No schedule</span>':overdueCount?`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`:paidCount===schedule.length?'<span class="badge badge-green">✓ All paid</span>':`<span class="badge badge-blue">${schedule.length} payment${schedule.length>1?'s':''} · ${totalPct}%</span>`;
       const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
       const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
 
@@ -5603,7 +5603,7 @@ function renderScheduleList(){
   const summary=document.getElementById('ps-summary');
   if(schedule.length){summary.style.display='block';document.getElementById('ps-sum-pct').textContent=totalPct+'%';document.getElementById('ps-sum-amt').textContent='PKR '+fmt(totalAmt);document.getElementById('ps-sum-rem').textContent=(100-totalPct)+'%';document.getElementById('ps-progress-fill').style.width=Math.min(totalPct,100)+'%';document.getElementById('ps-progress-fill').style.background=totalPct>100?'var(--red)':'var(--green)';const paidEl=document.getElementById('ps-sum-paid');if(paidEl)paidEl.textContent='PKR '+fmt(paidAmt);}else{summary.style.display='none';}
   document.getElementById('ps-pct-used').textContent=totalPct>0?`${totalPct}% scheduled, ${100-totalPct}% remaining`:'';
-  if(!schedule.length){list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-dim);font-style:italic;">No milestones yet.</div>';return;}
+  if(!schedule.length){list.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-dim);font-style:italic;">No payments scheduled yet.</div>';return;}
   const statusColor={Scheduled:'#3a86c8',Paid:'#4caf7d','Partially Paid':'#e08a4c',Overdue:'#e05c5c'};
   const statusBg={Scheduled:'rgba(58,134,200,.1)',Paid:'rgba(76,175,125,.1)','Partially Paid':'rgba(224,138,76,.1)',Overdue:'rgba(224,92,92,.1)'};
   const sorted=[...schedule].sort((a,b)=>a.date.localeCompare(b.date));
@@ -5629,7 +5629,7 @@ function renderScheduleList(){
         <div style="width:48px;height:48px;border-radius:50%;background:${circleColor};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">${s.pct}%</div>
         <div style="flex:1;min-width:140px;">
           <div style="font-weight:600;font-size:14px;">PKR ${fmt(amt)}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${s.desc||'Payment milestone'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${s.desc||'Scheduled payment'}</div>
           <div style="font-size:11px;color:${isPast&&payStatus!=='Paid'?'var(--red)':'var(--text-muted)'};">Due: ${s.date}${isPast&&payStatus!=='Paid'?' ⚠ Overdue':''}</div>
         </div>
         ${adminControls}
