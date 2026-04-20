@@ -1172,11 +1172,31 @@ tr:hover td{background:var(--green-bg);}
       <button class="btn btn-secondary btn-sm" onclick="closeEditVendor()">✕ Close</button>
     </div>
     <input type="hidden" id="ev-id">
+    <input type="hidden" id="ev-current-contract-id">
+
+    <!-- CONTRACTS PANEL -->
+    <div id="ev-contracts-panel" style="background:linear-gradient(135deg, rgba(184,149,88,0.08), rgba(184,149,88,0.02));border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">📜 Contracts</div>
+          <div style="font-family:'Playfair Display',serif;font-size:16px;" id="ev-contracts-title">Contract 1 of 1</div>
+          <div id="ev-contracts-summary" style="font-size:11px;color:var(--text-muted);margin-top:2px;">All fields below apply to the selected contract.</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="ev-contract-switcher" onchange="switchContract(this.value)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:12px;min-width:180px;"></select>
+          <button type="button" class="btn btn-primary btn-sm" onclick="addNewContract()">+ Add Contract</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="ev-contract-delete-btn" onclick="deleteCurrentContract()" style="color:#c0392b;">🗑</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;" id="ev-contracts-totals">
+        <!-- auto-filled: Total across all contracts: PKR xxx | Paid: PKR xxx | Balance: PKR xxx -->
+      </div>
+    </div>
 
     <!-- AGREEMENT STATUS HERO -->
     <div id="ev-agreement-hero" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
       <div>
-        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Agreement Status</div>
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Agreement Status <span style="color:var(--gold);font-size:10px;letter-spacing:0;text-transform:none;font-weight:400;">(this contract only)</span></div>
         <div id="ev-agreement-display" style="font-family:'Playfair Display',serif;font-size:20px;">—</div>
         <div id="ev-agreement-note" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
       </div>
@@ -1188,18 +1208,23 @@ tr:hover td{background:var(--green-bg);}
     <input type="hidden" id="ev-agreement">
 
     <!-- BASIC DETAILS -->
-    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Vendor Details</div>
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Vendor Details <span style="color:var(--text-muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;">(vendor-level)</span></div>
     <div class="form-grid">
       <div class="form-group"><label>Vendor Name *</label><input id="ev-name"></div>
       <div class="form-group"><label>Category</label><input id="ev-cat"></div>
       <div class="form-group"><label>Person Responsible</label><input id="ev-resp"></div>
+    </div>
+
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 10px;">This Contract <span id="ev-contract-label" style="color:var(--gold);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;">(Contract 1)</span></div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1 / -1;"><label>Contract Name / Description</label><input id="ev-contract-name" placeholder="e.g. Foundation work, Phase 2 plumbing, Bulk supply agreement"></div>
       <div class="form-group"><label>Total Contract (PKR) *</label><input id="ev-total" type="number" oninput="updateVendorSplitPreview()"></div>
       <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number"><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Manual entry — updates as you log cashflow payments</div></div>
       <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
       <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
       <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
     </div>
-    <div class="form-group" style="margin-bottom:16px;"><label>Notes</label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
+    <div class="form-group" style="margin-bottom:16px;"><label>Notes <span style="color:var(--text-muted);font-size:10px;">(this contract)</span></label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
 
     <!-- DESTINATION — Fixed Asset / Store / Both -->
     <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:8px;">
@@ -2906,7 +2931,68 @@ CREATE TABLE IF NOT EXISTS vendor_task_payments (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_task_pay_task ON vendor_task_payments(task_id);
-CREATE INDEX IF NOT EXISTS idx_task_pay_vendor ON vendor_task_payments(vendor_id);`;
+CREATE INDEX IF NOT EXISTS idx_task_pay_vendor ON vendor_task_payments(vendor_id);
+
+-- 4. MULTI-CONTRACT SUPPORT (new)
+CREATE TABLE IF NOT EXISTS vendor_contracts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+  contract_number INTEGER NOT NULL DEFAULT 1,
+  contract_name TEXT,
+  total_contract NUMERIC DEFAULT 0,
+  amount_paid NUMERIC DEFAULT 0,
+  paid_manual_override BOOLEAN DEFAULT false,
+  due_date DATE,
+  status TEXT DEFAULT 'Pending',
+  approval TEXT DEFAULT 'Pending Approval',
+  agreement_status TEXT DEFAULT 'Draft',
+  destination_type TEXT DEFAULT 'fixed_asset',
+  fixed_asset_category TEXT DEFAULT 'Building',
+  split_mode TEXT DEFAULT 'pkr',
+  fa_amount NUMERIC DEFAULT 0,
+  store_amount NUMERIC DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vendor_contracts_vendor ON vendor_contracts(vendor_id);
+
+-- Scope tasks and payments to contracts
+ALTER TABLE vendor_tasks
+  ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES vendor_contracts(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_vendor_tasks_contract ON vendor_tasks(contract_id);
+
+ALTER TABLE vendor_task_payments
+  ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES vendor_contracts(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_task_pay_contract ON vendor_task_payments(contract_id);
+
+-- Back-fill: create Contract 1 for every existing vendor
+INSERT INTO vendor_contracts (
+  vendor_id, contract_number, contract_name,
+  total_contract, amount_paid, paid_manual_override,
+  due_date, status, approval, agreement_status,
+  destination_type, fixed_asset_category, split_mode,
+  fa_amount, store_amount, notes
+)
+SELECT v.id, 1, 'Contract 1',
+  COALESCE(v.total_contract,0), COALESCE(v.amount_paid,0),
+  COALESCE(v.paid_manual_override,false), v.due_date,
+  COALESCE(v.status,'Pending'), COALESCE(v.approval,'Pending Approval'),
+  COALESCE(v.agreement_status,'Draft'),
+  COALESCE(v.destination_type,'fixed_asset'),
+  COALESCE(v.fixed_asset_category,'Building'),
+  COALESCE(v.split_mode,'pkr'),
+  COALESCE(v.fa_amount,0), COALESCE(v.store_amount,0),
+  v.notes
+FROM vendors v
+LEFT JOIN vendor_contracts vc ON vc.vendor_id = v.id
+WHERE vc.id IS NULL;
+
+ALTER TABLE vendor_contracts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth users read contracts"  ON vendor_contracts;
+DROP POLICY IF EXISTS "Auth users write contracts" ON vendor_contracts;
+CREATE POLICY "Auth users read contracts"  ON vendor_contracts FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Auth users write contracts" ON vendor_contracts FOR ALL    TO authenticated USING (true) WITH CHECK (true);`;
 
 function copySqlMigration(){
   navigator.clipboard.writeText(SQL_MIGRATION).then(()=>toast('SQL copied to clipboard ✓'),()=>toast('Copy failed','error'));
@@ -2933,9 +3019,17 @@ function showMigrationBanner(){
 let _vtCache = {}; // vendorId -> tasks[]
 let _vtPayCache = {}; // vendorId -> payments[]
 
-async function fetchVendorTasks(vendorId){
+async function fetchVendorTasks(vendorId, contractId){
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?vendor_id=eq.${vendorId}&select=*&order=created_at.asc`,{headers});
+    // Scope by contract if provided AND supported — fall back to vendor-level if column missing
+    const byContract = contractId
+      ? `&contract_id=eq.${contractId}`
+      : '';
+    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?vendor_id=eq.${vendorId}${byContract}&select=*&order=created_at.asc`,{headers});
+    if(!r.ok && contractId){
+      // contract_id column may not exist — retry without it
+      r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?vendor_id=eq.${vendorId}&select=*&order=created_at.asc`,{headers});
+    }
     if(!r.ok) return [];
     const d = await r.json();
     _vtCache[vendorId] = d;
@@ -2982,6 +3076,228 @@ let _evTasks = [];
 let _evMilestones = []; // payment schedule milestones (from localStorage for now)
 let _evVendorOriginalApproval = null; // track if approval just changed
 
+// ── CONTRACTS STATE ──
+let _evContracts = [];           // all contracts for the vendor currently being edited
+let _evCurrentContractId = null; // id of the contract whose fields are in the form
+
+async function fetchVendorContracts(vendorId){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts?vendor_id=eq.${vendorId}&order=contract_number.asc`,{headers});
+    if(r.ok) return await r.json();
+  }catch(e){ /* table may not exist pre-migration */ }
+  return [];
+}
+
+function renderContractSwitcher(){
+  const sel = document.getElementById('ev-contract-switcher');
+  const title = document.getElementById('ev-contracts-title');
+  const summary = document.getElementById('ev-contracts-totals');
+  const label = document.getElementById('ev-contract-label');
+  const delBtn = document.getElementById('ev-contract-delete-btn');
+  if(!sel) return;
+
+  if(!_evContracts.length){
+    sel.innerHTML = '<option value="">— No contracts —</option>';
+    title.textContent = 'No contracts yet';
+    summary.innerHTML = '<span>Click + Add Contract to create one.</span>';
+    if(label) label.textContent = '(new vendor — run SQL migration for contracts)';
+    if(delBtn) delBtn.style.display = 'none';
+    return;
+  }
+
+  sel.innerHTML = _evContracts.map(c => {
+    const label = c.contract_name
+      ? `#${c.contract_number}: ${c.contract_name}`
+      : `Contract ${c.contract_number}`;
+    const status = c.agreement_status === 'Approved' ? ' ✓' : ' 📝';
+    return `<option value="${c.id}" ${c.id===_evCurrentContractId?'selected':''}>${label}${status}</option>`;
+  }).join('');
+
+  const cur = _evContracts.find(c => c.id === _evCurrentContractId);
+  const idx = _evContracts.findIndex(c => c.id === _evCurrentContractId) + 1;
+  title.textContent = `Contract ${idx} of ${_evContracts.length}`;
+  if(label && cur) label.textContent = `(Contract ${cur.contract_number}${cur.contract_name?': '+cur.contract_name:''})`;
+
+  // Totals summary
+  const tTotal = _evContracts.reduce((s,c)=>s+(+c.total_contract||0),0);
+  const tPaid  = _evContracts.reduce((s,c)=>s+(+c.amount_paid||0),0);
+  const tBal   = tTotal - tPaid;
+  summary.innerHTML = `
+    <span>📊 All contracts — Total: <b>PKR ${fmt(tTotal)}</b></span>
+    <span>· Paid: <b style="color:#4caf7d;">PKR ${fmt(tPaid)}</b></span>
+    <span>· Balance: <b style="color:#c0392b;">PKR ${fmt(tBal)}</b></span>`;
+
+  if(delBtn) delBtn.style.display = _evContracts.length > 1 ? 'inline-block' : 'none';
+}
+
+function switchContract(contractId){
+  if(!contractId) return;
+  // Save current form state to the currently-loaded contract BEFORE switching
+  syncFormToCurrentContract();
+  _evCurrentContractId = contractId;
+  const c = _evContracts.find(x => x.id === contractId);
+  if(!c) return;
+  populateFormFromContract(c);
+  renderContractSwitcher();
+  // Re-load milestones + tasks scoped to this contract
+  _evMilestones = getContractSchedule(c.id) || [];
+  renderEvMilestonesList();
+  const vendorId = document.getElementById('ev-id').value;
+  fetchVendorTasks(vendorId, c.id).then(ts => { _evTasks = ts; renderEvTasksList(); });
+}
+
+function populateFormFromContract(c){
+  document.getElementById('ev-current-contract-id').value = c.id;
+  document.getElementById('ev-contract-name').value = c.contract_name || '';
+  document.getElementById('ev-total').value = c.total_contract || '';
+  document.getElementById('ev-paid').value = c.amount_paid || '';
+  document.getElementById('ev-due').value = c.due_date || '';
+  document.getElementById('ev-status').value = c.status || 'Pending';
+  document.getElementById('ev-approval').value = c.approval || 'Pending Approval';
+  document.getElementById('ev-notes').value = c.notes || '';
+  const ag = c.agreement_status || 'Draft';
+  document.getElementById('ev-agreement').value = ag;
+  updateAgreementUI(ag);
+  // Destination
+  const dest = c.destination_type || 'fixed_asset';
+  document.getElementById('ev-destination').value = dest;
+  document.getElementById('ev-fa-cat').value = c.fixed_asset_category || 'Building';
+  if(dest === 'both'){
+    const mode = c.split_mode || 'pkr';
+    if(mode === 'pct' && document.getElementById('ev-split-mode-pct')){
+      document.getElementById('ev-split-mode-pct').checked = true;
+      document.getElementById('ev-split-fa').value = (c.total_contract && c.fa_amount) ? ((c.fa_amount/c.total_contract)*100).toFixed(1) : '';
+      document.getElementById('ev-split-store').value = (c.total_contract && c.store_amount) ? ((c.store_amount/c.total_contract)*100).toFixed(1) : '';
+    } else {
+      if(document.getElementById('ev-split-mode-pkr')) document.getElementById('ev-split-mode-pkr').checked = true;
+      document.getElementById('ev-split-fa').value = c.fa_amount || '';
+      document.getElementById('ev-split-store').value = c.store_amount || '';
+    }
+  } else {
+    document.getElementById('ev-split-fa').value = '';
+    document.getElementById('ev-split-store').value = '';
+  }
+  updateVendorDestinationUI();
+}
+
+// Mirror current form data back into _evContracts so switching doesn't lose in-memory edits
+function syncFormToCurrentContract(){
+  if(!_evCurrentContractId) return;
+  const c = _evContracts.find(x => x.id === _evCurrentContractId);
+  if(!c) return;
+  c.contract_name = document.getElementById('ev-contract-name').value;
+  c.total_contract = +document.getElementById('ev-total').value || 0;
+  c.amount_paid = +document.getElementById('ev-paid').value || 0;
+  c.due_date = document.getElementById('ev-due').value || null;
+  c.status = document.getElementById('ev-status').value;
+  c.approval = document.getElementById('ev-approval').value;
+  c.notes = document.getElementById('ev-notes').value;
+  c.agreement_status = document.getElementById('ev-agreement').value || 'Draft';
+  c.destination_type = document.getElementById('ev-destination').value || 'fixed_asset';
+  c.fixed_asset_category = document.getElementById('ev-fa-cat').value || 'Building';
+  // Split values
+  const splitModeEl = document.querySelector('input[name="ev-split-mode"]:checked');
+  c.split_mode = splitModeEl ? splitModeEl.value : 'pkr';
+  const destT = c.destination_type;
+  if(destT === 'fixed_asset'){
+    c.fa_amount = c.total_contract; c.store_amount = 0;
+  } else if(destT === 'store'){
+    c.fa_amount = 0; c.store_amount = c.total_contract;
+  } else if(destT === 'both'){
+    const a = +document.getElementById('ev-split-fa').value || 0;
+    const b = +document.getElementById('ev-split-store').value || 0;
+    if(c.split_mode === 'pct'){
+      c.fa_amount = (a/100) * c.total_contract;
+      c.store_amount = (b/100) * c.total_contract;
+    } else {
+      c.fa_amount = a; c.store_amount = b;
+    }
+  }
+  // Persist milestones to contract-scoped storage
+  saveContractSchedule(c.id, _evMilestones || []);
+}
+
+async function addNewContract(){
+  if(!canWrite()) return;
+  const vendorId = document.getElementById('ev-id').value;
+  if(!vendorId){ toast('Save vendor first','error'); return; }
+  syncFormToCurrentContract();
+  const nextNum = _evContracts.reduce((m,c) => Math.max(m, +c.contract_number||0), 0) + 1;
+  const newContract = {
+    vendor_id: vendorId,
+    contract_number: nextNum,
+    contract_name: `Contract ${nextNum}`,
+    total_contract: 0,
+    amount_paid: 0,
+    due_date: null,
+    status: 'Pending',
+    approval: 'Pending Approval',
+    agreement_status: 'Draft',
+    destination_type: 'fixed_asset',
+    fixed_asset_category: 'Building',
+    split_mode: 'pkr',
+    fa_amount: 0,
+    store_amount: 0,
+    notes: ''
+  };
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'return=representation'},
+      body:JSON.stringify(newContract)
+    });
+    if(!r.ok){
+      const err = await r.text();
+      if(/relation.*does not exist/i.test(err) || /does not exist/i.test(err)){
+        toast('⚠ Run the SQL migration first (vendor_contracts table missing)','error');
+        showMigrationBanner();
+        return;
+      }
+      throw new Error(err);
+    }
+    const [created] = await r.json();
+    _evContracts.push(created);
+    _evCurrentContractId = created.id;
+    populateFormFromContract(created);
+    renderContractSwitcher();
+    _evMilestones = [];
+    renderEvMilestonesList();
+    _evTasks = [];
+    renderEvTasksList();
+    toast(`Contract ${nextNum} added ✓`);
+  }catch(e){ console.error(e); toast('Error adding contract','error'); }
+}
+
+async function deleteCurrentContract(){
+  if(!isAdmin()) return;
+  if(_evContracts.length <= 1){ toast('Cannot delete the last contract','error'); return; }
+  const c = _evContracts.find(x => x.id === _evCurrentContractId);
+  if(!c) return;
+  if(!confirm(`Delete Contract ${c.contract_number}${c.contract_name?' ('+c.contract_name+')':''}?\n\nThis will remove its tasks, payments, and schedule. The vendor itself will remain.`)) return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/vendor_contracts?id=eq.${c.id}`,{method:'DELETE',headers});
+    _evContracts = _evContracts.filter(x => x.id !== c.id);
+    _evCurrentContractId = _evContracts[0].id;
+    populateFormFromContract(_evContracts[0]);
+    _evMilestones = getContractSchedule(_evCurrentContractId) || [];
+    renderEvMilestonesList();
+    const vendorId = document.getElementById('ev-id').value;
+    _evTasks = await fetchVendorTasks(vendorId, _evCurrentContractId);
+    renderEvTasksList();
+    renderContractSwitcher();
+    toast(`Contract ${c.contract_number} deleted ✓`);
+  }catch(e){ console.error(e); toast('Error deleting contract','error'); }
+}
+
+// Contract-scoped payment schedule (localStorage, keyed by contract_id)
+function getAllContractSchedules(){ return JSON.parse(localStorage.getItem('contract_schedules')||'{}'); }
+function getContractSchedule(cid){ return (getAllContractSchedules()[cid] || []); }
+function saveContractSchedule(cid, arr){
+  const all = getAllContractSchedules();
+  all[cid] = arr;
+  localStorage.setItem('contract_schedules', JSON.stringify(all));
+}
+
 async function openEditVendor(id){
   if(!canWrite())return;
   const vendors = cache['vendors'] || [];
@@ -2991,56 +3307,63 @@ async function openEditVendor(id){
   document.getElementById('ev-name').value = v.vendor_name||'';
   document.getElementById('ev-cat').value = v.category||'';
   document.getElementById('ev-resp').value = v.responsible||'';
-  document.getElementById('ev-total').value = v.total_contract||'';
-  document.getElementById('ev-paid').value = v.amount_paid||'';
-  document.getElementById('ev-due').value = v.due_date||'';
-  document.getElementById('ev-status').value = v.status||'Pending';
-  document.getElementById('ev-approval').value = v.approval||'Pending Approval';
-  document.getElementById('ev-notes').value = v.notes||'';
   _evVendorOriginalApproval = v.approval || 'Pending Approval';
 
-  // Agreement status
-  const ag = v.agreement_status || 'Draft';
-  document.getElementById('ev-agreement').value = ag;
-  updateAgreementUI(ag);
+  // Load contracts for this vendor
+  _evContracts = await fetchVendorContracts(v.id);
 
-  // Destination — prefer new fields, fall back to old pct-based ones for existing data
-  const dest = v.destination_type
-    || (v.default_inventory_pct > 0 && v.default_fixed_asset_pct > 0 ? 'both'
-      : v.default_inventory_pct > 0 ? 'store'
-      : 'fixed_asset');
-  document.getElementById('ev-destination').value = dest;
-  document.getElementById('ev-fa-cat').value = v.fixed_asset_category || v.default_fixed_asset_category || 'Building';
-  // Restore split values
-  if(dest === 'both'){
-    const mode = v.split_mode || 'pkr';
-    if(mode === 'pct' && document.getElementById('ev-split-mode-pct')){
-      document.getElementById('ev-split-mode-pct').checked = true;
-      document.getElementById('ev-split-fa').value = (v.total_contract && v.fa_amount) ? ((v.fa_amount/v.total_contract)*100).toFixed(1) : (v.default_fixed_asset_pct||0);
-      document.getElementById('ev-split-store').value = (v.total_contract && v.store_amount) ? ((v.store_amount/v.total_contract)*100).toFixed(1) : (v.default_inventory_pct||0);
-    } else {
-      if(document.getElementById('ev-split-mode-pkr')) document.getElementById('ev-split-mode-pkr').checked = true;
-      document.getElementById('ev-split-fa').value = v.fa_amount || '';
-      document.getElementById('ev-split-store').value = v.store_amount || '';
-    }
-  } else {
-    document.getElementById('ev-split-fa').value = '';
-    document.getElementById('ev-split-store').value = '';
+  if(_evContracts.length === 0){
+    // Legacy vendor with no contract row — build a transient Contract 1 from vendor fields
+    // This will be persisted once user saves
+    _evContracts = [{
+      id: null,    // null = not yet in DB
+      vendor_id: v.id,
+      contract_number: 1,
+      contract_name: 'Contract 1',
+      total_contract: v.total_contract,
+      amount_paid: v.amount_paid,
+      paid_manual_override: v.paid_manual_override,
+      due_date: v.due_date,
+      status: v.status,
+      approval: v.approval,
+      agreement_status: v.agreement_status || 'Draft',
+      destination_type: v.destination_type || 'fixed_asset',
+      fixed_asset_category: v.fixed_asset_category || 'Building',
+      split_mode: v.split_mode || 'pkr',
+      fa_amount: v.fa_amount,
+      store_amount: v.store_amount,
+      notes: v.notes
+    }];
   }
-  updateVendorDestinationUI();
+
+  _evCurrentContractId = _evContracts[0].id;
+  populateFormFromContract(_evContracts[0]);
 
   // Reset task form state
   closeAddTask();
   toggleEvMilestoneForm(true); // force-close
 
-  // Load milestones (use existing localStorage getVendorSchedule since that's what's been working)
-  _evMilestones = (typeof getVendorSchedule === 'function' ? getVendorSchedule(v.id) : []) || [];
+  // Load milestones — prefer contract-scoped, fall back to vendor-scoped for legacy
+  if(_evCurrentContractId){
+    _evMilestones = getContractSchedule(_evCurrentContractId);
+    if(!_evMilestones.length){
+      // Migrate vendor-level schedule to Contract 1 on first open
+      const legacy = getVendorSchedule(v.id) || [];
+      if(legacy.length){
+        saveContractSchedule(_evCurrentContractId, legacy);
+        _evMilestones = legacy;
+      }
+    }
+  } else {
+    _evMilestones = getVendorSchedule(v.id) || [];
+  }
   renderEvMilestonesList();
+  renderContractSwitcher();
 
   document.getElementById('edit-vendor-modal').style.display = 'flex';
 
-  // Fetch tasks for this vendor
-  _evTasks = await fetchVendorTasks(v.id);
+  // Fetch tasks for this vendor (scoped to current contract if table supports it)
+  _evTasks = await fetchVendorTasks(v.id, _evCurrentContractId);
   renderEvTasksList();
 }
 
@@ -3149,12 +3472,15 @@ function addEvMilestone(){
   }
   _evMilestones.push({ pct, date, desc, priority, payStatus:'Scheduled', paidAmt:0 });
   _evMilestones.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  // Persist to contract-scoped storage
+  if(_evCurrentContractId) saveContractSchedule(_evCurrentContractId, _evMilestones);
   toggleEvMilestoneForm(true);
   renderEvMilestonesList();
 }
 function removeEvMilestone(idx){
   if(!confirm('Remove this milestone?')) return;
   _evMilestones.splice(idx,1);
+  if(_evCurrentContractId) saveContractSchedule(_evCurrentContractId, _evMilestones);
   renderEvMilestonesList();
 }
 function renderEvMilestonesList(){
@@ -3268,6 +3594,7 @@ async function saveVendorTask(){
   if(!name){ toast('Task name required','error'); return; }
   const payload = {
     vendor_id: vendorId,
+    contract_id: _evCurrentContractId || null,
     task_name: name,
     responsible_employee: document.getElementById('vt-resp').value.trim() || null,
     start_date: document.getElementById('vt-start').value || null,
@@ -3276,11 +3603,19 @@ async function saveVendorTask(){
     status: 'Not Started'
   };
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
-    if(!r.ok) throw new Error(await r.text());
+    let r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok){
+      const err = await r.text();
+      if(/contract_id/i.test(err)){
+        // Column doesn't exist — retry without it
+        delete payload.contract_id;
+        r = await fetch(`${SB_URL}/rest/v1/vendor_tasks`, { method:'POST', headers, body: JSON.stringify(payload) });
+      }
+      if(!r.ok) throw new Error(await r.text());
+    }
     toast('Task added ✓');
     closeAddTask();
-    _evTasks = await fetchVendorTasks(vendorId);
+    _evTasks = await fetchVendorTasks(vendorId, _evCurrentContractId);
     renderEvTasksList();
   }catch(e){ console.error(e); toast('Error adding task','error'); }
 }
@@ -3531,6 +3866,16 @@ async function loadVendors(){
       const r = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=vendor_id`,{headers});
       if(r.ok) allTasks = await r.json();
     }catch(e){}
+    // Fetch all contracts so we can sum contract-level totals per vendor
+    let allContracts = [];
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers});
+      if(r.ok) allContracts = await r.json();
+    }catch(e){ /* table may not exist pre-migration */ }
+    const contractsByVendor = {};
+    allContracts.forEach(c => {
+      (contractsByVendor[c.vendor_id] = contractsByVendor[c.vendor_id] || []).push(c);
+    });
     const taskCountByVendor = {};
     allTasks.forEach(t=>{ taskCountByVendor[t.vendor_id] = (taskCountByVendor[t.vendor_id]||0) + 1; });
     const paidByVendor = {};
@@ -3546,33 +3891,72 @@ async function loadVendors(){
       {value:'Completed',       label:'Completed'},
       {value:'Rejected',        label:'Rejected'}
     ];
+
+    // Running totals for the grand total footer
+    let grandTotal = 0, grandPaid = 0, grandBalance = 0;
+    let totalTasks = 0, totalOverdue = 0;
+
     tbody.innerHTML=data.map(v=>{
-      // Auto-compute paid from task payments unless manual override
-      const autoPaid = paidByVendor[v.id] || 0;
-      const effectivePaid = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid > 0 ? autoPaid : (+v.amount_paid||0));
-      const bal=(+v.total_contract||0)-effectivePaid;
+      const contracts = contractsByVendor[v.id] || [];
+      const hasContracts = contracts.length > 0;
+
+      // If contracts exist, sum from contracts. Otherwise, use vendor-level fields (legacy).
+      let totalAmt, paidAmt;
+      if(hasContracts){
+        totalAmt = contracts.reduce((s,c)=>s+(+c.total_contract||0), 0);
+        // Paid = sum of contract-level paid (auto or manual)
+        paidAmt = contracts.reduce((s,c)=>{
+          const autoP = allPays.filter(p => p.vendor_id === v.id).reduce((a,p)=>a+(+p.amount||0),0);
+          // If contract has manual override, use its amount_paid; else use aggregate auto-paid proportional
+          return s + (+c.amount_paid||0);
+        }, 0);
+        // If any contract uses auto, prefer summed auto-paid for the vendor
+        const autoPaidTotal = paidByVendor[v.id] || 0;
+        if (autoPaidTotal > paidAmt) paidAmt = autoPaidTotal;
+      } else {
+        totalAmt = +v.total_contract || 0;
+        const autoPaid = paidByVendor[v.id] || 0;
+        paidAmt = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid > 0 ? autoPaid : (+v.amount_paid||0));
+      }
+      const bal = totalAmt - paidAmt;
+
+      grandTotal += totalAmt; grandPaid += paidAmt; grandBalance += bal;
+
       const od=v.due_date&&new Date(v.due_date)<today&&v.status!=='Completed';
       const schedule=getVendorSchedule(v.id);
       const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);
       const paidCount=schedule.filter(s=>s.payStatus==='Paid').length;
       const overdueCount=schedule.filter(s=>s.date<new Date().toISOString().slice(0,10)&&s.payStatus==='Scheduled').length;
+      totalOverdue += overdueCount;
       let schedBadge=!schedule.length?'<span class="badge badge-gray">No schedule</span>':overdueCount?`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`:paidCount===schedule.length?'<span class="badge badge-green">✓ All paid</span>':`<span class="badge badge-blue">${schedule.length} milestone${schedule.length>1?'s':''} · ${totalPct}%</span>`;
       const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
       const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
 
-      // Agreement badge
-      const ag = v.agreement_status || 'Draft';
+      // Agreement badge — if multiple contracts, show their aggregate state
+      let ag = v.agreement_status || 'Draft';
+      if(hasContracts){
+        const approvedCount = contracts.filter(c => c.agreement_status === 'Approved').length;
+        ag = approvedCount === contracts.length ? 'Approved' : (approvedCount > 0 ? `Mixed (${approvedCount}/${contracts.length})` : 'Draft');
+      }
       const agBadge = ag === 'Approved'
         ? '<span class="badge badge-green">✓ Approved</span>'
-        : '<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">📝 Draft</span>';
+        : ag.startsWith('Mixed')
+          ? `<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">${ag}</span>`
+          : '<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">📝 Draft</span>';
+
+      // Contract badge in vendor name column
+      const contractBadge = hasContracts
+        ? `<span class="badge badge-blue" style="margin-left:6px;font-size:10px;" title="${contracts.length} contract${contracts.length>1?'s':''}">📜 ${contracts.length}</span>`
+        : '';
 
       // Tasks count button
       const tCount = taskCountByVendor[v.id] || 0;
+      totalTasks += tCount;
       const tasksBtn = tCount > 0
         ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" title="Manage tasks">📋 ${tCount} task${tCount>1?'s':''}</button>`
         : canWrite() ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" style="opacity:0.6;" title="Add tasks">+ Add</button>` : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
 
-      const paidBadge = (!v.paid_manual_override && autoPaid > 0)
+      const paidBadge = (!hasContracts && !v.paid_manual_override && (paidByVendor[v.id]||0) > 0)
         ? `<span style="font-size:9px;color:var(--gold);margin-left:4px;">AUTO</span>` : '';
       const statusCell = canWrite()
         ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="status" data-type="select" data-options='${JSON.stringify(vStatusOpts).replace(/'/g,"&#39;")}' data-reload="loadVendors" data-raw="${v.status||'Pending'}">${statusBadge(v.status||'Pending')}</td>`
@@ -3581,8 +3965,17 @@ async function loadVendors(){
         ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="notes" data-type="textarea" data-reload="loadVendors" data-raw="${(v.notes||'').replace(/"/g,'&quot;')}" style="max-width:150px;font-size:12px;">${v.notes||'— click to add —'}</td>`
         : `<td style="max-width:150px;font-size:12px;">${v.notes||''}</td>`;
 
-      return`<tr><td><b>${v.vendor_name||'—'}</b></td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>${agBadge}</td><td>PKR ${fmt(v.total_contract)}</td><td>PKR ${fmt(effectivePaid)}${paidBadge}</td><td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td>${tasksBtn}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
-    }).join('');
+      return`<tr><td><b>${v.vendor_name||'—'}</b>${contractBadge}</td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>${agBadge}</td><td>PKR ${fmt(totalAmt)}</td><td>PKR ${fmt(paidAmt)}${paidBadge}</td><td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td>${tasksBtn}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
+    }).join('')
+    // GRAND TOTAL FOOTER ROW
+    + `<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--gold);">
+        <td colspan="4" style="font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);">TOTAL (${data.length} vendor${data.length>1?'s':''})</td>
+        <td style="color:var(--gold);">PKR ${fmt(grandTotal)}</td>
+        <td style="color:#4caf7d;">PKR ${fmt(grandPaid)}</td>
+        <td style="color:#c0392b;">PKR ${fmt(grandBalance)}</td>
+        <td style="color:var(--text-muted);font-size:11px;">${totalTasks} task${totalTasks!==1?'s':''}</td>
+        <td colspan="6"></td>
+      </tr>`;
   }catch(e){console.error(e);toast('Failed to load vendors','error');}
 }
 async function addVendor(){
@@ -4971,77 +5364,116 @@ async function saveEditVendor(){
   const name=document.getElementById('ev-name').value.trim();
   if(!name){toast('Vendor name is required','error');return;}
 
-  const total = +document.getElementById('ev-total').value||0;
-  const destination = document.getElementById('ev-destination').value || 'fixed_asset';
-  const faCat = document.getElementById('ev-fa-cat').value || 'Building';
-  // Split mode
-  const splitModeEl = document.querySelector('input[name="ev-split-mode"]:checked');
-  const splitMode = splitModeEl ? splitModeEl.value : 'pkr';
-  let faAmt = 0, storeAmt = 0;
-  if(destination === 'fixed_asset'){
-    faAmt = total;
-  } else if(destination === 'store'){
-    storeAmt = total;
-  } else if(destination === 'both'){
-    const a = +document.getElementById('ev-split-fa').value || 0;
-    const b = +document.getElementById('ev-split-store').value || 0;
-    if(splitMode === 'pct'){
-      faAmt = (a/100)*total;
-      storeAmt = (b/100)*total;
-    } else {
-      faAmt = a;
-      storeAmt = b;
-    }
+  // 1. Sync the current form edits into _evContracts in-memory
+  syncFormToCurrentContract();
+
+  // 2. Persist each contract to vendor_contracts (insert new ones, patch existing)
+  let migrationNeeded = false;
+  for(const c of _evContracts){
+    const payload = {
+      vendor_id: id,
+      contract_number: c.contract_number,
+      contract_name: c.contract_name || null,
+      total_contract: +c.total_contract || null,
+      amount_paid: +c.amount_paid || null,
+      paid_manual_override: !!c.paid_manual_override,
+      due_date: c.due_date || null,
+      status: c.status || 'Pending',
+      approval: c.approval || 'Pending Approval',
+      agreement_status: c.agreement_status || 'Draft',
+      destination_type: c.destination_type || 'fixed_asset',
+      fixed_asset_category: c.fixed_asset_category || 'Building',
+      split_mode: c.split_mode || 'pkr',
+      fa_amount: +c.fa_amount || null,
+      store_amount: +c.store_amount || null,
+      notes: c.notes || null
+    };
+    try{
+      if(c.id){
+        // UPDATE
+        const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts?id=eq.${c.id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+        if(!r.ok){
+          const err = await r.text();
+          if(/relation.*does not exist/i.test(err)){ migrationNeeded = true; break; }
+          console.error('Contract update failed:', err);
+        }
+      } else {
+        // INSERT (contract was added without DB row yet — e.g. legacy vendor first save)
+        const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts`,{
+          method:'POST',
+          headers:{...headers,'Prefer':'return=representation'},
+          body:JSON.stringify(payload)
+        });
+        if(r.ok){
+          const [created] = await r.json();
+          c.id = created.id;
+          // Migrate legacy schedule to contract-scoped
+          const legacy = getVendorSchedule(id) || [];
+          if(legacy.length && !getContractSchedule(c.id).length) saveContractSchedule(c.id, legacy);
+        } else {
+          const err = await r.text();
+          if(/relation.*does not exist/i.test(err)){ migrationNeeded = true; break; }
+          console.error('Contract insert failed:', err);
+        }
+      }
+    }catch(e){ console.error(e); }
   }
 
-  // Paid manual override checkbox may not exist anymore
-  const manualEl = document.getElementById('ev-paid-manual');
+  if(migrationNeeded){
+    toast('⚠ Run the SQL migration first (vendor_contracts table missing)','error');
+    showMigrationBanner();
+    return;
+  }
 
-  const payload = {
-    vendor_name:name,
-    category:document.getElementById('ev-cat').value,
-    responsible:document.getElementById('ev-resp').value,
-    total_contract: total || null,
-    amount_paid:+document.getElementById('ev-paid').value||null,
-    due_date:document.getElementById('ev-due').value||null,
-    status:document.getElementById('ev-status').value,
-    approval:document.getElementById('ev-approval').value,
-    agreement_status:document.getElementById('ev-agreement').value||'Draft',
-    destination_type: destination,
-    fixed_asset_category: faCat,
-    split_mode: splitMode,
-    fa_amount: faAmt || null,
-    store_amount: storeAmt || null,
-    notes:document.getElementById('ev-notes').value
+  // 3. Mirror the SUM into the vendors row so downstream consumers keep working
+  const tTotal = _evContracts.reduce((s,c)=>s+(+c.total_contract||0),0);
+  const tPaid  = _evContracts.reduce((s,c)=>s+(+c.amount_paid||0),0);
+  // Use the most-recently-touched contract's fields for fields that are vendor-level legacy mirrors
+  const primary = _evContracts.find(c => c.id === _evCurrentContractId) || _evContracts[0];
+  const earliestDue = _evContracts.reduce((d,c)=>{ if(!c.due_date) return d; return !d||c.due_date<d?c.due_date:d; }, null);
+
+  const vendorPayload = {
+    vendor_name: name,
+    category: document.getElementById('ev-cat').value,
+    responsible: document.getElementById('ev-resp').value,
+    total_contract: tTotal || null,
+    amount_paid: tPaid || null,
+    due_date: earliestDue,
+    status: primary.status || 'Pending',
+    approval: primary.approval || 'Pending Approval',
+    agreement_status: primary.agreement_status || 'Draft',
+    destination_type: primary.destination_type || 'fixed_asset',
+    fixed_asset_category: primary.fixed_asset_category || 'Building',
+    split_mode: primary.split_mode || 'pkr',
+    fa_amount: _evContracts.reduce((s,c)=>s+(+c.fa_amount||0),0) || null,
+    store_amount: _evContracts.reduce((s,c)=>s+(+c.store_amount||0),0) || null,
+    notes: primary.notes || ''
   };
-  if(manualEl) payload.paid_manual_override = manualEl.checked;
-
-  // Save milestones to localStorage (existing behavior)
-  try{ saveVendorSchedule(id, _evMilestones); }catch(e){}
 
   try{
-    let r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+    let r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(vendorPayload)});
     if(!r.ok){
       const err = await r.text();
-      // Graceful fallback — strip new columns if they don't exist
-      const stripCols = ['destination_type','fixed_asset_category','split_mode','fa_amount','store_amount','agreement_status','paid_manual_override'];
+      const stripCols = ['destination_type','fixed_asset_category','split_mode','fa_amount','store_amount','agreement_status'];
       let stripped = false;
-      stripCols.forEach(c=>{
-        if(new RegExp(c,'i').test(err) && /column/i.test(err)){ delete payload[c]; stripped = true; }
+      stripCols.forEach(col=>{
+        if(new RegExp(col,'i').test(err) && /column/i.test(err)){ delete vendorPayload[col]; stripped = true; }
       });
       if(stripped){
-        r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});
+        r = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify(vendorPayload)});
         if(!r.ok) throw new Error(await r.text());
-        toast('Vendor saved (run SQL migration for full features)','error');
         showMigrationBanner();
       } else { throw new Error(err); }
-    } else {
-      toast('Vendor updated ✓');
     }
+    toast('Vendor updated ✓');
 
-    // Auto-push to cashflow if vendor is Approved
-    if(payload.agreement_status === 'Approved'){
-      await pushVendorScheduleToCashflow(id, name, total, _evMilestones);
+    // Auto-push each approved contract's schedule to cashflow
+    for(const c of _evContracts){
+      if(c.agreement_status === 'Approved' && c.id){
+        const ms = getContractSchedule(c.id) || [];
+        const contractLabel = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
+        await pushVendorScheduleToCashflow(c.id, contractLabel, c.total_contract, ms);
+      }
     }
 
     closeEditVendor();
