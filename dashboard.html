@@ -974,10 +974,19 @@ tr:hover td{background:var(--green-bg);}
 <!-- CASHFLOW -->
 <div class="section" id="section-cashflow">
   <div class="page-header"><div class="page-title">Cashflow</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('cashflow')">Export CSV</button></div>
+
+  <!-- HEADLINE STATS — total outstanding, next week, next month -->
+  <div class="stat-grid" id="cf-stats" style="margin-bottom:18px;">
+    <div class="stat-card gold"><div class="stat-label">This Week</div><div class="stat-value" id="cf-this-week">—</div><div class="stat-sub" id="cf-this-week-sub">cash required</div></div>
+    <div class="stat-card blue"><div class="stat-label">Next Week</div><div class="stat-value" id="cf-next-week">—</div><div class="stat-sub" id="cf-next-week-sub">upcoming</div></div>
+    <div class="stat-card green"><div class="stat-label">Next 30 Days</div><div class="stat-value" id="cf-next-30">—</div><div class="stat-sub" id="cf-next-30-sub">total requirement</div></div>
+    <div class="stat-card red"><div class="stat-label">Overdue</div><div class="stat-value" id="cf-overdue">—</div><div class="stat-sub" id="cf-overdue-sub">past due date</div></div>
+  </div>
+
   <div class="card admin-only">
     <div class="card-title">Add Cashflow Requirement</div>
     <div class="form-grid">
-      <div class="form-group"><label>Month *</label><input id="cf-month" type="month"></div>
+      <div class="form-group"><label>Due Date *</label><input id="cf-due-date" type="date"></div>
       <div class="form-group"><label>Description *</label><input id="cf-desc" placeholder="e.g. Tile payment"></div>
       <div class="form-group"><label>Amount Needed (PKR)</label><input id="cf-amount" type="number" placeholder="0"></div>
       <div class="form-group"><label>Category</label><select id="cf-cat"><option>Vendor Payment</option><option>Furnishing</option><option>Civil Work</option><option>Operations Setup</option><option>Other</option></select></div>
@@ -986,8 +995,38 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <button class="btn btn-primary" onclick="addCashflow()">+ Add Entry</button>
   </div>
+
+  <!-- MONTHLY VIEW (kept from before) -->
   <div class="card"><div class="card-title">Monthly Cashflow Requirements</div><div class="chart-container"><canvas id="chart-cashflow"></canvas></div></div>
-  <div class="card"><div class="card-title">Cashflow Schedule</div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
+
+  <!-- WEEKLY HEATMAP -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div class="card-title" style="margin-bottom:2px;">Weekly Heatmap</div>
+        <div style="font-size:11px;color:var(--text-muted);">Darker cells = more cash required that week. Hover for details.</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" id="cf-range-btn" onclick="toggleCfRange()">Show all weeks</button>
+      </div>
+    </div>
+    <div id="cf-heatmap" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- WEEKLY BAR CHART -->
+  <div class="card">
+    <div class="card-title">Weekly Cashflow Requirements</div>
+    <div class="chart-container"><canvas id="chart-cashflow-weekly"></canvas></div>
+  </div>
+
+  <!-- WEEKLY LIST / DETAIL -->
+  <div class="card">
+    <div class="card-title">Weekly Schedule</div>
+    <div id="cf-weekly-list"></div>
+  </div>
+
+  <!-- CASHFLOW SCHEDULE (existing table with all individual entries) -->
+  <div class="card"><div class="card-title">All Entries</div><div class="table-wrap"><table><thead><tr><th>Due Date</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
 </div>
 
 <!-- DRAFT LIABILITY (Pending Agreements) -->
@@ -6563,8 +6602,384 @@ async function saveEditBudget(){
 async function addBudget(){if(!isAdmin())return;const cat=document.getElementById('b-cat').value.trim();if(!cat){toast('Category required','error');return;}try{await sbInsert('budget',{category:cat,budgeted:+document.getElementById('b-budgeted').value||null,actual_spent:+document.getElementById('b-actual').value||null,responsible:document.getElementById('b-resp').value,notes:document.getElementById('b-notes').value});toast('Budget category added ✓');['b-cat','b-budgeted','b-actual','b-resp','b-notes'].forEach(id=>document.getElementById(id).value='');delete cache['budget'];loadBudget();loadOverview();}catch(e){toast('Error','error');}}
 
 // CASHFLOW
-async function loadCashflow(){try{const data=await getData('cashflow');const tbody=document.getElementById('cashflow-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';}else tbody.innerHTML=data.map(c=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td>`:'<td></td>';return`<tr><td>${c.month||'—'}</td><td>${c.description||'—'}</td><td>${c.category||'—'}</td><td>${statusBadge(c.priority||'Medium')}</td><td>${c.responsible||'—'}</td><td>PKR ${fmt(c.amount)}</td>${adminBtn}</tr>`;}).join('');const bm={};data.forEach(c=>{bm[c.month]=(bm[c.month]||0)+(+c.amount||0);});const months=Object.keys(bm).sort();const ctx=document.getElementById('chart-cashflow');if(ctx._chart)ctx._chart.destroy();ctx._chart=new Chart(ctx,{type:'bar',data:{labels:months,datasets:[{label:'Required Cash (PKR)',data:months.map(m=>bm[m]),backgroundColor:'#c9a84c99',borderColor:'#c9a84c',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}},y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}},plugins:{legend:{labels:{color:'#8a8580'}}}}});}catch(e){toast('Failed to load cashflow','error');}}
-async function addCashflow(){if(!isAdmin())return;const month=document.getElementById('cf-month').value,desc=document.getElementById('cf-desc').value.trim();if(!month||!desc){toast('Month and description required','error');return;}try{await sbInsert('cashflow',{month,description:desc,amount:+document.getElementById('cf-amount').value||null,category:document.getElementById('cf-cat').value,priority:document.getElementById('cf-priority').value,responsible:document.getElementById('cf-resp').value});toast('Cashflow entry added ✓');['cf-month','cf-desc','cf-amount','cf-resp'].forEach(id=>document.getElementById(id).value='');delete cache['cashflow'];loadCashflow();}catch(e){toast('Error','error');}}
+// ═══ CASHFLOW — monthly + weekly views ═════════════════════════════════
+// `data` rows have month (e.g. '2026-06') and ideally due_date (e.g.
+// '2026-06-05'). If due_date is missing we fall back to the 1st of the month
+// (so older rows before the migration still show, just less precisely).
+// ════════════════════════════════════════════════════════════════════════
+
+let _cfShowAllWeeks = false;   // toggle: only future or include past
+
+// ISO-week utilities. Weeks are Monday-start. Key format: "2026-W23"
+function _toISOWeek(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Thursday of same week determines year
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+}
+function _isoWeekStart(year, week){
+  // Returns the Monday of that ISO week as a Date
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const monday = new Date(simple);
+  if(dow <= 4) monday.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+  else         monday.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+  return monday;
+}
+function _weekRangeLabel(weekKey){
+  const [y, w] = weekKey.split('-W').map(Number);
+  const mon = _isoWeekStart(y, w);
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+  const fmt = d => d.toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+function _cfRowDate(c){
+  // Prefer due_date; fall back to month-01 so rows without due_date still show.
+  if(c.due_date) return new Date(c.due_date + 'T00:00:00');
+  if(c.month && /^\d{4}-\d{2}$/.test(c.month)) return new Date(c.month + '-01T00:00:00');
+  return null;
+}
+
+async function loadCashflow(){
+  try{
+    const data = await getData('cashflow');
+    const rows = data || [];
+
+    // ─── Headline stats ─────────────────────────────────────────────
+    renderCashflowStats(rows);
+
+    // ─── "All entries" table ────────────────────────────────────────
+    const tbody = document.getElementById('cashflow-tbody');
+    if(!rows.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';
+    } else {
+      // Sort by due date ascending
+      const sorted = [...rows].sort((a,b) => {
+        const da = _cfRowDate(a), db = _cfRowDate(b);
+        if(!da && !db) return 0;
+        if(!da) return 1;
+        if(!db) return -1;
+        return da - db;
+      });
+      tbody.innerHTML = sorted.map(c => {
+        const adminBtn = isAdmin()
+          ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td>`
+          : '<td></td>';
+        const dateStr = c.due_date
+          ? new Date(c.due_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+          : (c.month || '—');
+        return `<tr><td>${dateStr}</td><td>${c.description||'—'}</td><td>${c.category||'—'}</td><td>${statusBadge(c.priority||'Medium')}</td><td>${c.responsible||'—'}</td><td>PKR ${fmt(c.amount)}</td>${adminBtn}</tr>`;
+      }).join('');
+    }
+
+    // ─── Monthly chart (unchanged behaviour) ────────────────────────
+    const bm = {};
+    rows.forEach(c => { const m = c.month || ''; bm[m] = (bm[m]||0) + (+c.amount||0); });
+    const months = Object.keys(bm).filter(Boolean).sort();
+    const ctx = document.getElementById('chart-cashflow');
+    if(ctx._chart) ctx._chart.destroy();
+    ctx._chart = new Chart(ctx, {
+      type:'bar',
+      data:{labels: months, datasets:[{label:'Required Cash (PKR)', data: months.map(m=>bm[m]), backgroundColor:'#c9a84c99', borderColor:'#c9a84c', borderWidth:1}]},
+      options:{responsive:true, maintainAspectRatio:false, scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}, y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}}, plugins:{legend:{labels:{color:'#8a8580'}}}}
+    });
+
+    // ─── Weekly bucketing ───────────────────────────────────────────
+    // Bucket every row into its ISO week.
+    const byWeek = {};           // key → {total, rows:[]}
+    rows.forEach(c => {
+      const d = _cfRowDate(c);
+      if(!d) return;
+      const key = _toISOWeek(d);
+      if(!byWeek[key]) byWeek[key] = {total:0, rows:[]};
+      byWeek[key].total += (+c.amount||0);
+      byWeek[key].rows.push(c);
+    });
+
+    // Pick week keys to display.
+    // Always show a contiguous range from "first week with data" (or current
+    // week if showAllWeeks is off and we only want future) through
+    // "last week with data" so the heatmap/bar chart are contiguous.
+    const allWeekKeys = Object.keys(byWeek).sort();
+    if(!allWeekKeys.length){
+      renderWeeklyEmpty();
+      return;
+    }
+    const todayKey = _toISOWeek(new Date());
+    const firstKey = _cfShowAllWeeks ? allWeekKeys[0] : (allWeekKeys.find(k => k >= todayKey) || todayKey);
+    const lastKey  = allWeekKeys[allWeekKeys.length - 1];
+
+    // Expand to contiguous sequence of ISO weeks between firstKey and lastKey
+    const weekSequence = _enumerateWeeks(firstKey, lastKey);
+
+    renderWeeklyHeatmap(weekSequence, byWeek);
+    renderWeeklyBarChart(weekSequence, byWeek);
+    renderWeeklyList(weekSequence, byWeek, todayKey);
+
+    // Update toggle button label
+    const btn = document.getElementById('cf-range-btn');
+    if(btn) btn.textContent = _cfShowAllWeeks ? 'Show upcoming only' : 'Show all weeks';
+
+  }catch(e){ console.error('loadCashflow:', e); toast('Failed to load cashflow','error'); }
+}
+
+function toggleCfRange(){ _cfShowAllWeeks = !_cfShowAllWeeks; loadCashflow(); }
+
+// Enumerate ISO weeks from startKey to endKey inclusive
+function _enumerateWeeks(startKey, endKey){
+  const out = [];
+  let [y, w] = startKey.split('-W').map(Number);
+  while(true){
+    const key = `${y}-W${String(w).padStart(2,'0')}`;
+    out.push(key);
+    if(key === endKey) break;
+    // Advance one week
+    const nextMon = _isoWeekStart(y, w); nextMon.setUTCDate(nextMon.getUTCDate() + 7);
+    const nextKey = _toISOWeek(nextMon);
+    [y, w] = nextKey.split('-W').map(Number);
+    if(out.length > 200) break;  // safety
+  }
+  return out;
+}
+
+// ─── Headline stats ────────────────────────────────────────────────
+function renderCashflowStats(rows){
+  const today = new Date();
+  const thisWeek = _toISOWeek(today);
+  const nextMon = new Date(today); nextMon.setDate(today.getDate() + 7);
+  const nextWeek = _toISOWeek(nextMon);
+  const in30 = new Date(today); in30.setDate(today.getDate() + 30);
+  let thisW = 0, nextW = 0, next30 = 0, overdue = 0;
+  rows.forEach(c => {
+    const d = _cfRowDate(c);
+    if(!d) return;
+    const amt = +c.amount || 0;
+    const wk = _toISOWeek(d);
+    if(wk === thisWeek) thisW += amt;
+    if(wk === nextWeek) nextW += amt;
+    if(d >= today && d <= in30) next30 += amt;
+    if(d < today) overdue += amt;  // already passed due date
+  });
+  const set = (id, value, sub) => {
+    const el = document.getElementById(id);
+    const elSub = document.getElementById(id + '-sub');
+    if(el) el.textContent = value ? 'PKR ' + fmt(value) : '—';
+    if(elSub && sub !== undefined) elSub.textContent = sub;
+  };
+  set('cf-this-week', thisW, `ending ${_weekRangeLabel(thisWeek).split(' – ')[1]}`);
+  set('cf-next-week', nextW, `starting ${_weekRangeLabel(nextWeek).split(' – ')[0]}`);
+  set('cf-next-30',   next30, 'next 30 days');
+  set('cf-overdue',   overdue, overdue ? 'action needed' : 'all on track');
+}
+
+// ─── Weekly heatmap ────────────────────────────────────────────────
+// Displays each week of each month as a tiny square in a grid.
+// Rows = months, Columns = week 1/2/3/4/5 within that month.
+// This is easier to read than a strict calendar grid.
+function renderWeeklyHeatmap(weekSeq, byWeek){
+  const el = document.getElementById('cf-heatmap');
+  if(!el) return;
+  if(!weekSeq.length){ el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No weekly data yet.</div>'; return; }
+
+  // Max amount for scaling colour intensity
+  const max = Math.max(...weekSeq.map(k => byWeek[k]?.total || 0)) || 1;
+
+  // Group weeks by their starting month for row labelling
+  const monthRows = {};
+  weekSeq.forEach(k => {
+    const [y, w] = k.split('-W').map(Number);
+    const mon = _isoWeekStart(y, w);
+    const monKey = `${mon.getUTCFullYear()}-${String(mon.getUTCMonth()+1).padStart(2,'0')}`;
+    if(!monthRows[monKey]) monthRows[monKey] = [];
+    monthRows[monKey].push(k);
+  });
+
+  const todayKey = _toISOWeek(new Date());
+  const parts = [];
+  parts.push(`<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;">`);
+  Object.keys(monthRows).sort().forEach(monKey => {
+    const [y, m] = monKey.split('-');
+    const monName = new Date(+y, +m-1, 1).toLocaleDateString('en-GB',{month:'long', year:'2-digit'});
+    parts.push(`<div style="font-size:11px;color:var(--text-muted);padding-top:6px;font-weight:500;">${monName}</div>`);
+    parts.push(`<div style="display:flex;gap:4px;flex-wrap:wrap;">`);
+    monthRows[monKey].forEach(k => {
+      const total = byWeek[k]?.total || 0;
+      const intensity = total / max;           // 0..1
+      const isPast = k < todayKey;
+      const isCurrent = k === todayKey;
+      // Colour ramp (gold): from soft tint to full gold
+      const alpha = total > 0 ? (0.15 + intensity * 0.80) : 0;
+      const bg = total > 0 ? `rgba(201,168,76,${alpha.toFixed(2)})` : 'var(--surface2)';
+      const border = isCurrent ? '2px solid var(--gold)' : '1px solid var(--border)';
+      const opacity = isPast && !total ? 0.45 : 1;
+      const w = k.split('-W')[1];
+      const label = total > 0 ? `W${w}: PKR ${fmt(total)}\n${_weekRangeLabel(k)}` : `W${w}: no payments\n${_weekRangeLabel(k)}`;
+      parts.push(`<div title="${label.replace(/"/g,'&quot;')}" style="min-width:62px;height:46px;background:${bg};border:${border};border-radius:6px;padding:4px 6px;font-size:10px;display:flex;flex-direction:column;justify-content:space-between;opacity:${opacity};cursor:default;">
+        <span style="color:var(--text-muted);font-weight:600;">W${w}</span>
+        <span style="color:var(--text);font-weight:${total>0?'600':'400'};font-size:${total>0?'10px':'9px'};">${total>0? 'PKR '+_compactNum(total) : '—'}</span>
+      </div>`);
+    });
+    parts.push(`</div>`);
+  });
+  parts.push(`</div>`);
+  el.innerHTML = parts.join('');
+}
+
+// Compact number formatter: 1,425,000 → "1.4M", 250,000 → "250K"
+function _compactNum(n){
+  n = +n || 0;
+  if(Math.abs(n) >= 10000000) return (n/10000000).toFixed(2) + ' Cr';  // Indian/Pakistani crore
+  if(Math.abs(n) >= 100000)   return (n/100000).toFixed(2) + ' L';     // lakh
+  if(Math.abs(n) >= 1000)     return (n/1000).toFixed(1) + 'K';
+  return '' + Math.round(n);
+}
+
+// ─── Weekly bar chart ──────────────────────────────────────────────
+function renderWeeklyBarChart(weekSeq, byWeek){
+  const ctx = document.getElementById('chart-cashflow-weekly');
+  if(!ctx) return;
+  if(ctx._chart) ctx._chart.destroy();
+  const labels = weekSeq.map(k => {
+    const w = k.split('-W')[1];
+    return `W${w} · ${_weekRangeLabel(k).split(' – ')[0]}`;
+  });
+  const data = weekSeq.map(k => byWeek[k]?.total || 0);
+  const todayKey = _toISOWeek(new Date());
+  const colours = weekSeq.map(k => {
+    if(k === todayKey) return '#4a9eff';          // this week — blue
+    if(k < todayKey)   return '#8a858066';        // past — grey
+    return '#c9a84cbb';                           // future — gold
+  });
+  ctx._chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Required Cash (PKR)',
+        data,
+        backgroundColor: colours,
+        borderColor: colours,
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {ticks:{color:'#8a8580', maxRotation:60, minRotation:45, font:{size:9}}, grid:{color:'#dde8e2'}},
+        y: {ticks:{color:'#8a8580', callback:v=>_compactNum(v)}, grid:{color:'#dde8e2'}}
+      },
+      plugins: {
+        legend: {display:false},
+        tooltip: {
+          callbacks: {
+            label: (ctx) => 'PKR ' + fmt(ctx.parsed.y)
+          }
+        }
+      }
+    }
+  });
+}
+
+// ─── Weekly list with per-week breakdown ──────────────────────────
+function renderWeeklyList(weekSeq, byWeek, todayKey){
+  const el = document.getElementById('cf-weekly-list');
+  if(!el) return;
+  const entries = weekSeq.filter(k => (byWeek[k]?.rows || []).length > 0);
+  if(!entries.length){
+    el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No weekly entries in range.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(k => {
+    const bucket = byWeek[k];
+    const isPast = k < todayKey;
+    const isCurrent = k === todayKey;
+    const tag = isCurrent ? '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">THIS WEEK</span>'
+              : isPast ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">PAST</span>'
+              : '<span style="background:rgba(184,149,88,.15);color:var(--gold);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">UPCOMING</span>';
+    const w = k.split('-W')[1];
+    const rows = (bucket.rows||[]).slice().sort((a,b)=>{
+      const da = _cfRowDate(a), db = _cfRowDate(b);
+      return (da && db) ? (da - db) : 0;
+    });
+    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;">
+      <div style="padding:12px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <b style="font-size:13px;">Week ${w}</b>
+          <span style="color:var(--text-muted);font-size:12px;">${_weekRangeLabel(k)}</span>
+          ${tag}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:15px;font-weight:700;color:var(--gold);">PKR ${fmt(bucket.total)}</div>
+          <div style="font-size:10px;color:var(--text-muted);">${bucket.rows.length} payment${bucket.rows.length===1?'':'s'}</div>
+        </div>
+      </div>
+      <div style="padding:8px 14px;">
+        ${rows.map(c => {
+          const d = _cfRowDate(c);
+          const dStr = d ? d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}) : (c.month||'—');
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);gap:10px;font-size:12px;">
+            <div style="flex:1;min-width:0;">
+              <div style="color:var(--text);">${_esc(c.description||'—')}</div>
+              <div style="color:var(--text-muted);font-size:10px;margin-top:2px;">${dStr} · ${_esc(c.category||'—')}${c.priority?' · '+c.priority:''}${c.responsible?' · '+_esc(c.responsible):''}</div>
+            </div>
+            <div style="flex-shrink:0;font-weight:600;color:var(--text);">PKR ${fmt(c.amount)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWeeklyEmpty(){
+  const heatmap = document.getElementById('cf-heatmap');
+  const list = document.getElementById('cf-weekly-list');
+  if(heatmap) heatmap.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No dated entries yet. Add a cashflow requirement with a due date to populate the weekly view.</div>';
+  if(list) list.innerHTML = '';
+  const ctx = document.getElementById('chart-cashflow-weekly');
+  if(ctx && ctx._chart){ ctx._chart.destroy(); ctx._chart = null; }
+}
+async function addCashflow(){
+  if(!isAdmin()) return;
+  const dueDate = document.getElementById('cf-due-date').value;
+  const desc = document.getElementById('cf-desc').value.trim();
+  if(!dueDate || !desc){ toast('Due date and description required','error'); return; }
+  const month = dueDate.slice(0,7);  // derive '2026-06' from '2026-06-05'
+  try{
+    const payload = {
+      month,
+      due_date: dueDate,
+      description: desc,
+      amount: +document.getElementById('cf-amount').value || null,
+      category: document.getElementById('cf-cat').value,
+      priority: document.getElementById('cf-priority').value,
+      responsible: document.getElementById('cf-resp').value,
+    };
+    let r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+      method:'POST', headers:{...headers, Prefer:'return=minimal'},
+      body: JSON.stringify(payload)
+    });
+    if(!r.ok){
+      const err = await r.text();
+      if(/due_date/i.test(err) && /column/i.test(err)){
+        // Table doesn't have due_date yet — user hasn't run the SQL
+        delete payload.due_date;
+        toast('⚠ Run the due_date SQL migration for weekly view','error');
+        r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+          method:'POST', headers:{...headers, Prefer:'return=minimal'},
+          body: JSON.stringify(payload)
+        });
+      }
+      if(!r.ok) throw new Error(await r.text());
+    }
+    toast('Cashflow entry added ✓');
+    ['cf-due-date','cf-desc','cf-amount','cf-resp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    delete cache['cashflow'];
+    loadCashflow();
+  }catch(e){ console.error(e); toast('Error adding cashflow entry','error'); }
+}
 
 // CONTACTS
 async function loadContacts(){try{const data=await getData('contacts');const tbody=document.getElementById('contacts-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No contacts yet.</td></tr>';return;}tbody.innerHTML=data.map(c=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('contacts','${c.id}',loadContacts)">✕</button></td>`:'<td></td>';return`<tr><td><b>${c.full_name||'—'}</b></td><td>${c.role||'—'}</td><td>${c.company||'—'}</td><td>${c.phone||'—'}</td><td>${c.email||'—'}</td><td>${statusBadge(c.type||'Team Member')}</td><td style="font-size:12px;">${c.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load contacts','error');}}
@@ -6800,6 +7215,7 @@ async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milesto
     const month = (m.date||'').slice(0,7);
     const payload = {
       month,
+      due_date: m.date || null,          // precise day for weekly bucketing
       description: m.desc || `${vendorName} — ${pct}% payment`,
       amount: Math.round(amt),
       category: 'Vendor Payment',
@@ -6841,6 +7257,16 @@ async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milesto
             body: JSON.stringify(payload)
           });
           if(!r.ok){ console.error(`[cashflow] Legacy insert failed:`, await r.text()); continue; }
+        }
+        // Fallback C: due_date column missing → strip it and retry
+        else if(/due_date/i.test(err) && /column/i.test(err)){
+          delete payload.due_date;
+          r = await fetch(`${SB_URL}/rest/v1/cashflow?on_conflict=source_vendor_id,source_milestone_idx`,{
+            method:'POST',
+            headers:{...headers, Prefer:'resolution=merge-duplicates,return=minimal'},
+            body: JSON.stringify(payload)
+          });
+          if(!r.ok){ console.error(`[cashflow] Insert without due_date failed:`, await r.text()); continue; }
         }
         else continue;
       }
