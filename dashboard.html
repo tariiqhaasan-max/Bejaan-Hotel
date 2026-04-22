@@ -6276,28 +6276,34 @@ async function _countCashflowForVendor(vendorId){
 // ── AUTO-PUSH: sync a vendor's schedule to the cashflow table ──
 // Uses source_vendor_id + source_milestone_idx to upsert — delete old, re-create fresh each save
 async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milestones){
-  if(!vendorId || !total || !milestones || !milestones.length) {
-    // Still clear any stale entries for this vendor
+  // Simpler strategy: UPSERT each milestone by (source_vendor_id, source_milestone_idx).
+  // This avoids the DELETE-INSERT race that caused 409 conflicts, and the on_conflict
+  // hint tells PostgREST to UPDATE instead of fail if a row already exists.
+  //
+  // But if milestones list shrinks (user deleted one), we'd leave an orphan row.
+  // So we still DELETE first for rows whose index is >= new milestone count.
+  if(!vendorId) return 0;
+  
+  // Early exit: no milestones → delete all for this vendor
+  if(!total || !milestones || !milestones.length){
     try{
-      await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}`,{method:'DELETE',headers});
+      await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}`,{
+        method:'DELETE',
+        headers:{...headers, Prefer:'return=representation'},
+      });
     }catch(e){ /* column may not exist */ }
-    return;
+    return 0;
   }
-  // 1. Delete existing cashflow rows for this vendor (so we don't duplicate)
-  try{
-    const r = await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}`,{method:'DELETE',headers});
-    // If column doesn't exist, we'll skip gracefully
-    if(!r.ok){
-      const err = await r.text();
-      if(/source_vendor_id/i.test(err) && /column/i.test(err)){
-        toast('Cashflow auto-push needs SQL migration (source_vendor_id column)','error');
-        showMigrationBanner();
-        return;
-      }
-    }
-  }catch(e){ console.warn('Delete existing cashflow for vendor failed:', e); }
 
-  // 2. Insert fresh entries from milestones
+  // Delete any existing rows whose milestone_idx is >= new length (cleans up shrunken schedules)
+  try{
+    await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}&source_milestone_idx=gte.${milestones.length}`,{
+      method:'DELETE',
+      headers:{...headers, Prefer:'return=representation'},
+    });
+  }catch(e){ console.warn('[cashflow] stale-cleanup DELETE threw:', e); }
+
+  // UPSERT one at a time. Per-row gives us clean error reporting if any single row fails.
   let inserted = 0;
   for(let i=0; i<milestones.length; i++){
     const m = milestones[i];
@@ -6316,28 +6322,46 @@ async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milesto
       source_milestone_idx: i
     };
     try{
-      let r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+      // Primary path: UPSERT using on_conflict hint (requires unique index on
+      // (source_vendor_id, source_milestone_idx) — fallback handles if missing)
+      let r = await fetch(`${SB_URL}/rest/v1/cashflow?on_conflict=source_vendor_id,source_milestone_idx`,{
         method:'POST',
-        headers:{...headers,'Prefer':'return=minimal'},
+        headers:{...headers, Prefer:'resolution=merge-duplicates,return=minimal'},
         body: JSON.stringify(payload)
       });
       if(!r.ok){
         const err = await r.text();
-        if(/source_vendor_id|source_milestone_idx/i.test(err) && /column/i.test(err)){
+        console.error(`[cashflow] Upsert row ${i} failed (${r.status}):`, err);
+        // Fallback A: unique index missing → use DELETE-then-INSERT for just this idx
+        if(r.status === 400 && /on_conflict|constraint|unique/i.test(err)){
+          console.log('[cashflow] no unique index — falling back to DELETE+INSERT for this row');
+          await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}&source_milestone_idx=eq.${i}`,{
+            method:'DELETE',
+            headers:{...headers, Prefer:'return=representation'},
+          });
+          r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
+            method:'POST', headers:{...headers, Prefer:'return=minimal'},
+            body: JSON.stringify(payload)
+          });
+          if(!r.ok){ console.error(`[cashflow] Fallback failed:`, await r.text()); continue; }
+        }
+        // Fallback B: source_* columns missing → strip and insert without
+        else if(/source_vendor_id|source_milestone_idx/i.test(err) && /column/i.test(err)){
           delete payload.source_vendor_id;
           delete payload.source_milestone_idx;
           r = await fetch(`${SB_URL}/rest/v1/cashflow`,{
-            method:'POST', headers:{...headers,'Prefer':'return=minimal'},
+            method:'POST', headers:{...headers, Prefer:'return=minimal'},
             body: JSON.stringify(payload)
           });
+          if(!r.ok){ console.error(`[cashflow] Legacy insert failed:`, await r.text()); continue; }
         }
+        else continue;
       }
       if(r.ok) inserted++;
-    }catch(e){ console.warn('Cashflow insert failed:', e); }
+    }catch(e){ console.warn('[cashflow] Insert threw:', e); }
   }
-  if(inserted > 0){
-    toast(`${inserted} cashflow entr${inserted===1?'y':'ies'} synced ✓`);
-  }
+  console.log(`[cashflow] ${inserted}/${milestones.length} rows inserted for ${vendorName}`);
+  return inserted;
 }
 
 // PAYMENT SCHEDULE
