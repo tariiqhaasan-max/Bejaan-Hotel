@@ -2057,7 +2057,66 @@ const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
 async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
-async function loadAll(){await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));loadOverview();loadAlerts();loadBottlenecks();}
+async function loadAll(){
+  await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
+  // Also preload Supabase-backed collections that the old localStorage code
+  // expected to read synchronously. Populating the cache here means the
+  // thousand existing callers of getVendorSchedule() / getContractSchedule() /
+  // getWorkflowTasks() keep working without becoming async.
+  await Promise.all([preloadAllMilestones(), preloadAllWorkflowTasks()]);
+  loadOverview(); loadAlerts(); loadBottlenecks();
+}
+
+// ── BULK PRELOAD: milestones (contracts + vendor legacy) ──
+// Hydrates _msCache keyed by 'c:<contract_id>' or 'v:<vendor_id>' so sync
+// callers like the vendor table renderer can read schedule data immediately.
+async function preloadAllMilestones(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?select=*&order=sort_order.asc,due_date.asc`,{headers});
+    if(!r.ok) return;
+    const rows = await r.json();
+    _msCache = {};
+    rows.forEach(row => {
+      const key = row.contract_id ? ('c:'+row.contract_id) : ('v:'+row.vendor_id);
+      if(!_msCache[key]) _msCache[key] = [];
+      _msCache[key].push(_msDbToMem(row));
+    });
+  }catch(e){ console.error('preloadAllMilestones:', e); }
+}
+
+// ── BULK PRELOAD: workflow tasks ──
+// Hydrates _wfCache with every row of bejaan_wf_tasks, matching the shape
+// the old localStorage code used so existing renderers keep working.
+let _wfCache = [];
+async function preloadAllWorkflowTasks(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bejaan_wf_tasks?select=*&order=created_at.asc`,{headers});
+    if(!r.ok) return;
+    const rows = await r.json();
+    _wfCache = rows.map(_wfDbToMem);
+  }catch(e){ console.error('preloadAllWorkflowTasks:', e); }
+}
+
+function _wfDbToMem(row){
+  return {
+    id:      row.id,
+    name:    row.name || '',
+    area:    row.area || '',
+    status:  row.status || 'Not Started',
+    depends: Array.isArray(row.depends) ? row.depends : [],
+    wipId:   row.wip_id || undefined,
+  };
+}
+function _wfMemToDb(t){
+  return {
+    id:      t.id,
+    name:    t.name || '',
+    area:    t.area || '',
+    status:  t.status || 'Not Started',
+    depends: Array.isArray(t.depends) ? t.depends : [],
+    wip_id:  t.wipId || null,
+  };
+}
 
 // OVERVIEW
 async function loadOverview(){
@@ -3244,7 +3303,7 @@ function renderContractSwitcher(){
   if(delBtn) delBtn.style.display = _evContracts.length > 1 ? 'inline-block' : 'none';
 }
 
-function switchContract(contractId){
+async function switchContract(contractId){
   if(!contractId) return;
   // Save current form state to the currently-loaded contract BEFORE switching
   syncFormToCurrentContract();
@@ -3254,7 +3313,8 @@ function switchContract(contractId){
   populateFormFromContract(c);
   renderContractSwitcher();
   // Re-load milestones + tasks scoped to this contract
-  _evMilestones = getContractSchedule(c.id) || [];
+  _evMilestones = await getContractScheduleAsync(c.id);
+  _msCache['c:'+c.id] = _evMilestones.slice();
   renderEvMilestonesList();
   const vendorId = document.getElementById('ev-id').value;
   fetchVendorTasks(vendorId, c.id).then(ts => { _evTasks = ts; renderEvTasksList(); });
@@ -3400,7 +3460,8 @@ async function deleteCurrentContract(){
     _evContracts = _evContracts.filter(x => x.id !== c.id);
     _evCurrentContractId = _evContracts[0].id;
     populateFormFromContract(_evContracts[0]);
-    _evMilestones = getContractSchedule(_evCurrentContractId) || [];
+    _evMilestones = await getContractScheduleAsync(_evCurrentContractId);
+    _msCache['c:'+_evCurrentContractId] = _evMilestones.slice();
     renderEvMilestonesList();
     const vendorId = document.getElementById('ev-id').value;
     _evTasks = await fetchVendorTasks(vendorId, _evCurrentContractId);
@@ -3410,13 +3471,112 @@ async function deleteCurrentContract(){
   }catch(e){ console.error(e); toast('Error deleting contract','error'); }
 }
 
-// Contract-scoped payment schedule (localStorage, keyed by contract_id)
-function getAllContractSchedules(){ return JSON.parse(localStorage.getItem('contract_schedules')||'{}'); }
-function getContractSchedule(cid){ return (getAllContractSchedules()[cid] || []); }
+// ── Contract-scoped payment schedule (Supabase: bejaan_contract_milestones) ──
+// Previously used localStorage which meant each device only saw its own data.
+// Now backed by Supabase so Tariq + Naeem (and any future users) see the same
+// milestones. Stored as rows with contract_id (new) or vendor_id (legacy fallback).
+//
+// In-memory shape used by the rest of the code (unchanged):
+//   { id?, pct, date, desc, priority, payStatus, paidAmt }
+// DB columns:
+//   id, contract_id, vendor_id, pct, due_date, description, priority,
+//   pay_status, paid_amount, sort_order, created_at, created_by
+// The mappers below translate between the two shapes.
+
+function _msDbToMem(row){
+  return {
+    id:        row.id,
+    pct:       +row.pct || 0,
+    date:      row.due_date || '',
+    desc:      row.description || '',
+    priority:  row.priority || 'Normal',
+    payStatus: row.pay_status || 'Scheduled',
+    paidAmt:   +row.paid_amount || 0,
+    _sort:     row.sort_order || 0,
+  };
+}
+function _msMemToDb(m, contractId, vendorId, sortIdx){
+  return {
+    contract_id: contractId || null,
+    vendor_id:   vendorId   || null,
+    pct:         +m.pct || 0,
+    due_date:    m.date || null,
+    description: m.desc || null,
+    priority:    m.priority || 'Normal',
+    pay_status:  m.payStatus || 'Scheduled',
+    paid_amount: +m.paidAmt || 0,
+    sort_order:  sortIdx || 0,
+  };
+}
+
+async function getContractScheduleAsync(contractId){
+  if(!contractId) return [];
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?contract_id=eq.${contractId}&order=sort_order.asc,due_date.asc`,{headers});
+    if(!r.ok) throw new Error(await r.text());
+    const rows = await r.json();
+    return rows.map(_msDbToMem);
+  }catch(e){ console.error('getContractSchedule:', e); return []; }
+}
+async function getVendorScheduleAsync(vendorId){
+  if(!vendorId) return [];
+  try{
+    // Only fetch rows where contract_id is NULL (pure vendor-legacy rows)
+    const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?vendor_id=eq.${vendorId}&contract_id=is.null&order=sort_order.asc,due_date.asc`,{headers});
+    if(!r.ok) throw new Error(await r.text());
+    const rows = await r.json();
+    return rows.map(_msDbToMem);
+  }catch(e){ console.error('getVendorSchedule:', e); return []; }
+}
+
+// Replace the full set of milestones for a contract (or vendor if no contract).
+// Simplest correct strategy: DELETE all existing rows for this scope, then
+// INSERT the current list. This keeps sort_order aligned with the UI order and
+// avoids diff-tracking complexity. Fast enough for the <20-row lists in use.
+async function saveContractScheduleAsync(contractId, arr, vendorId){
+  const scopeQ = contractId
+    ? `contract_id=eq.${contractId}`
+    : `vendor_id=eq.${vendorId}&contract_id=is.null`;
+  try{
+    // Delete existing rows for this scope
+    await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?${scopeQ}`,{method:'DELETE',headers});
+    // Insert the new set (if any)
+    if(arr && arr.length){
+      const rows = arr.map((m,i) => _msMemToDb(m, contractId, vendorId, i));
+      const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones`,{
+        method:'POST', headers:{...headers, Prefer:'return=minimal'},
+        body:JSON.stringify(rows)
+      });
+      if(!r.ok) throw new Error(await r.text());
+    }
+  }catch(e){ console.error('saveContractSchedule:', e); toast('Error saving milestones','error'); }
+}
+
+// Synchronous shims — kept for any caller that expects an array back immediately.
+// They read from a session cache populated when the vendor modal opens. All
+// writes are persisted through the async versions above.
+let _msCache = {};  // key: 'c:<id>' or 'v:<id>'  →  array
+function getAllContractSchedules(){
+  // Legacy helper — kept so nothing breaks, but returns cache not localStorage.
+  const out = {};
+  Object.keys(_msCache).forEach(k => { if(k.startsWith('c:')) out[k.slice(2)] = _msCache[k]; });
+  return out;
+}
+function getContractSchedule(cid){ return _msCache['c:'+cid] || []; }
+function getVendorSchedule(vid){   return _msCache['v:'+vid] || []; }
+// Fire-and-forget sync wrappers — UI updates optimistically, save happens async.
 function saveContractSchedule(cid, arr){
-  const all = getAllContractSchedules();
-  all[cid] = arr;
-  localStorage.setItem('contract_schedules', JSON.stringify(all));
+  _msCache['c:'+cid] = arr.slice();
+  saveContractScheduleAsync(cid, arr, null);
+}
+function saveVendorSchedule(vid, arr){
+  _msCache['v:'+vid] = arr.slice();
+  saveContractScheduleAsync(null, arr, vid);
+}
+function getAllSchedules(){
+  const out = {};
+  Object.keys(_msCache).forEach(k => { if(k.startsWith('v:')) out[k.slice(2)] = _msCache[k]; });
+  return out;
 }
 
 async function openEditVendor(id){
@@ -3464,19 +3624,28 @@ async function openEditVendor(id){
   closeAddTask();
   toggleEvMilestoneForm(true); // force-close
 
-  // Load milestones — prefer contract-scoped, fall back to vendor-scoped for legacy
+  // Load milestones — prefer contract-scoped, fall back to vendor-scoped for legacy.
+  // Pulls from Supabase and populates the sync cache so the rest of the UI
+  // (which uses getContractSchedule/getVendorSchedule sync helpers) sees
+  // the fresh data.
   if(_evCurrentContractId){
-    _evMilestones = getContractSchedule(_evCurrentContractId);
+    _evMilestones = await getContractScheduleAsync(_evCurrentContractId);
+    _msCache['c:'+_evCurrentContractId] = _evMilestones.slice();
     if(!_evMilestones.length){
       // Migrate vendor-level schedule to Contract 1 on first open
-      const legacy = getVendorSchedule(v.id) || [];
+      const legacy = await getVendorScheduleAsync(v.id);
       if(legacy.length){
-        saveContractSchedule(_evCurrentContractId, legacy);
+        await saveContractScheduleAsync(_evCurrentContractId, legacy, null);
         _evMilestones = legacy;
+        _msCache['c:'+_evCurrentContractId] = legacy.slice();
+        // Clear the legacy vendor-only rows now that they moved into the contract
+        await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?vendor_id=eq.${v.id}&contract_id=is.null`,{method:'DELETE',headers});
+        _msCache['v:'+v.id] = [];
       }
     }
   } else {
-    _evMilestones = getVendorSchedule(v.id) || [];
+    _evMilestones = await getVendorScheduleAsync(v.id);
+    _msCache['v:'+v.id] = _evMilestones.slice();
   }
   renderEvMilestonesList();
   renderContractSwitcher();
@@ -4525,8 +4694,49 @@ async function loadWip(){
 async function addWip(){if(!isAdmin())return;const area=document.getElementById('w-area').value.trim(),task=document.getElementById('w-task').value.trim();if(!area||!task){toast('Area and Task required','error');return;}try{await sbInsert('work_items',{area,task,responsible:document.getElementById('w-resp').value,contractor:document.getElementById('w-contractor').value,percent_complete:+document.getElementById('w-pct').value||0,start_date:document.getElementById('w-start').value||null,target_date:document.getElementById('w-target').value||null,status:document.getElementById('w-status').value,notes:document.getElementById('w-notes').value});toast('Work item added ✓');['w-area','w-task','w-resp','w-contractor','w-pct','w-start','w-target','w-notes'].forEach(id=>document.getElementById(id).value='');delete cache['work_items'];loadWip();}catch(e){toast('Error adding item','error');}}
 
 // WORKFLOW
-function getWorkflowTasks(){return JSON.parse(localStorage.getItem('wf_tasks')||'[]');}
-function saveWorkflowTasks(t){localStorage.setItem('wf_tasks',JSON.stringify(t));}
+// WORKFLOW (Supabase-backed via bejaan_wf_tasks, cached in _wfCache).
+// The sync getter returns the cached array so existing renderers (dashboard
+// chart, table, dropdown) don't need to become async. The async save uses
+// UPSERT so status edits, adds, and reorderings all work without read-modify-
+// write races.
+function getWorkflowTasks(){ return _wfCache.slice(); }
+
+// Save writes the full tasks list back to Supabase. We DELETE rows not in the
+// new list, then UPSERT the rest. This matches how localStorage used to work
+// (pass the whole list) while keeping IDs stable for syncWipToWorkflow links.
+async function saveWorkflowTasksAsync(tasks){
+  try{
+    const keepIds = new Set(tasks.map(t => t.id));
+    const existingIds = new Set(_wfCache.map(t => t.id));
+    // Delete anything removed
+    const toDelete = [..._wfCache].filter(t => !keepIds.has(t.id)).map(t => t.id);
+    if(toDelete.length){
+      const inList = toDelete.map(id => `"${id}"`).join(',');
+      await fetch(`${SB_URL}/rest/v1/bejaan_wf_tasks?id=in.(${inList})`,{method:'DELETE',headers});
+    }
+    // Upsert the full set (insert new, update existing)
+    if(tasks.length){
+      const rows = tasks.map(_wfMemToDb);
+      const r = await fetch(`${SB_URL}/rest/v1/bejaan_wf_tasks`,{
+        method:'POST',
+        headers:{...headers, Prefer:'resolution=merge-duplicates,return=minimal'},
+        body:JSON.stringify(rows)
+      });
+      if(!r.ok) throw new Error(await r.text());
+    }
+    // Update cache to match what we just saved
+    _wfCache = tasks.map(t => ({..._wfDbToMem(_wfMemToDb(t))}));
+  }catch(e){
+    console.error('saveWorkflowTasks:', e);
+    toast('Error saving workflow','error');
+  }
+}
+// Fire-and-forget sync wrapper — UI updates optimistically against _wfCache,
+// Supabase save happens in background.
+function saveWorkflowTasks(tasks){
+  _wfCache = tasks.slice();
+  saveWorkflowTasksAsync(tasks);
+}
 function toggleAddPanel(){if(!isAdmin())return;const p=document.getElementById('wf-add-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function loadWorkflow(){refreshDependsDropdown();renderWorkflowTable();renderWorkflowChart();}
 function refreshDependsDropdown(){const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');if(sel)sel.innerHTML=tasks.map(t=>`<option value="${t.id}">${t.name}${t.area?' ('+t.area+')':''}</option>`).join('');}
@@ -6007,9 +6217,9 @@ async function pushVendorScheduleToCashflow(vendorId, vendorName, total, milesto
 
 // PAYMENT SCHEDULE
 let currentVendorId=null,currentVendorTotal=0,currentVendorName='';
-function getAllSchedules(){return JSON.parse(localStorage.getItem('vendor_schedules')||'{}');}
-function getVendorSchedule(vendorId){return(getAllSchedules()[vendorId]||[]);}
-function saveVendorSchedule(vendorId,schedule){const all=getAllSchedules();all[vendorId]=schedule;localStorage.setItem('vendor_schedules',JSON.stringify(all));}
+// Note: getAllSchedules, getVendorSchedule, saveVendorSchedule are now defined
+// up near getContractSchedule (Supabase-backed). The previous localStorage-only
+// implementations used to live here.
 function openPaySchedule(vendorId){
   // Consolidated: clicking the Schedule badge now opens the full Edit Vendor modal
   // and scrolls to the Payment Schedule section (instead of a separate popup).
