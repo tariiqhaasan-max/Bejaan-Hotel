@@ -1709,15 +1709,18 @@ function editCell({tbl, id, field, value, rawValue, type='text', step, options, 
 // ============================================================================
 async function loadTasks(){
   try{
-    const [tasks, areas, vendors] = await Promise.all([
+    const [tasks, areas, vendors, vTasks] = await Promise.all([
       fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()),
       fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()),
-      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}).then(r=>r.json())
+      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}).then(r=>r.json()),
+      // Vendor tasks live in a separate table (vendor_tasks) — merge them in so
+      // tasks added via the Vendor modal appear on this page alongside bcc_tasks.
+      fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*&order=created_at.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
     const vmap={}; vendors.forEach(v=>vmap[v.id]=v.vendor_name);
     const amap={}; areas.forEach(a=>{(amap[a.task_id]=amap[a.task_id]||[]).push(a);});
 
-    // KPIs
+    // KPIs (based on bcc_tasks only — they have the formal structure)
     const overall = tasks.length ? (tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length) : 0;
     const target  = tasks.length ? (tasks.reduce((s,t)=>{
       const ars=amap[t.id]||[];
@@ -1737,12 +1740,33 @@ async function loadTasks(){
 
     // Group by vendor
     const body = document.getElementById('tasks-body');
-    if(!tasks.length){body.innerHTML='<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks yet.</div>';return;}
+    const totalTasks = tasks.length + vTasks.length;
+    if(!totalTasks){body.innerHTML='<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks yet.</div>';return;}
     const groups={};
-    tasks.forEach(t=>{const v=vmap[t.vendor_id]||'Unassigned';(groups[v]=groups[v]||[]).push(t);});
+    tasks.forEach(t=>{const v=vmap[t.vendor_id]||'Unassigned';(groups[v]=groups[v]||[]).push({...t, _kind:'bcc'});});
+    // Fold vendor_tasks into the same groups with _kind flag so we render them
+    // slightly differently (no task_code, simpler progress, no areas).
+    vTasks.forEach(vt=>{
+      const v = vmap[vt.vendor_id] || 'Unassigned';
+      (groups[v]=groups[v]||[]).push({
+        id: vt.id,
+        task_code: null,
+        title: vt.task_name,
+        description: vt.responsible_employee ? ('👤 ' + vt.responsible_employee) : '',
+        notes: vt.notes,
+        current_pct: +vt.progress_pct || 0,
+        desired_target_pct: 100,
+        duration_days: null,
+        status: (vt.status || 'Not Started').toLowerCase().replace(' ','_'),
+        vendor_id: vt.vendor_id,
+        proposed_date: vt.proposed_date,
+        _kind: 'vendor',
+      });
+    });
 
     body.innerHTML = Object.entries(groups).map(([vendor,ts])=>{
       const rows = ts.map(t=>{
+        const isVendorTask = t._kind === 'vendor';
         const ars = amap[t.id]||[];
         const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
         const curr = +t.current_pct||0;
@@ -1756,18 +1780,29 @@ async function loadTasks(){
           {value:'complete',    label:'Completed'}
         ];
         const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Completed'}[t.status]||t.status||'—';
-        const editBtn = canWrite()
+        const tbl = isVendorTask ? 'vendor_tasks' : 'bcc_tasks';
+        const fieldPct = isVendorTask ? 'progress_pct' : 'current_pct';
+        const fieldStatus = 'status';  // both tables use 'status'
+        const editBtn = (canWrite() && !isVendorTask)
           ? `<button class="btn-icon" title="Edit task" onclick="openEditTask('${t.id}')">✎</button>`
           : '';
         const delBtn = isAdmin()
-          ? `<button class="btn btn-danger btn-sm" title="Delete task" onclick="deleteRow('bcc_tasks','${t.id}',loadTasks)">✕</button>`
+          ? `<button class="btn btn-danger btn-sm" title="Delete task" onclick="deleteRow('${tbl}','${t.id}',loadTasks)">✕</button>`
           : '';
-        // Notes row (under the task text) — editable
-        const notesCell = canWrite()
+        // Notes row — editable on bcc_tasks, read-only on vendor_tasks
+        const notesCell = (canWrite() && !isVendorTask)
           ? `<div class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="notes" data-type="textarea" data-reload="loadTasks" data-raw="${(t.notes||'').replace(/"/g,'&quot;')}" style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;min-height:20px;">${t.notes||'— click to add notes —'}</div>`
           : (t.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;">"${t.notes}"</div>` : '');
+        // Code column: bcc uses task_code, vendor tasks use a subtle V-tag
+        const codeCell = isVendorTask
+          ? `<span style="font-size:10px;padding:2px 5px;background:rgba(224,138,76,.15);color:#b8741f;border-radius:3px;font-weight:600;letter-spacing:0.05em;">VEND</span>`
+          : (t.task_code||'—');
+        // Due/duration: bcc uses duration_days, vendor tasks use proposed_date
+        const durCell = isVendorTask
+          ? (t.proposed_date ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}` : '—')
+          : (t.duration_days ? t.duration_days+' days' : '—');
         return `<tr>
-          <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${t.task_code||'—'}</td>
+          <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${codeCell}</td>
           <td>
             <div style="font-weight:500;">${t.title||'—'}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.description||''}</div>
@@ -1777,12 +1812,12 @@ async function loadTasks(){
           <td style="min-width:170px;">
             <div style="display:flex;align-items:center;gap:8px;">
               <div class="progress-bar" style="flex:1;"><div class="progress-fill ${barCls}" style="width:${Math.min(100,curr)}%"></div></div>
-              <span class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="current_pct" data-type="number" data-step="0.5" data-reload="loadTasks" data-raw="${curr}" style="min-width:46px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;padding:2px 4px;">${Math.round(curr)}%</span>
+              <span class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldPct}" data-type="number" data-step="0.5" data-reload="loadTasks" data-raw="${curr}" style="min-width:46px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;padding:2px 4px;">${Math.round(curr)}%</span>
             </div>
-            <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Target ${Math.round(tgt)}%${gap>0?` · ${Math.round(gap)}% gap`:' · on track'}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">${isVendorTask?'':'Target '+Math.round(tgt)+'%'+(gap>0?' · '+Math.round(gap)+'% gap':' · on track')}</div>
           </td>
-          <td>${t.duration_days?t.duration_days+' days':'—'}</td>
-          <td class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="status" data-type="select" data-options='${JSON.stringify(statusOpts).replace(/'/g,"&#39;")}' data-reload="loadTasks" data-raw="${t.status||'not_started'}">${statusBadge(statusLabel)}</td>
+          <td>${durCell}</td>
+          <td class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldStatus}" data-type="select" data-options='${JSON.stringify(statusOpts).replace(/'/g,"&#39;")}' data-reload="loadTasks" data-raw="${t.status||'not_started'}">${statusBadge(statusLabel)}</td>
           <td style="white-space:nowrap;">${editBtn} ${delBtn}</td>
         </tr>`;
       }).join('');
@@ -2064,7 +2099,51 @@ async function loadAll(){
   // thousand existing callers of getVendorSchedule() / getContractSchedule() /
   // getWorkflowTasks() keep working without becoming async.
   await Promise.all([preloadAllMilestones(), preloadAllWorkflowTasks()]);
+  // Backfill any approved contracts whose milestones aren't in cashflow yet.
+  // This covers cases where a save silently missed the push (e.g. stale cache).
+  backfillApprovedCashflow().catch(e => console.warn('backfill:', e));
   loadOverview(); loadAlerts(); loadBottlenecks();
+}
+
+// Scans every Approved vendor_contract and makes sure its milestones are in
+// cashflow. If any are missing, pushes them. Runs once at app startup so any
+// past "silent miss" auto-recovers without the user doing anything.
+async function backfillApprovedCashflow(){
+  try{
+    const [contractsR, vendorsR] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?agreement_status=eq.Approved&select=*`,{headers}),
+      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}),
+    ]);
+    if(!contractsR.ok) return;
+    const contracts = await contractsR.json();
+    const vendors = vendorsR.ok ? await vendorsR.json() : [];
+    const vmap = {}; vendors.forEach(v => vmap[v.id] = v.vendor_name);
+    let fixed = 0;
+    for(const c of contracts){
+      if(!c.id || !c.vendor_id || !c.total_contract) continue;
+      const ms = await getContractScheduleAsync(c.id);
+      if(!ms.length) continue;  // nothing to push
+      // Check if cashflow already has rows for this vendor+contract
+      const cfR = await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${c.vendor_id}&select=id,source_milestone_idx`,{headers});
+      if(!cfR.ok) continue;
+      const existing = await cfR.json();
+      // If the row count matches milestones count, assume it's already synced
+      if(existing.length >= ms.length) continue;
+      // Otherwise, push
+      const name = vmap[c.vendor_id] || 'Vendor';
+      const label = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
+      console.log(`[backfill] Pushing ${ms.length} milestones for ${label}`);
+      await pushVendorScheduleToCashflow(c.id, label, c.total_contract, ms);
+      fixed++;
+    }
+    if(fixed > 0){
+      delete cache['cashflow'];
+      toast(`${fixed} approved contract${fixed===1?'':'s'} auto-synced to cashflow ✓`);
+      // Reload cashflow if the user happens to be viewing it
+      const cfSection = document.getElementById('section-cashflow');
+      if(cfSection && cfSection.classList.contains('active')) loadCashflow();
+    }
+  }catch(e){ console.warn('backfillApprovedCashflow:', e); }
 }
 
 // ── BULK PRELOAD: milestones (contracts + vendor legacy) ──
@@ -6130,12 +6209,36 @@ async function saveEditVendor(){
     }
     toast('Vendor updated ✓');
 
-    // Auto-push each approved contract's schedule to cashflow
+    // Auto-push each approved contract's schedule to cashflow.
+    // Fetch milestones DIRECTLY from Supabase (not from _msCache) — the cache
+    // can be stale or mis-keyed if the user switched contracts during edit, and
+    // silently returns [] which was causing pushes to do nothing.
+    let totalPushed = 0;
+    let approvedCount = 0;
     for(const c of _evContracts){
       if(c.agreement_status === 'Approved' && c.id){
-        const ms = getContractSchedule(c.id) || [];
-        const contractLabel = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
-        await pushVendorScheduleToCashflow(c.id, contractLabel, c.total_contract, ms);
+        approvedCount++;
+        try{
+          const ms = await getContractScheduleAsync(c.id);
+          if(!ms.length){
+            console.warn(`Contract ${c.id} is Approved but has 0 milestones — nothing to push`);
+            continue;
+          }
+          const contractLabel = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
+          const before = await _countCashflowForVendor(id);
+          await pushVendorScheduleToCashflow(c.id, contractLabel, c.total_contract, ms);
+          const after = await _countCashflowForVendor(id);
+          totalPushed += Math.max(0, after - before) + ms.length;  // approx; used only for toast
+        }catch(pushErr){
+          console.error('Cashflow push failed for contract', c.id, pushErr);
+        }
+      }
+    }
+    if(approvedCount > 0){
+      if(totalPushed > 0){
+        toast(`${totalPushed} cashflow entr${totalPushed===1?'y':'ies'} synced ✓`);
+      } else {
+        toast('No cashflow entries created — check console','error');
       }
     }
 
@@ -6146,6 +6249,16 @@ async function saveEditVendor(){
     loadOverview();
     loadAlerts();
   }catch(e){ console.error(e); toast('Error saving changes','error'); }
+}
+
+// Tiny helper — count current cashflow rows for a vendor (used to report push size)
+async function _countCashflowForVendor(vendorId){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/cashflow?source_vendor_id=eq.${vendorId}&select=id`,{headers});
+    if(!r.ok) return 0;
+    const rows = await r.json();
+    return rows.length;
+  }catch(e){ return 0; }
 }
 
 // ── AUTO-PUSH: sync a vendor's schedule to the cashflow table ──
