@@ -2105,17 +2105,29 @@ async function loadAll(){
   loadOverview(); loadAlerts(); loadBottlenecks();
 }
 
+// A contract is "ready for cashflow" if EITHER of these is true:
+//   1. agreement_status === 'Approved'  (explicit green ✓ button on the modal)
+//   2. approval === 'Approved'          (the Approval dropdown set to Approved)
+// The user mostly uses the dropdown, so we treat either as a signal. Helper
+// keeps all four check sites consistent.
+function isContractApproved(c){
+  return c && (c.agreement_status === 'Approved' || c.approval === 'Approved');
+}
+
 // Scans every Approved vendor_contract and makes sure its milestones are in
 // cashflow. If any are missing, pushes them. Runs once at app startup so any
 // past "silent miss" auto-recovers without the user doing anything.
 async function backfillApprovedCashflow(){
   try{
+    // Fetch ALL contracts (can't OR-filter two columns in one REST query cleanly),
+    // then filter in memory via isContractApproved().
     const [contractsR, vendorsR] = await Promise.all([
-      fetch(`${SB_URL}/rest/v1/vendor_contracts?agreement_status=eq.Approved&select=*`,{headers}),
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}),
       fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers}),
     ]);
     if(!contractsR.ok) return;
-    const contracts = await contractsR.json();
+    const allContracts = await contractsR.json();
+    const contracts = allContracts.filter(isContractApproved);
     const vendors = vendorsR.ok ? await vendorsR.json() : [];
     const vmap = {}; vendors.forEach(v => vmap[v.id] = v.vendor_name);
     let fixed = 0;
@@ -3361,7 +3373,7 @@ function renderContractSwitcher(){
     const label = c.contract_name
       ? `#${c.contract_number}: ${c.contract_name}`
       : `Contract ${c.contract_number}`;
-    const status = c.agreement_status === 'Approved' ? ' ✓' : ' 📝';
+    const status = isContractApproved(c) ? ' ✓' : ' 📝';
     return `<option value="${c.id}" ${c.id===_evCurrentContractId?'selected':''}>${label}${status}</option>`;
   }).join('');
 
@@ -4636,7 +4648,7 @@ async function loadVendors(){
       // Agreement badge — if multiple contracts, show their aggregate state
       let ag = v.agreement_status || 'Draft';
       if(hasContracts){
-        const approvedCount = contracts.filter(c => c.agreement_status === 'Approved').length;
+        const approvedCount = contracts.filter(isContractApproved).length;
         ag = approvedCount === contracts.length ? 'Approved' : (approvedCount > 0 ? `Mixed (${approvedCount}/${contracts.length})` : 'Draft');
       }
       const agBadge = ag === 'Approved'
@@ -6216,7 +6228,7 @@ async function saveEditVendor(){
     let totalPushed = 0;
     let approvedCount = 0;
     for(const c of _evContracts){
-      if(c.agreement_status === 'Approved' && c.id){
+      if(isContractApproved(c) && c.id){
         approvedCount++;
         try{
           const ms = await getContractScheduleAsync(c.id);
