@@ -884,21 +884,31 @@ tr:hover td{background:var(--green-bg);}
 <!-- ROOMS -->
 <div class="section" id="section-rooms">
   <div class="page-header">
-    <div class="page-title">Room Tracker</div>
+    <div class="page-title">Rooms</div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary btn-sm admin-only" onclick="toggleRoomAddForm()" id="room-add-toggle">+ Add Room</button>
+      <button class="btn btn-primary btn-sm admin-only" onclick="bulkCreateBejaanRooms()" title="Creates all 77 Bejaan rooms with proper naming">⚡ Bulk Create Bejaan Rooms</button>
+      <button class="btn btn-secondary btn-sm admin-only" onclick="toggleRoomAddForm()" id="room-add-toggle">+ Add Room</button>
       <button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button>
     </div>
   </div>
+
+  <!-- BUILDING OVERVIEW — top-level progress per building -->
+  <div id="rooms-building-overview" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;"></div>
+
+  <!-- ROOM TYPE BREAKDOWN — mini cards showing each type's progress -->
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card-title">By Room Type</div>
+    <div id="rooms-type-breakdown" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;"></div>
+  </div>
+
   <div class="card admin-only" id="room-add-card" style="display:none;">
     <div class="card-title">Add / Update Room</div>
     <div class="form-grid">
-      <div class="form-group"><label>Room Number / Name *</label><input id="r-name" placeholder="e.g. 101"></div>
+      <div class="form-group"><label>Room Number / Name *</label><input id="r-name" placeholder="e.g. RoomADB14"></div>
       <div class="form-group"><label>Floor</label><input id="r-floor" placeholder="e.g. Ground, 1st"></div>
-      <div class="form-group"><label>Room Type</label><select id="r-type"><option>Standard</option><option>Deluxe</option><option>Suite</option><option>Penthouse</option><option>Common Area</option></select></div>
+      <div class="form-group"><label>Room Type</label><select id="r-type"><option>Twin Bed</option><option>Double Bed</option><option>Governor Suite</option><option>Presidential Suite</option><option>Common Lounge</option></select></div>
       <div class="form-group"><label>Person Responsible</label><input id="r-resp" placeholder="Name"></div>
-      <div class="form-group"><label>% Complete</label><input id="r-pct" type="number" min="0" max="100" placeholder="0"></div>
-      <div class="form-group"><label>Status</label><select id="r-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option></select></div>
+      <div class="form-group"><label>Status</label><select id="r-status"><option>Not Started</option><option>In Progress</option><option>On Track</option><option>Delayed</option><option>Done</option></select></div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="r-notes"></textarea></div>
     <div style="display:flex;gap:8px;">
@@ -906,25 +916,41 @@ tr:hover td{background:var(--green-bg);}
       <button class="btn btn-secondary" onclick="toggleRoomAddForm()">Cancel</button>
     </div>
   </div>
-  <div class="card"><div class="card-title">Room-by-Room Completion</div><div class="table-wrap"><table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Responsible</th><th>Progress</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="rooms-tbody"></tbody></table></div></div>
 
-  <!-- ROOM CHECKLIST DETAIL -->
-  <div class="card" style="margin-top:18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+  <!-- ROOM GRID — each room as its own card -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
       <div>
         <div class="card-title" style="margin-bottom:2px;">Room Detail & Checklist</div>
-        <div style="font-size:11px;color:var(--text-muted);">Click a room to expand. Tap any item to cycle its status (pending → in progress → done).</div>
+        <div style="font-size:11px;color:var(--text-muted);">Click a room card to expand the checklist. Tap items to cycle status (pending → in progress → done).</div>
       </div>
-      <div style="display:flex;gap:6px;">
-        <input type="text" id="rc-filter" placeholder="Filter…" oninput="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);width:140px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <input type="text" id="rc-filter" placeholder="Filter room name…" oninput="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);width:160px;">
         <select id="rc-type-filter" onchange="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);">
           <option value="">All types</option>
-          <option>Standard</option><option>Deluxe</option><option>Suite</option><option>Penthouse</option><option>Common Area</option>
+          <option>Twin Bed</option><option>Double Bed</option><option>Governor Suite</option><option>Presidential Suite</option><option>Common Lounge</option>
+        </select>
+        <select id="rc-building-filter" onchange="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="">All buildings</option>
+          <option value="A">Building A</option>
+          <option value="B">Building B</option>
+        </select>
+        <select id="rc-status-filter" onchange="renderRoomCards()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="">All progress</option>
+          <option value="0">Not Started (0%)</option>
+          <option value="partial">In Progress (1–99%)</option>
+          <option value="done">Completed (100%)</option>
         </select>
       </div>
     </div>
-    <div id="rc-grid"></div>
+    <div id="rc-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
   </div>
+
+  <!-- (Old detailed table — kept as a collapsible backup view) -->
+  <details style="margin-top:18px;">
+    <summary style="cursor:pointer;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-muted);">Show classic table view</summary>
+    <div class="card" style="margin-top:8px;"><div class="table-wrap"><table><thead><tr><th>Room</th><th>Type</th><th>Building</th><th>Responsible</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody id="rooms-tbody"></tbody></table></div></div>
+  </details>
 </div>
 
 <!-- BUDGET -->
@@ -5610,111 +5636,304 @@ async function addInventory(){if(!isAdmin())return;const name=document.getElemen
 // ============================================================
 
 // Default checklists per room type
+// ═══ ROOM TEMPLATES ═════════════════════════════════════════════════════
+// Detailed item lists per room type. When a room is created (or initialized),
+// these items are inserted into room_checklist. Users can then tick each
+// item as done; the room's progress % = (done items / total items) * 100.
+// Users can add/remove/edit items per room after initialization — these
+// templates are just the starting set.
+// ════════════════════════════════════════════════════════════════════════
+
+// Shared building blocks so templates stay consistent (DRY)
+const _BASE_CIVIL = [
+  {cat:'Civil',      item:'Wall plaster & finish'},
+  {cat:'Civil',      item:'Ceiling finish'},
+  {cat:'Civil',      item:'Paint — walls'},
+  {cat:'Civil',      item:'Paint — ceiling'},
+  {cat:'Civil',      item:'Skirting'},
+  {cat:'Civil',      item:'Floor tiles / carpet'},
+];
+const _BASE_ELEC = [
+  {cat:'Electrical', item:'Wiring & conduits'},
+  {cat:'Electrical', item:'Ceiling light fixture'},
+  {cat:'Electrical', item:'Bedside / reading lights'},
+  {cat:'Electrical', item:'Sockets & switches'},
+  {cat:'Electrical', item:'AC unit installed'},
+  {cat:'Electrical', item:'Ceiling fan'},
+  {cat:'Electrical', item:'TV outlet & antenna point'},
+  {cat:'Electrical', item:'Room phone line'},
+];
+const _BASE_BATH = [
+  {cat:'Bathroom',   item:'Bathroom wall tiles'},
+  {cat:'Bathroom',   item:'Bathroom floor tiles'},
+  {cat:'Bathroom',   item:'Vanity & counter'},
+  {cat:'Bathroom',   item:'Mirror above vanity'},
+  {cat:'Bathroom',   item:'Sink & mixer tap'},
+  {cat:'Bathroom',   item:'Toilet (WC) installed'},
+  {cat:'Bathroom',   item:'Hand shower / bidet spray'},
+  {cat:'Bathroom',   item:'Shower area with mixer'},
+  {cat:'Bathroom',   item:'Shower glass / curtain'},
+  {cat:'Bathroom',   item:'Towel rails'},
+  {cat:'Bathroom',   item:'Tissue holder'},
+  {cat:'Bathroom',   item:'Hair dryer mounted'},
+  {cat:'Bathroom',   item:'Amenity tray (shampoo, soap, lotion)'},
+  {cat:'Bathroom',   item:'Towels (bath, hand, face)'},
+  {cat:'Bathroom',   item:'Bath mat'},
+  {cat:'Bathroom',   item:'Exhaust fan / ventilation'},
+];
+const _BASE_UTENSILS = [
+  {cat:'Utensils',   item:'Electric kettle'},
+  {cat:'Utensils',   item:'Tea / coffee cups & saucers'},
+  {cat:'Utensils',   item:'Drinking glasses'},
+  {cat:'Utensils',   item:'Water bottles & tray'},
+  {cat:'Utensils',   item:'Tea bags / coffee sachets / sugar'},
+  {cat:'Utensils',   item:'Ice bucket & tongs'},
+  {cat:'Utensils',   item:'Laundry bag'},
+  {cat:'Utensils',   item:'Hangers in wardrobe'},
+];
+
 const ROOM_TEMPLATES = {
-  'Standard': [
-    {cat:'Civil',      item:'Walls & Plaster'},
-    {cat:'Civil',      item:'Paint & Finish'},
-    {cat:'Civil',      item:'Flooring / Tiles'},
-    {cat:'Civil',      item:'Ceiling'},
-    {cat:'Electrical', item:'Wiring'},
-    {cat:'Electrical', item:'Light Fixtures'},
-    {cat:'Electrical', item:'Sockets & Switches'},
-    {cat:'Electrical', item:'AC Unit'},
-    {cat:'Plumbing',   item:'Bathroom Fittings'},
-    {cat:'Plumbing',   item:'Toilet Accessories'},
-    {cat:'Furnishing', item:'Door (Entry)'},
-    {cat:'Furnishing', item:'Bed'},
-    {cat:'Furnishing', item:'Wardrobe'},
-    {cat:'Furnishing', item:'Curtains & Blinds'},
-    {cat:'Furnishing', item:'TV & Mount'}
+  // ─── Building A / B standard guest rooms ───────────────────────────
+  'Twin Bed': [
+    ..._BASE_CIVIL,
+    ..._BASE_ELEC,
+    {cat:'Furnishing', item:'Entrance door & lock'},
+    {cat:'Furnishing', item:'Twin bed #1 (frame + headboard)'},
+    {cat:'Furnishing', item:'Twin bed #2 (frame + headboard)'},
+    {cat:'Furnishing', item:'Mattress #1'},
+    {cat:'Furnishing', item:'Mattress #2'},
+    {cat:'Furnishing', item:'Bed linens & pillows (set of 2)'},
+    {cat:'Furnishing', item:'Bedside tables (2)'},
+    {cat:'Furnishing', item:'Wardrobe / cupboard'},
+    {cat:'Furnishing', item:'Luggage rack'},
+    {cat:'Furnishing', item:'Study desk & chair'},
+    {cat:'Furnishing', item:'Full-length mirror'},
+    {cat:'Furnishing', item:'Curtains (blackout + sheer)'},
+    {cat:'Furnishing', item:'Rug / runner'},
+    {cat:'Furnishing', item:'Wall art / paintings'},
+    {cat:'Furnishing', item:'Waste bin'},
+    {cat:'Tech',       item:'TV / screen mounted'},
+    {cat:'Tech',       item:'TV remote + channel setup'},
+    {cat:'Tech',       item:'Wi-Fi coverage tested'},
+    {cat:'Tech',       item:'Thermostat / AC remote'},
+    {cat:'Tech',       item:'Room key card system'},
+    ..._BASE_UTENSILS,
+    ..._BASE_BATH,
+    {cat:'Final',      item:'Room number plaque'},
+    {cat:'Final',      item:'Do-not-disturb sign'},
+    {cat:'Final',      item:'Fire safety card'},
+    {cat:'Final',      item:'Final cleaning & handover'},
   ],
-  'Deluxe': [
-    {cat:'Civil',      item:'Walls & Plaster'},
-    {cat:'Civil',      item:'Paint & Finish'},
-    {cat:'Civil',      item:'Flooring / Tiles'},
-    {cat:'Civil',      item:'Ceiling (with cove)'},
-    {cat:'Electrical', item:'Wiring'},
-    {cat:'Electrical', item:'Premium Light Fixtures'},
-    {cat:'Electrical', item:'Sockets & Switches'},
-    {cat:'Electrical', item:'AC Unit (inverter)'},
-    {cat:'Electrical', item:'Smart Controls'},
-    {cat:'Plumbing',   item:'Bathroom Fittings (premium)'},
-    {cat:'Plumbing',   item:'Rainfall Shower'},
-    {cat:'Plumbing',   item:'Toilet Accessories'},
-    {cat:'Furnishing', item:'Door (solid wood)'},
-    {cat:'Furnishing', item:'King Bed'},
-    {cat:'Furnishing', item:'Wardrobe (walk-in)'},
-    {cat:'Furnishing', item:'Curtains (blackout)'},
-    {cat:'Furnishing', item:'TV & Mount (55")'},
-    {cat:'Furnishing', item:'Mini Fridge'},
-    {cat:'Furnishing', item:'Coffee Maker'}
+
+  'Double Bed': [
+    ..._BASE_CIVIL,
+    ..._BASE_ELEC,
+    {cat:'Furnishing', item:'Entrance door & lock'},
+    {cat:'Furnishing', item:'Double bed (frame + headboard)'},
+    {cat:'Furnishing', item:'Mattress'},
+    {cat:'Furnishing', item:'Bed linens & pillows (set)'},
+    {cat:'Furnishing', item:'Bedside tables (2)'},
+    {cat:'Furnishing', item:'Wardrobe / cupboard'},
+    {cat:'Furnishing', item:'Luggage rack'},
+    {cat:'Furnishing', item:'Study desk & chair'},
+    {cat:'Furnishing', item:'Full-length mirror'},
+    {cat:'Furnishing', item:'Curtains (blackout + sheer)'},
+    {cat:'Furnishing', item:'Rug / runner'},
+    {cat:'Furnishing', item:'Wall art / paintings'},
+    {cat:'Furnishing', item:'Waste bin'},
+    {cat:'Tech',       item:'TV / screen mounted'},
+    {cat:'Tech',       item:'TV remote + channel setup'},
+    {cat:'Tech',       item:'Wi-Fi coverage tested'},
+    {cat:'Tech',       item:'Thermostat / AC remote'},
+    {cat:'Tech',       item:'Room key card system'},
+    ..._BASE_UTENSILS,
+    ..._BASE_BATH,
+    {cat:'Final',      item:'Room number plaque'},
+    {cat:'Final',      item:'Do-not-disturb sign'},
+    {cat:'Final',      item:'Fire safety card'},
+    {cat:'Final',      item:'Final cleaning & handover'},
   ],
-  'Suite': [
-    {cat:'Civil',      item:'Walls & Plaster'},
-    {cat:'Civil',      item:'Paint & Finish (custom)'},
-    {cat:'Civil',      item:'Flooring / Hardwood'},
-    {cat:'Civil',      item:'Ceiling (custom)'},
-    {cat:'Electrical', item:'Wiring'},
-    {cat:'Electrical', item:'Designer Lighting'},
-    {cat:'Electrical', item:'Chandelier'},
-    {cat:'Electrical', item:'Sockets & Switches (premium)'},
-    {cat:'Electrical', item:'AC System (zoned)'},
-    {cat:'Electrical', item:'Smart Home System'},
-    {cat:'Plumbing',   item:'Bathroom Fittings (luxury)'},
-    {cat:'Plumbing',   item:'Jacuzzi / Bathtub'},
-    {cat:'Plumbing',   item:'Rainfall Shower'},
-    {cat:'Plumbing',   item:'Toilet Accessories (premium)'},
-    {cat:'Furnishing', item:'Door (designer)'},
-    {cat:'Furnishing', item:'King Bed (custom)'},
-    {cat:'Furnishing', item:'Walk-in Wardrobe'},
-    {cat:'Furnishing', item:'Living Area Sofa'},
-    {cat:'Furnishing', item:'Curtains (custom)'},
-    {cat:'Furnishing', item:'TV & Mount (65"+)'},
-    {cat:'Furnishing', item:'Mini Bar'},
-    {cat:'Furnishing', item:'Work Desk'}
+
+  // ─── Building B Governor Suite ─────────────────────────────────────
+  'Governor Suite': [
+    ..._BASE_CIVIL,
+    {cat:'Civil',      item:'Decorative ceiling / cornice'},
+    ..._BASE_ELEC,
+    {cat:'Electrical', item:'Chandelier / statement lighting'},
+    {cat:'Electrical', item:'Smart room controls'},
+    {cat:'Furnishing', item:'Entrance door (premium) & lock'},
+    {cat:'Furnishing', item:'King bed (frame + premium headboard)'},
+    {cat:'Furnishing', item:'Premium mattress'},
+    {cat:'Furnishing', item:'Bed linens (premium, 400TC+)'},
+    {cat:'Furnishing', item:'Decorative cushions & throw'},
+    {cat:'Furnishing', item:'Bedside tables (2)'},
+    {cat:'Furnishing', item:'Walk-in wardrobe / large cupboard'},
+    {cat:'Furnishing', item:'Luggage bench'},
+    {cat:'Furnishing', item:'Executive work desk & chair'},
+    {cat:'Furnishing', item:'Dressing table with mirror'},
+    {cat:'Furnishing', item:'Full-length mirror'},
+    {cat:'Furnishing', item:'Living sofa (2 or 3 seater)'},
+    {cat:'Furnishing', item:'Coffee table'},
+    {cat:'Furnishing', item:'Accent armchairs (2)'},
+    {cat:'Furnishing', item:'Curtains (motorised / blackout)'},
+    {cat:'Furnishing', item:'Area rug'},
+    {cat:'Furnishing', item:'Wall art / paintings (curated)'},
+    {cat:'Furnishing', item:'Waste bins (2)'},
+    {cat:'Tech',       item:'TV / screen (55"+) mounted'},
+    {cat:'Tech',       item:'Secondary TV (living area)'},
+    {cat:'Tech',       item:'TV remotes + channel setup'},
+    {cat:'Tech',       item:'Wi-Fi coverage tested'},
+    {cat:'Tech',       item:'Thermostat / AC remote'},
+    {cat:'Tech',       item:'Room key card system'},
+    {cat:'Tech',       item:'Bluetooth speaker / audio system'},
+    ..._BASE_UTENSILS,
+    {cat:'Utensils',   item:'Mini-bar fridge (stocked)'},
+    {cat:'Utensils',   item:'Coffee / tea machine (premium)'},
+    {cat:'Utensils',   item:'Wine glasses & bottle opener'},
+    ..._BASE_BATH,
+    {cat:'Bathroom',   item:'Bathtub (optional)'},
+    {cat:'Bathroom',   item:'Rainfall shower head'},
+    {cat:'Bathroom',   item:'Bathrobe & slippers (2 sets)'},
+    {cat:'Final',      item:'Suite number plaque (brass)'},
+    {cat:'Final',      item:'Guest welcome kit'},
+    {cat:'Final',      item:'Fire safety card'},
+    {cat:'Final',      item:'Final cleaning & handover'},
   ],
-  'Penthouse': [
-    {cat:'Civil',      item:'Walls & Plaster (premium)'},
-    {cat:'Civil',      item:'Paint & Finish (designer)'},
-    {cat:'Civil',      item:'Flooring (marble/hardwood)'},
-    {cat:'Civil',      item:'Ceiling (vaulted/custom)'},
-    {cat:'Civil',      item:'Terrace Flooring'},
-    {cat:'Electrical', item:'Wiring'},
-    {cat:'Electrical', item:'Designer Lighting Package'},
-    {cat:'Electrical', item:'Chandeliers'},
-    {cat:'Electrical', item:'AC System (multi-zone)'},
-    {cat:'Electrical', item:'Full Smart Home'},
-    {cat:'Electrical', item:'Security System'},
-    {cat:'Plumbing',   item:'Master Bath Fittings'},
-    {cat:'Plumbing',   item:'Guest Bath Fittings'},
-    {cat:'Plumbing',   item:'Jacuzzi'},
-    {cat:'Plumbing',   item:'Rainfall Shower'},
-    {cat:'Plumbing',   item:'Outdoor Shower (terrace)'},
-    {cat:'Furnishing', item:'Main Door (designer)'},
-    {cat:'Furnishing', item:'Bedroom Doors'},
-    {cat:'Furnishing', item:'King Bed (custom)'},
-    {cat:'Furnishing', item:'Walk-in Wardrobes'},
-    {cat:'Furnishing', item:'Living Room Set'},
-    {cat:'Furnishing', item:'Dining Set'},
-    {cat:'Furnishing', item:'Kitchenette'},
-    {cat:'Furnishing', item:'Premium TVs (multi-room)'},
-    {cat:'Furnishing', item:'Outdoor Furniture (terrace)'}
+
+  // ─── Building B Presidential Suite ─────────────────────────────────
+  'Presidential Suite': [
+    ..._BASE_CIVIL,
+    {cat:'Civil',      item:'Decorative ceiling / cornice (custom)'},
+    {cat:'Civil',      item:'Feature wall (marble / wood panel)'},
+    {cat:'Civil',      item:'Separate living room partition'},
+    {cat:'Civil',      item:'Dining area flooring'},
+    ..._BASE_ELEC,
+    {cat:'Electrical', item:'Chandeliers (master + living)'},
+    {cat:'Electrical', item:'Full smart home system'},
+    {cat:'Electrical', item:'Mood / scene lighting'},
+    {cat:'Electrical', item:'In-suite security system'},
+    {cat:'Furnishing', item:'Premium main door & lock'},
+    {cat:'Furnishing', item:'King bed (custom, canopy or upholstered)'},
+    {cat:'Furnishing', item:'Luxury mattress'},
+    {cat:'Furnishing', item:'Luxury linens (600TC+)'},
+    {cat:'Furnishing', item:'Decorative cushions & throws'},
+    {cat:'Furnishing', item:'Bedside tables (2)'},
+    {cat:'Furnishing', item:'Walk-in wardrobe (large)'},
+    {cat:'Furnishing', item:'Luggage bench'},
+    {cat:'Furnishing', item:'Executive desk & chair'},
+    {cat:'Furnishing', item:'Dressing table + vanity chair'},
+    {cat:'Furnishing', item:'Full-length mirror'},
+    {cat:'Furnishing', item:'Living room sofa set (3+2+1)'},
+    {cat:'Furnishing', item:'Coffee table (designer)'},
+    {cat:'Furnishing', item:'Side tables (2)'},
+    {cat:'Furnishing', item:'Dining table (4–6 seater)'},
+    {cat:'Furnishing', item:'Dining chairs'},
+    {cat:'Furnishing', item:'Kitchenette cabinets'},
+    {cat:'Furnishing', item:'Curtains (motorised, blackout)'},
+    {cat:'Furnishing', item:'Area rugs (bedroom + living)'},
+    {cat:'Furnishing', item:'Paintings / curated art collection'},
+    {cat:'Furnishing', item:'Decor accessories (vases, sculptures)'},
+    {cat:'Furnishing', item:'Waste bins (3+)'},
+    {cat:'Tech',       item:'Master bedroom TV (65"+)'},
+    {cat:'Tech',       item:'Living room TV (75"+)'},
+    {cat:'Tech',       item:'Dining area TV (optional)'},
+    {cat:'Tech',       item:'Home theatre / surround audio'},
+    {cat:'Tech',       item:'All remotes + universal controller'},
+    {cat:'Tech',       item:'Wi-Fi coverage tested (mesh)'},
+    {cat:'Tech',       item:'Thermostat / multi-zone AC'},
+    {cat:'Tech',       item:'Room key card system'},
+    ..._BASE_UTENSILS,
+    {cat:'Utensils',   item:'Full mini-bar (stocked)'},
+    {cat:'Utensils',   item:'Espresso machine'},
+    {cat:'Utensils',   item:'Microwave / oven'},
+    {cat:'Utensils',   item:'Kitchen utensils set'},
+    {cat:'Utensils',   item:'Crockery set (6+)'},
+    {cat:'Utensils',   item:'Cutlery set'},
+    {cat:'Utensils',   item:'Wine & champagne glasses'},
+    {cat:'Utensils',   item:'Bar tools (shaker, opener, etc.)'},
+    ..._BASE_BATH,
+    {cat:'Bathroom',   item:'Jacuzzi / premium bathtub'},
+    {cat:'Bathroom',   item:'Rainfall + handheld shower'},
+    {cat:'Bathroom',   item:'Double vanity (his & hers)'},
+    {cat:'Bathroom',   item:'Guest powder room'},
+    {cat:'Bathroom',   item:'Bathrobes & slippers (2 sets luxury)'},
+    {cat:'Bathroom',   item:'Premium amenities line'},
+    {cat:'Final',      item:'Suite plaque (premium brass/marble)'},
+    {cat:'Final',      item:'Welcome amenities tray'},
+    {cat:'Final',      item:'Fresh flowers'},
+    {cat:'Final',      item:'Fire safety card'},
+    {cat:'Final',      item:'Final cleaning & handover'},
   ],
-  'Common Area': [
-    {cat:'Civil',      item:'Flooring'},
-    {cat:'Civil',      item:'Paint & Finish'},
-    {cat:'Civil',      item:'Ceiling'},
-    {cat:'Electrical', item:'Lighting'},
-    {cat:'Electrical', item:'AC / HVAC'},
-    {cat:'Furnishing', item:'Fixtures'},
-    {cat:'Furnishing', item:'Decor'},
-    {cat:'Furnishing', item:'Signage'}
-  ]
+
+  // ─── Building B Common Lounges ─────────────────────────────────────
+  'Common Lounge': [
+    {cat:'Civil',      item:'Floor finish'},
+    {cat:'Civil',      item:'Wall treatment / paint'},
+    {cat:'Civil',      item:'Ceiling finish'},
+    {cat:'Civil',      item:'Feature wall / decor paneling'},
+    {cat:'Electrical', item:'Main lighting'},
+    {cat:'Electrical', item:'Accent / mood lighting'},
+    {cat:'Electrical', item:'AC / HVAC system'},
+    {cat:'Electrical', item:'Sockets & charging points'},
+    {cat:'Electrical', item:'Audio system'},
+    {cat:'Furnishing', item:'Sofa / seating clusters'},
+    {cat:'Furnishing', item:'Coffee tables'},
+    {cat:'Furnishing', item:'Side tables'},
+    {cat:'Furnishing', item:'Accent chairs'},
+    {cat:'Furnishing', item:'Rugs'},
+    {cat:'Furnishing', item:'Wall art / decor'},
+    {cat:'Furnishing', item:'Plants / greenery'},
+    {cat:'Furnishing', item:'Curtains / blinds'},
+    {cat:'Tech',       item:'Large screen / TV'},
+    {cat:'Tech',       item:'Wi-Fi coverage tested'},
+    {cat:'Utensils',   item:'Coffee / tea station'},
+    {cat:'Utensils',   item:'Water dispenser'},
+    {cat:'Utensils',   item:'Service tray & glassware'},
+    {cat:'Bathroom',   item:'Nearby guest washroom ready'},
+    {cat:'Final',      item:'Signage & branding'},
+    {cat:'Final',      item:'Final cleaning & handover'},
+  ],
+
+  // ─── Legacy types (kept for backward compat) ───────────────────────
+  'Standard':     null,  // will alias to Double Bed
+  'Deluxe':       null,  // will alias to Governor Suite
+  'Suite':        null,  // will alias to Governor Suite
+  'Penthouse':    null,  // will alias to Presidential Suite
+  'Common Area':  null,  // will alias to Common Lounge
+};
+// Backward-compat aliases
+ROOM_TEMPLATES['Standard']    = ROOM_TEMPLATES['Double Bed'];
+ROOM_TEMPLATES['Deluxe']      = ROOM_TEMPLATES['Governor Suite'];
+ROOM_TEMPLATES['Suite']       = ROOM_TEMPLATES['Governor Suite'];
+ROOM_TEMPLATES['Penthouse']   = ROOM_TEMPLATES['Presidential Suite'];
+ROOM_TEMPLATES['Common Area'] = ROOM_TEMPLATES['Common Lounge'];
+
+// Icon per room type for visual distinction on cards
+const ROOM_TYPE_ICONS = {
+  'Twin Bed':           '🛏️',
+  'Double Bed':         '🛌',
+  'Governor Suite':     '👔',
+  'Presidential Suite': '👑',
+  'Common Lounge':      '☕',
+  'Standard':           '🛌',
+  'Deluxe':             '✨',
+  'Suite':              '👔',
+  'Penthouse':          '👑',
+  'Common Area':        '☕',
 };
 
 let _rcRooms = [];
 let _rcItems = []; // all room_checklist rows
 let _rcExpanded = {}; // roomId -> boolean
+
+// Extract building letter from room name (RoomATB01 → "A", RoomBPS01 → "B")
+function _roomBuilding(r){
+  const name = (r.room_name || '').toString();
+  const m = name.match(/^Room([AB])/i);
+  if(m) return m[1].toUpperCase();
+  // Fallback: try to infer from room_type or floor
+  return '—';
+}
 
 async function loadRooms(){
   try{
@@ -5726,20 +5945,120 @@ async function loadRooms(){
     _rcRooms = rooms || [];
     _rcItems = Array.isArray(items) ? items : [];
 
-    // Render top table
-    const tbody = document.getElementById('rooms-tbody');
-    if(!_rcRooms.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No rooms added yet.</td></tr>';
-    } else {
-      tbody.innerHTML = _rcRooms.map(r=>{
-        const pct = computeRoomPct(r.id, r.percent_complete);
-        const adminBtn = isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td>` : '<td></td>';
-        return `<tr><td><b>${_esc(r.room_name||'—')}</b></td><td>${_esc(r.floor||'—')}</td><td>${_esc(r.room_type||'—')}</td><td>${_esc(r.responsible||'—')}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${Math.round(pct)}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${pct}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td><td style="max-width:150px;font-size:12px;">${_esc(r.notes||'')}</td>${adminBtn}</tr>`;
-      }).join('');
-    }
-
+    renderBuildingOverview();
+    renderTypeBreakdown();
+    renderRoomsTable();
     renderRoomCards();
   }catch(e){ console.error('loadRooms:', e); toast('Failed to load rooms','error'); }
+}
+
+// ─── Building A / Building B summary cards ─────────────────────────
+function renderBuildingOverview(){
+  const el = document.getElementById('rooms-building-overview');
+  if(!el) return;
+  const buildings = {A:[], B:[], '—':[]};
+  _rcRooms.forEach(r => {
+    const b = _roomBuilding(r);
+    (buildings[b] = buildings[b] || []).push(r);
+  });
+  const buildingInfo = {
+    A: {name:'Building A', sub:'Standard rooms (21)', gradient:'linear-gradient(135deg, #1e3a33, #2a5048)'},
+    B: {name:'Building B', sub:'Suites + Standards + Lounges (63)', gradient:'linear-gradient(135deg, #3a2f1a, #5c4a28)'},
+  };
+  const parts = [];
+  for(const key of ['A','B']){
+    const info = buildingInfo[key];
+    const rooms = buildings[key] || [];
+    const totalItems = rooms.reduce((s,r) => s + _rcItems.filter(i=>i.room_id===r.id).length, 0);
+    const doneItems  = rooms.reduce((s,r) => s + _rcItems.filter(i=>i.room_id===r.id && i.status==='done').length, 0);
+    const pct = totalItems ? (doneItems/totalItems)*100 : 0;
+    const completeRooms = rooms.filter(r => computeRoomPct(r.id) >= 99.5).length;
+    parts.push(`
+      <div style="background:${info.gradient};border:1px solid var(--border);border-radius:12px;padding:18px 20px;color:#fff;position:relative;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;opacity:0.75;margin-bottom:4px;">${info.name}</div>
+            <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:600;">${rooms.length} <span style="font-size:14px;opacity:0.7;font-family:inherit;font-weight:400;">rooms</span></div>
+            <div style="font-size:11px;opacity:0.75;margin-top:2px;">${info.sub}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:32px;font-weight:700;line-height:1;">${Math.round(pct)}<span style="font-size:18px;opacity:0.7;">%</span></div>
+            <div style="font-size:10px;opacity:0.75;margin-top:2px;">${doneItems}/${totalItems} items</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;background:rgba(255,255,255,0.85);border-radius:3px;width:${pct}%;transition:width .5s ease;"></div>
+        </div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:10px;opacity:0.8;">
+          <span>${completeRooms} room${completeRooms===1?'':'s'} fully complete</span>
+          <span>${rooms.length - completeRooms} in progress</span>
+        </div>
+      </div>`);
+  }
+  // Show uncategorised group only if it has rooms
+  if(buildings['—'] && buildings['—'].length){
+    parts.push(`<div style="background:var(--surface2);border:1px dashed var(--border);border-radius:12px;padding:18px 20px;grid-column:1/-1;">
+      <div style="font-size:12px;color:var(--text-muted);">${buildings['—'].length} room(s) have names that don't start with RoomA or RoomB. They'll show below but not in Building A/B totals. Rename them or use the Bulk-Create button to get started cleanly.</div>
+    </div>`);
+  }
+  el.innerHTML = parts.join('');
+}
+
+// ─── By Room Type breakdown ────────────────────────────────────────
+function renderTypeBreakdown(){
+  const el = document.getElementById('rooms-type-breakdown');
+  if(!el) return;
+  const byType = {};
+  _rcRooms.forEach(r => {
+    const t = r.room_type || 'Other';
+    if(!byType[t]) byType[t] = [];
+    byType[t].push(r);
+  });
+  const order = ['Twin Bed','Double Bed','Governor Suite','Presidential Suite','Common Lounge'];
+  const allTypes = [...new Set([...order, ...Object.keys(byType)])];
+  const parts = allTypes.filter(t => byType[t] && byType[t].length).map(t => {
+    const rooms = byType[t];
+    const totalItems = rooms.reduce((s,r) => s + _rcItems.filter(i=>i.room_id===r.id).length, 0);
+    const doneItems  = rooms.reduce((s,r) => s + _rcItems.filter(i=>i.room_id===r.id && i.status==='done').length, 0);
+    const pct = totalItems ? (doneItems/totalItems)*100 : 0;
+    const color = pct >= 95 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : 'var(--text-muted)';
+    const icon = ROOM_TYPE_ICONS[t] || '•';
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'" onclick="filterRoomsByType('${_esc(t)}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:18px;">${icon}</span>
+        <b style="font-size:12px;">${_esc(t)}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-family:'Playfair Display',serif;font-size:20px;font-weight:600;color:${color};">${Math.round(pct)}%</span>
+        <span style="font-size:10px;color:var(--text-muted);">${rooms.length} rm · ${doneItems}/${totalItems}</span>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;background:${color};width:${pct}%;border-radius:2px;"></div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = parts.join('') || '<div style="grid-column:1/-1;padding:12px;color:var(--text-muted);font-size:12px;text-align:center;">No rooms yet. Use the Bulk Create button to set up Bejaan rooms.</div>';
+}
+
+function filterRoomsByType(t){
+  const sel = document.getElementById('rc-type-filter');
+  if(sel){ sel.value = t; renderRoomCards(); sel.scrollIntoView({behavior:'smooth', block:'center'}); }
+}
+
+// ─── Classic table (now in a collapsed <details> section) ──────────
+function renderRoomsTable(){
+  const tbody = document.getElementById('rooms-tbody');
+  if(!tbody) return;
+  if(!_rcRooms.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No rooms added yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _rcRooms.map(r=>{
+    const pct = computeRoomPct(r.id, r.percent_complete);
+    const adminBtn = isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('rooms','${r.id}',loadRooms)">✕</button></td>` : '<td></td>';
+    const bldg = _roomBuilding(r);
+    return `<tr><td><b>${_esc(r.room_name||'—')}</b></td><td>${_esc(r.room_type||'—')}</td><td>Building ${bldg}</td><td>${_esc(r.responsible||'—')}</td><td style="min-width:120px;"><div style="display:flex;align-items:center;gap:8px;">${Math.round(pct)}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${pct}%"></div></div></div></td><td>${statusBadge(r.status||'Not Started')}</td>${adminBtn}</tr>`;
+  }).join('');
 }
 
 // Compute % for a room: avg of checklist item statuses
@@ -5758,58 +6077,87 @@ function renderRoomCards(){
   const grid = document.getElementById('rc-grid');
   if(!grid) return;
   if(!_rcRooms.length){
-    grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms yet. Add one above.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:36px;color:var(--text-muted);font-size:13px;text-align:center;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No rooms yet. Click <b>⚡ Bulk Create Bejaan Rooms</b> above to create all 77 at once, or <b>+ Add Room</b> to add manually.</div>';
     return;
   }
   const filter = (document.getElementById('rc-filter')?.value||'').toLowerCase();
   const typeFilter = document.getElementById('rc-type-filter')?.value || '';
+  const bldgFilter = document.getElementById('rc-building-filter')?.value || '';
+  const statusFilter = document.getElementById('rc-status-filter')?.value || '';
   const filtered = _rcRooms.filter(r=>{
     if(typeFilter && r.room_type !== typeFilter) return false;
+    if(bldgFilter && _roomBuilding(r) !== bldgFilter) return false;
     if(filter){
       const hay = `${r.room_name||''} ${r.floor||''} ${r.responsible||''}`.toLowerCase();
       if(!hay.includes(filter)) return false;
     }
+    if(statusFilter){
+      const pct = computeRoomPct(r.id, r.percent_complete);
+      if(statusFilter === '0' && pct > 0) return false;
+      if(statusFilter === 'partial' && (pct === 0 || pct >= 99.5)) return false;
+      if(statusFilter === 'done' && pct < 99.5) return false;
+    }
     return true;
   });
+  // Sort by building then by room name
+  filtered.sort((a,b)=>{
+    const ba = _roomBuilding(a), bb = _roomBuilding(b);
+    if(ba !== bb) return ba.localeCompare(bb);
+    return (a.room_name||'').localeCompare(b.room_name||'', undefined, {numeric:true});
+  });
   if(!filtered.length){
-    grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms match filter.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;color:var(--text-muted);font-size:12px;text-align:center;">No rooms match your filters.</div>';
     return;
   }
   grid.innerHTML = filtered.map(r=>{
     const pct = computeRoomPct(r.id, r.percent_complete);
     const items = _rcItems.filter(i=>i.room_id===r.id);
+    const doneCount = items.filter(i=>i.status==='done').length;
     const expanded = _rcExpanded[r.id];
-    const pctColor = pct >= 95 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : '#888';
+    const pctColor = pct >= 99.5 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : '#8a8a8a';
+    const icon = ROOM_TYPE_ICONS[r.room_type] || '🏠';
+    const bldg = _roomBuilding(r);
 
     let itemsHtml = '';
     if(expanded){
       if(items.length === 0){
-        itemsHtml = `<div style="padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">No checklist yet for this room.</div>
-          ${canWrite()?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();initRoomChecklist('${r.id}','${_esc(r.room_type||'Standard')}')">⚡ Initialize ${_esc(r.room_type||'Standard')} Checklist</button>`:''}
+        itemsHtml = `<div style="padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">No checklist yet.</div>
+          ${canWrite()?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();initRoomChecklist('${r.id}','${_esc(r.room_type||'Double Bed')}')">⚡ Load ${_esc(r.room_type||'Double Bed')} Checklist</button>`:''}
         </div>`;
       } else {
         // Group by category
         const byCat = {};
         items.forEach(it=>{ const c=it.category||'Other'; if(!byCat[c])byCat[c]=[]; byCat[c].push(it); });
-        itemsHtml = Object.keys(byCat).map(cat=>{
+        const catOrder = ['Civil','Electrical','Furnishing','Tech','Utensils','Bathroom','Plumbing','Final','Other'];
+        const sortedCats = Object.keys(byCat).sort((a,b) => {
+          const ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
+          return (ia===-1?999:ia) - (ib===-1?999:ib);
+        });
+        itemsHtml = sortedCats.map(cat=>{
           const catItems = byCat[cat];
           const catDone = catItems.filter(i=>i.status==='done').length;
-          return `<div style="margin-bottom:10px;">
-            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><span>${_esc(cat)}</span><span style="color:var(--gold);">${catDone}/${catItems.length}</span></div>
-            <div style="display:grid;gap:4px;">
+          const catPct = catItems.length ? (catDone/catItems.length)*100 : 0;
+          return `<div style="margin-bottom:12px;">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <span>${_esc(cat)}</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span style="color:var(--gold);font-weight:600;">${catDone}/${catItems.length}</span>
+                <span style="width:40px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;"><span style="display:block;height:100%;background:${catPct>=99.5?'#4caf7d':catPct>0?'#b89558':'#888'};width:${catPct}%;"></span></span>
+              </span>
+            </div>
+            <div style="display:grid;gap:3px;">
               ${catItems.map(it=>{
                 const s = it.status || 'pending';
-                const bg = s==='done' ? 'rgba(76,175,125,.1)' : s==='in_progress' ? 'rgba(184,149,88,.1)' : 'var(--surface2)';
+                const bg = s==='done' ? 'rgba(76,175,125,.10)' : s==='in_progress' ? 'rgba(184,149,88,.10)' : 'var(--surface2)';
                 const border = s==='done' ? '#4caf7d55' : s==='in_progress' ? '#b8955855' : 'var(--border)';
-                const icon = s==='done' ? '✓' : s==='in_progress' ? '◐' : '○';
+                const iconCh = s==='done' ? '✓' : s==='in_progress' ? '◐' : '○';
                 const iconColor = s==='done' ? '#4caf7d' : s==='in_progress' ? '#b89558' : '#888';
                 const canEdit = canWrite() ? `onclick="event.stopPropagation();cycleChecklistItem('${it.id}')"` : '';
                 const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();deleteChecklistItem('${it.id}')">✕</button>` : '';
-                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border:1px solid ${border};border-radius:6px;cursor:${canWrite()?'pointer':'default'};font-size:12px;" ${canEdit}>
-                  <span style="color:${iconColor};font-size:14px;width:16px;text-align:center;">${icon}</span>
+                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border:1px solid ${border};border-radius:6px;cursor:${canWrite()?'pointer':'default'};font-size:12px;transition:background .15s;" ${canEdit}>
+                  <span style="color:${iconColor};font-size:14px;width:14px;text-align:center;">${iconCh}</span>
                   <span style="flex:1;color:var(--text);${s==='done'?'text-decoration:line-through;opacity:0.6;':''}">${_esc(it.item_name)}</span>
-                  ${it.notes?`<span style="font-size:10px;color:var(--text-muted);font-style:italic;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(it.notes)}</span>`:''}
                   ${delBtn}
                 </div>`;
               }).join('')}
@@ -5819,35 +6167,38 @@ function renderRoomCards(){
         // Add-item inline form
         if(canWrite()){
           itemsHtml += `<div style="display:flex;gap:6px;padding:8px;background:var(--surface2);border:1px dashed var(--border);border-radius:6px;margin-top:8px;">
-            <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;background:transparent;border:none;color:var(--text);font-size:12px;outline:none;">
-            <select id="rc-newcat-${r.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);"><option>Civil</option><option>Electrical</option><option>Plumbing</option><option>Furnishing</option><option>Other</option></select>
+            <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;background:transparent;border:none;color:var(--text);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem('${r.id}');}">
+            <select id="rc-newcat-${r.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);">
+              <option>Civil</option><option>Electrical</option><option>Furnishing</option><option>Tech</option><option selected>Utensils</option><option>Bathroom</option><option>Final</option><option>Other</option>
+            </select>
             <button class="btn btn-primary btn-sm" style="padding:3px 10px;font-size:11px;" onclick="event.stopPropagation();addChecklistItem('${r.id}')">+ Add</button>
           </div>`;
         }
       }
     }
 
-    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;background:var(--surface);">
-      <div style="padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;" onclick="toggleRoomExpand('${r.id}')">
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;">${expanded?'▼':'▶'}</span>
-            <b style="font-size:14px;">${_esc(r.room_name||'—')}</b>
-            <span style="background:rgba(184,149,88,.1);color:var(--gold);padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${_esc(r.room_type||'—')}</span>
-            ${r.floor?`<span style="color:var(--text-muted);font-size:11px;">${_esc(r.floor)}</span>`:''}
+    // Compact card when collapsed; expanded shows checklist
+    return `<div style="border:1px solid ${expanded?'var(--gold)':'var(--border)'};border-radius:12px;background:var(--surface);transition:border-color .15s, transform .15s;overflow:hidden;${expanded?'grid-column:1/-1;':''}${!expanded?'cursor:pointer;':''}" ${!expanded?`onclick="toggleRoomExpand('${r.id}')"`:''}>
+      <div style="padding:14px;${expanded?'cursor:pointer;border-bottom:1px solid var(--border);':''}" ${expanded?`onclick="toggleRoomExpand('${r.id}')"`:''}>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-size:18px;line-height:1;">${icon}</span>
+              <b style="font-size:14px;color:var(--text);">${_esc(r.room_name||'—')}</b>
+              ${bldg !== '—' ? `<span style="background:rgba(184,149,88,.15);color:var(--gold);padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600;letter-spacing:0.05em;">BLDG ${bldg}</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">${_esc(r.room_type||'—')}${r.responsible?' · 👤 '+_esc(r.responsible):''}</div>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;margin-left:22px;">
-            ${r.responsible?`👤 ${_esc(r.responsible)} · `:''}${items.length} items${items.length?' · '+items.filter(i=>i.status==='done').length+' done':''}
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:18px;font-weight:700;color:${pctColor};line-height:1;">${Math.round(pct)}%</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${doneCount}/${items.length}</div>
           </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;min-width:140px;">
-          <div style="font-size:16px;font-weight:600;color:${pctColor};">${Math.round(pct)}%</div>
-          <div style="width:120px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px;">
-            <div style="height:100%;background:${pctColor};width:${pct}%;transition:width .3s;"></div>
-          </div>
+        <div style="margin-top:10px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;background:${pctColor};width:${pct}%;border-radius:3px;transition:width .3s;"></div>
         </div>
       </div>
-      ${expanded?`<div style="border-top:1px solid var(--border);padding:14px;background:rgba(0,0,0,0.02);">${itemsHtml}</div>`:''}
+      ${expanded?`<div style="padding:14px;background:rgba(0,0,0,0.02);">${itemsHtml}</div>`:''}
     </div>`;
   }).join('');
 }
@@ -6007,7 +6358,143 @@ async function renderOverviewRoomsGrid(){
 // END ROOM CHECKLIST MODULE
 // ============================================================
 
-async function addRoom(){if(!isAdmin())return;const name=document.getElementById('r-name').value.trim();if(!name){toast('Room name required','error');return;}try{await sbInsert('rooms',{room_name:name,floor:document.getElementById('r-floor').value,room_type:document.getElementById('r-type').value,responsible:document.getElementById('r-resp').value,percent_complete:+document.getElementById('r-pct').value||0,status:document.getElementById('r-status').value,notes:document.getElementById('r-notes').value});toast('Room added ✓');['r-name','r-floor','r-resp','r-pct','r-notes'].forEach(id=>document.getElementById(id).value='');const card=document.getElementById('room-add-card');const btn=document.getElementById('room-add-toggle');if(card)card.style.display='none';if(btn)btn.textContent='+ Add Room';delete cache['rooms'];loadRooms();}catch(e){toast('Error','error');}}
+async function addRoom(){
+  if(!isAdmin()) return;
+  const name = document.getElementById('r-name').value.trim();
+  if(!name){ toast('Room name required','error'); return; }
+  try{
+    await sbInsert('rooms',{
+      room_name: name,
+      floor: document.getElementById('r-floor').value,
+      room_type: document.getElementById('r-type').value,
+      responsible: document.getElementById('r-resp').value,
+      percent_complete: 0,
+      status: document.getElementById('r-status').value,
+      notes: document.getElementById('r-notes').value
+    });
+    toast('Room added ✓');
+    ['r-name','r-floor','r-resp','r-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    const card = document.getElementById('room-add-card');
+    const btn = document.getElementById('room-add-toggle');
+    if(card) card.style.display = 'none';
+    if(btn) btn.textContent = '+ Add Room';
+    delete cache['rooms'];
+    loadRooms();
+  }catch(e){ console.error(e); toast('Error adding room','error'); }
+}
+
+// ═══ BULK CREATE BEJAAN ROOMS ═══════════════════════════════════════════
+// One-click setup of all 77 rooms based on the Bejaan specification:
+//   Building A (21): 8 Twin Bed (RoomATB01-08) + 13 Double Bed (RoomADB01-13)
+//   Building B (63): 2 Presidential Suite (RoomBPS01-02)
+//                  + 10 Governor Suite     (RoomBGS01-10)
+//                  +  8 Twin Bed           (RoomBTB01-08)
+//                  + 43 Double Bed         (RoomBDB01-43)
+//                  +  3 Common Lounge      (RoomBCL01-03)
+// Each room gets the matching checklist template inserted automatically.
+// ════════════════════════════════════════════════════════════════════════
+async function bulkCreateBejaanRooms(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  const msg = `This will DELETE every existing room (and its checklist) and create 77 fresh Bejaan rooms:\n\n• Building A: 21 rooms (8 Twin + 13 Double)\n• Building B: 63 rooms (2 Presidential + 10 Governor + 8 Twin + 43 Double + 3 Lounge)\n\nEach room will get its full checklist auto-loaded.\n\nContinue?`;
+  if(!confirm(msg)) return;
+
+  // Define exactly what to create
+  const plan = [
+    // Building A
+    {count: 8,  prefix:'RoomATB', type:'Twin Bed',           building:'A'},
+    {count:13,  prefix:'RoomADB', type:'Double Bed',         building:'A'},
+    // Building B
+    {count: 2,  prefix:'RoomBPS', type:'Presidential Suite', building:'B'},
+    {count:10,  prefix:'RoomBGS', type:'Governor Suite',     building:'B'},
+    {count: 8,  prefix:'RoomBTB', type:'Twin Bed',           building:'B'},
+    {count:43,  prefix:'RoomBDB', type:'Double Bed',         building:'B'},
+    {count: 3,  prefix:'RoomBCL', type:'Common Lounge',      building:'B'},
+  ];
+
+  toast('Wiping existing rooms…');
+
+  // Step 1: delete all existing rooms + checklist items.
+  // room_checklist has ON DELETE CASCADE on room_id, so deleting rooms
+  // automatically removes their items. But we also delete orphaned
+  // checklist rows just in case.
+  try{
+    const existingR = await fetch(`${SB_URL}/rest/v1/rooms?select=id`,{headers});
+    if(existingR.ok){
+      const existing = await existingR.json();
+      if(existing.length){
+        // Delete in one call — using `id=in.(...)`
+        const inList = existing.map(r => `"${r.id}"`).join(',');
+        await fetch(`${SB_URL}/rest/v1/rooms?id=in.(${inList})`, {method:'DELETE', headers});
+      }
+    }
+    // Belt-and-suspenders: remove orphan checklist items
+    await fetch(`${SB_URL}/rest/v1/room_checklist?room_id=is.null`,{method:'DELETE',headers}).catch(()=>{});
+  }catch(e){ console.error('bulk-create: delete failed', e); toast('Error wiping old rooms','error'); return; }
+
+  // Step 2: create all 77 rooms. We build the payload then insert as one
+  // batch for speed — 77 rows in a single POST.
+  const pad2 = n => (n<10 ? '0'+n : ''+n);
+  const roomsPayload = [];
+  for(const entry of plan){
+    for(let i=1; i<=entry.count; i++){
+      roomsPayload.push({
+        room_name: entry.prefix + pad2(i),
+        room_type: entry.type,
+        floor: null,
+        responsible: null,
+        percent_complete: 0,
+        status: 'Not Started',
+        notes: null,
+      });
+    }
+  }
+  toast(`Creating ${roomsPayload.length} rooms…`);
+  let createdRooms = [];
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/rooms`, {
+      method:'POST',
+      headers: {...headers, Prefer: 'return=representation'},
+      body: JSON.stringify(roomsPayload)
+    });
+    if(!r.ok) throw new Error(await r.text());
+    createdRooms = await r.json();
+  }catch(e){ console.error('bulk-create: rooms insert failed', e); toast('Error creating rooms: '+e.message,'error'); return; }
+
+  // Step 3: build checklist items for every room based on its type.
+  // One big batch insert for all checklist items across all 77 rooms.
+  const itemsPayload = [];
+  for(const room of createdRooms){
+    const template = ROOM_TEMPLATES[room.room_type] || [];
+    template.forEach((t, idx) => {
+      itemsPayload.push({
+        room_id: room.id,
+        item_name: t.item,
+        category: t.cat,
+        status: 'pending',
+        sort_order: idx,
+      });
+    });
+  }
+
+  toast(`Seeding ${itemsPayload.length} checklist items…`);
+  try{
+    // Supabase has a request size limit; batch in chunks of 500 to be safe.
+    const CHUNK = 500;
+    for(let i=0; i<itemsPayload.length; i+=CHUNK){
+      const chunk = itemsPayload.slice(i, i+CHUNK);
+      const r = await fetch(`${SB_URL}/rest/v1/room_checklist`, {
+        method:'POST',
+        headers: {...headers, Prefer:'return=minimal'},
+        body: JSON.stringify(chunk)
+      });
+      if(!r.ok){ console.error('chunk', i, 'failed:', await r.text()); }
+    }
+  }catch(e){ console.error('bulk-create: checklist insert failed', e); toast('Rooms created but checklist seed failed — see console','error'); }
+
+  toast(`✓ Created ${createdRooms.length} rooms with ${itemsPayload.length} checklist items`);
+  delete cache['rooms'];
+  loadRooms();
+}
 
 // BUDGET
 async function loadBudget(){try{
