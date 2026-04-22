@@ -887,6 +887,7 @@ tr:hover td{background:var(--green-bg);}
     <div class="page-title">Rooms</div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-primary btn-sm admin-only" onclick="bulkCreateBejaanRooms()" title="Creates all 77 Bejaan rooms with proper naming">⚡ Bulk Create Bejaan Rooms</button>
+      <button class="btn btn-secondary btn-sm admin-only" onclick="syncRoomTemplates()" title="Adds any missing template items to existing rooms. Preserves your ticked items.">↻ Sync Templates</button>
       <button class="btn btn-secondary btn-sm admin-only" onclick="toggleRoomAddForm()" id="room-add-toggle">+ Add Room</button>
       <button class="btn btn-secondary btn-sm" onclick="exportCSV('rooms')">Export CSV</button>
     </div>
@@ -5683,52 +5684,59 @@ async function addInventory(){if(!isAdmin())return;const name=document.getElemen
 // templates are just the starting set.
 // ════════════════════════════════════════════════════════════════════════
 
-// Shared building blocks so templates stay consistent (DRY)
+// Shared building blocks so templates stay consistent (DRY).
+// Each item now carries a weight tier:
+//   1  = Minor     (small item — kettle, tissue holder, dustbin, hangers)
+//   3  = Standard  (medium item — light fixture, skirting, curtains, chair)
+//   10 = Major     (big item — wardrobe, desk, TV, sofa, paint, wiring, AC install)
+//   25 = Critical  (room-defining — bed+mattress, full bathroom suite, AC unit)
+// Progress % = Σ(weight of done items) / Σ(weight of all items) × 100
+// So ticking the bed adds 25× more progress than ticking a dustbin.
 const _BASE_CIVIL = [
-  {cat:'Civil',      item:'Wall plaster & finish'},
-  {cat:'Civil',      item:'Ceiling finish'},
-  {cat:'Civil',      item:'Paint — walls'},
-  {cat:'Civil',      item:'Paint — ceiling'},
-  {cat:'Civil',      item:'Skirting'},
-  {cat:'Civil',      item:'Floor tiles / carpet'},
+  {cat:'Civil',      item:'Wall plaster & finish',               weight:25},
+  {cat:'Civil',      item:'Ceiling finish',                      weight:10},
+  {cat:'Civil',      item:'Paint — walls',                       weight:10},
+  {cat:'Civil',      item:'Paint — ceiling',                     weight:3},
+  {cat:'Civil',      item:'Skirting',                            weight:3},
+  {cat:'Civil',      item:'Floor tiles / carpet',                weight:25},
 ];
 const _BASE_ELEC = [
-  {cat:'Electrical', item:'Wiring & conduits'},
-  {cat:'Electrical', item:'Ceiling light fixture'},
-  {cat:'Electrical', item:'Bedside / reading lights'},
-  {cat:'Electrical', item:'Sockets & switches'},
-  {cat:'Electrical', item:'AC unit installed'},
-  {cat:'Electrical', item:'Ceiling fan'},
-  {cat:'Electrical', item:'TV outlet & antenna point'},
-  {cat:'Electrical', item:'Room phone line'},
+  {cat:'Electrical', item:'Wiring & conduits',                   weight:25},
+  {cat:'Electrical', item:'Ceiling light fixture',               weight:3},
+  {cat:'Electrical', item:'Bedside / reading lights',            weight:3},
+  {cat:'Electrical', item:'Sockets & switches',                  weight:10},
+  {cat:'Electrical', item:'AC unit installed',                   weight:25},
+  {cat:'Electrical', item:'Ceiling fan',                         weight:3},
+  {cat:'Electrical', item:'TV outlet & antenna point',           weight:3},
+  {cat:'Electrical', item:'Room phone line',                     weight:1},
 ];
 const _BASE_BATH = [
-  {cat:'Bathroom',   item:'Bathroom wall tiles'},
-  {cat:'Bathroom',   item:'Bathroom floor tiles'},
-  {cat:'Bathroom',   item:'Vanity & counter'},
-  {cat:'Bathroom',   item:'Mirror above vanity'},
-  {cat:'Bathroom',   item:'Sink & mixer tap'},
-  {cat:'Bathroom',   item:'Toilet (WC) installed'},
-  {cat:'Bathroom',   item:'Hand shower / bidet spray'},
-  {cat:'Bathroom',   item:'Shower area with mixer'},
-  {cat:'Bathroom',   item:'Shower glass / curtain'},
-  {cat:'Bathroom',   item:'Towel rails'},
-  {cat:'Bathroom',   item:'Tissue holder'},
-  {cat:'Bathroom',   item:'Hair dryer mounted'},
-  {cat:'Bathroom',   item:'Amenity tray (shampoo, soap, lotion)'},
-  {cat:'Bathroom',   item:'Towels (bath, hand, face)'},
-  {cat:'Bathroom',   item:'Bath mat'},
-  {cat:'Bathroom',   item:'Exhaust fan / ventilation'},
+  {cat:'Bathroom',   item:'Bathroom wall tiles',                 weight:10},
+  {cat:'Bathroom',   item:'Bathroom floor tiles',                weight:10},
+  {cat:'Bathroom',   item:'Vanity & counter',                    weight:10},
+  {cat:'Bathroom',   item:'Mirror above vanity',                 weight:3},
+  {cat:'Bathroom',   item:'Sink & mixer tap',                    weight:3},
+  {cat:'Bathroom',   item:'Toilet (WC) installed',               weight:10},
+  {cat:'Bathroom',   item:'Hand shower / bidet spray',           weight:3},
+  {cat:'Bathroom',   item:'Shower area with mixer',              weight:10},
+  {cat:'Bathroom',   item:'Shower glass / curtain',              weight:3},
+  {cat:'Bathroom',   item:'Towel rails',                         weight:1},
+  {cat:'Bathroom',   item:'Tissue holder',                       weight:1},
+  {cat:'Bathroom',   item:'Hair dryer mounted',                  weight:1},
+  {cat:'Bathroom',   item:'Amenity tray (shampoo, soap, lotion)',weight:1},
+  {cat:'Bathroom',   item:'Towels (bath, hand, face)',           weight:1},
+  {cat:'Bathroom',   item:'Bath mat',                            weight:1},
+  {cat:'Bathroom',   item:'Exhaust fan / ventilation',           weight:3},
 ];
 const _BASE_UTENSILS = [
-  {cat:'Utensils',   item:'Electric kettle'},
-  {cat:'Utensils',   item:'Tea / coffee cups & saucers'},
-  {cat:'Utensils',   item:'Drinking glasses'},
-  {cat:'Utensils',   item:'Water bottles & tray'},
-  {cat:'Utensils',   item:'Tea bags / coffee sachets / sugar'},
-  {cat:'Utensils',   item:'Ice bucket & tongs'},
-  {cat:'Utensils',   item:'Laundry bag'},
-  {cat:'Utensils',   item:'Hangers in wardrobe'},
+  {cat:'Utensils',   item:'Electric kettle',                     weight:1},
+  {cat:'Utensils',   item:'Tea / coffee cups & saucers',         weight:1},
+  {cat:'Utensils',   item:'Drinking glasses',                    weight:1},
+  {cat:'Utensils',   item:'Water bottles & tray',                weight:1},
+  {cat:'Utensils',   item:'Tea bags / coffee sachets / sugar',   weight:1},
+  {cat:'Utensils',   item:'Ice bucket & tongs',                  weight:1},
+  {cat:'Utensils',   item:'Laundry bag',                         weight:1},
+  {cat:'Utensils',   item:'Hangers in wardrobe',                 weight:1},
 ];
 
 const ROOM_TEMPLATES = {
@@ -5736,209 +5744,209 @@ const ROOM_TEMPLATES = {
   'Twin Bed': [
     ..._BASE_CIVIL,
     ..._BASE_ELEC,
-    {cat:'Furnishing', item:'Entrance door & lock'},
-    {cat:'Furnishing', item:'Twin bed #1 (frame + headboard)'},
-    {cat:'Furnishing', item:'Twin bed #2 (frame + headboard)'},
-    {cat:'Furnishing', item:'Mattress #1'},
-    {cat:'Furnishing', item:'Mattress #2'},
-    {cat:'Furnishing', item:'Bed linens & pillows (set of 2)'},
-    {cat:'Furnishing', item:'Bedside tables (2)'},
-    {cat:'Furnishing', item:'Wardrobe / cupboard'},
-    {cat:'Furnishing', item:'Luggage rack'},
-    {cat:'Furnishing', item:'Study desk & chair'},
-    {cat:'Furnishing', item:'Full-length mirror'},
-    {cat:'Furnishing', item:'Curtains (blackout + sheer)'},
-    {cat:'Furnishing', item:'Rug / runner'},
-    {cat:'Furnishing', item:'Wall art / paintings'},
-    {cat:'Furnishing', item:'Waste bin'},
-    {cat:'Tech',       item:'TV / screen mounted'},
-    {cat:'Tech',       item:'TV remote + channel setup'},
-    {cat:'Tech',       item:'Wi-Fi coverage tested'},
-    {cat:'Tech',       item:'Thermostat / AC remote'},
-    {cat:'Tech',       item:'Room key card system'},
+    {cat:'Furnishing', item:'Entrance door & lock',              weight:10},
+    {cat:'Furnishing', item:'Twin bed #1 (frame + headboard)',   weight:25},
+    {cat:'Furnishing', item:'Twin bed #2 (frame + headboard)',   weight:25},
+    {cat:'Furnishing', item:'Mattress #1',                       weight:10},
+    {cat:'Furnishing', item:'Mattress #2',                       weight:10},
+    {cat:'Furnishing', item:'Bed linens & pillows (set of 2)',   weight:3},
+    {cat:'Furnishing', item:'Bedside tables (2)',                weight:3},
+    {cat:'Furnishing', item:'Wardrobe / cupboard',               weight:25},
+    {cat:'Furnishing', item:'Luggage rack',                      weight:1},
+    {cat:'Furnishing', item:'Study desk & chair',                weight:10},
+    {cat:'Furnishing', item:'Full-length mirror',                weight:3},
+    {cat:'Furnishing', item:'Curtains (blackout + sheer)',       weight:3},
+    {cat:'Furnishing', item:'Rug / runner',                      weight:3},
+    {cat:'Furnishing', item:'Wall art / paintings',              weight:1},
+    {cat:'Furnishing', item:'Waste bin',                         weight:1},
+    {cat:'Tech',       item:'TV / screen mounted',               weight:25},
+    {cat:'Tech',       item:'TV remote + channel setup',         weight:1},
+    {cat:'Tech',       item:'Wi-Fi coverage tested',             weight:3},
+    {cat:'Tech',       item:'Thermostat / AC remote',            weight:1},
+    {cat:'Tech',       item:'Room key card system',              weight:10},
     ..._BASE_UTENSILS,
     ..._BASE_BATH,
-    {cat:'Final',      item:'Room number plaque'},
-    {cat:'Final',      item:'Do-not-disturb sign'},
-    {cat:'Final',      item:'Fire safety card'},
-    {cat:'Final',      item:'Final cleaning & handover'},
+    {cat:'Final',      item:'Room number plaque',                weight:1},
+    {cat:'Final',      item:'Do-not-disturb sign',               weight:1},
+    {cat:'Final',      item:'Fire safety card',                  weight:1},
+    {cat:'Final',      item:'Final cleaning & handover',         weight:10},
   ],
 
   'Double Bed': [
     ..._BASE_CIVIL,
     ..._BASE_ELEC,
-    {cat:'Furnishing', item:'Entrance door & lock'},
-    {cat:'Furnishing', item:'Double bed (frame + headboard)'},
-    {cat:'Furnishing', item:'Mattress'},
-    {cat:'Furnishing', item:'Bed linens & pillows (set)'},
-    {cat:'Furnishing', item:'Bedside tables (2)'},
-    {cat:'Furnishing', item:'Wardrobe / cupboard'},
-    {cat:'Furnishing', item:'Luggage rack'},
-    {cat:'Furnishing', item:'Study desk & chair'},
-    {cat:'Furnishing', item:'Full-length mirror'},
-    {cat:'Furnishing', item:'Curtains (blackout + sheer)'},
-    {cat:'Furnishing', item:'Rug / runner'},
-    {cat:'Furnishing', item:'Wall art / paintings'},
-    {cat:'Furnishing', item:'Waste bin'},
-    {cat:'Tech',       item:'TV / screen mounted'},
-    {cat:'Tech',       item:'TV remote + channel setup'},
-    {cat:'Tech',       item:'Wi-Fi coverage tested'},
-    {cat:'Tech',       item:'Thermostat / AC remote'},
-    {cat:'Tech',       item:'Room key card system'},
+    {cat:'Furnishing', item:'Entrance door & lock',              weight:10},
+    {cat:'Furnishing', item:'Double bed (frame + headboard)',    weight:25},
+    {cat:'Furnishing', item:'Mattress',                          weight:10},
+    {cat:'Furnishing', item:'Bed linens & pillows (set)',        weight:3},
+    {cat:'Furnishing', item:'Bedside tables (2)',                weight:3},
+    {cat:'Furnishing', item:'Wardrobe / cupboard',               weight:25},
+    {cat:'Furnishing', item:'Luggage rack',                      weight:1},
+    {cat:'Furnishing', item:'Study desk & chair',                weight:10},
+    {cat:'Furnishing', item:'Full-length mirror',                weight:3},
+    {cat:'Furnishing', item:'Curtains (blackout + sheer)',       weight:3},
+    {cat:'Furnishing', item:'Rug / runner',                      weight:3},
+    {cat:'Furnishing', item:'Wall art / paintings',              weight:1},
+    {cat:'Furnishing', item:'Waste bin',                         weight:1},
+    {cat:'Tech',       item:'TV / screen mounted',               weight:25},
+    {cat:'Tech',       item:'TV remote + channel setup',         weight:1},
+    {cat:'Tech',       item:'Wi-Fi coverage tested',             weight:3},
+    {cat:'Tech',       item:'Thermostat / AC remote',            weight:1},
+    {cat:'Tech',       item:'Room key card system',              weight:10},
     ..._BASE_UTENSILS,
     ..._BASE_BATH,
-    {cat:'Final',      item:'Room number plaque'},
-    {cat:'Final',      item:'Do-not-disturb sign'},
-    {cat:'Final',      item:'Fire safety card'},
-    {cat:'Final',      item:'Final cleaning & handover'},
+    {cat:'Final',      item:'Room number plaque',                weight:1},
+    {cat:'Final',      item:'Do-not-disturb sign',               weight:1},
+    {cat:'Final',      item:'Fire safety card',                  weight:1},
+    {cat:'Final',      item:'Final cleaning & handover',         weight:10},
   ],
 
   // ─── Building B Governor Suite ─────────────────────────────────────
   'Governor Suite': [
     ..._BASE_CIVIL,
-    {cat:'Civil',      item:'Decorative ceiling / cornice'},
+    {cat:'Civil',      item:'Decorative ceiling / cornice',      weight:3},
     ..._BASE_ELEC,
-    {cat:'Electrical', item:'Chandelier / statement lighting'},
-    {cat:'Electrical', item:'Smart room controls'},
-    {cat:'Furnishing', item:'Entrance door (premium) & lock'},
-    {cat:'Furnishing', item:'King bed (frame + premium headboard)'},
-    {cat:'Furnishing', item:'Premium mattress'},
-    {cat:'Furnishing', item:'Bed linens (premium, 400TC+)'},
-    {cat:'Furnishing', item:'Decorative cushions & throw'},
-    {cat:'Furnishing', item:'Bedside tables (2)'},
-    {cat:'Furnishing', item:'Walk-in wardrobe / large cupboard'},
-    {cat:'Furnishing', item:'Luggage bench'},
-    {cat:'Furnishing', item:'Executive work desk & chair'},
-    {cat:'Furnishing', item:'Dressing table with mirror'},
-    {cat:'Furnishing', item:'Full-length mirror'},
-    {cat:'Furnishing', item:'Living sofa (2 or 3 seater)'},
-    {cat:'Furnishing', item:'Coffee table'},
-    {cat:'Furnishing', item:'Accent armchairs (2)'},
-    {cat:'Furnishing', item:'Curtains (motorised / blackout)'},
-    {cat:'Furnishing', item:'Area rug'},
-    {cat:'Furnishing', item:'Wall art / paintings (curated)'},
-    {cat:'Furnishing', item:'Waste bins (2)'},
-    {cat:'Tech',       item:'TV / screen (55"+) mounted'},
-    {cat:'Tech',       item:'Secondary TV (living area)'},
-    {cat:'Tech',       item:'TV remotes + channel setup'},
-    {cat:'Tech',       item:'Wi-Fi coverage tested'},
-    {cat:'Tech',       item:'Thermostat / AC remote'},
-    {cat:'Tech',       item:'Room key card system'},
-    {cat:'Tech',       item:'Bluetooth speaker / audio system'},
+    {cat:'Electrical', item:'Chandelier / statement lighting',   weight:10},
+    {cat:'Electrical', item:'Smart room controls',               weight:10},
+    {cat:'Furnishing', item:'Entrance door (premium) & lock',    weight:10},
+    {cat:'Furnishing', item:'King bed (frame + premium headboard)', weight:25},
+    {cat:'Furnishing', item:'Premium mattress',                  weight:25},
+    {cat:'Furnishing', item:'Bed linens (premium, 400TC+)',      weight:3},
+    {cat:'Furnishing', item:'Decorative cushions & throw',       weight:1},
+    {cat:'Furnishing', item:'Bedside tables (2)',                weight:3},
+    {cat:'Furnishing', item:'Walk-in wardrobe / large cupboard', weight:25},
+    {cat:'Furnishing', item:'Luggage bench',                     weight:1},
+    {cat:'Furnishing', item:'Executive work desk & chair',       weight:10},
+    {cat:'Furnishing', item:'Dressing table with mirror',        weight:10},
+    {cat:'Furnishing', item:'Full-length mirror',                weight:3},
+    {cat:'Furnishing', item:'Living sofa (2 or 3 seater)',       weight:25},
+    {cat:'Furnishing', item:'Coffee table',                      weight:3},
+    {cat:'Furnishing', item:'Accent armchairs (2)',              weight:10},
+    {cat:'Furnishing', item:'Curtains (motorised / blackout)',   weight:10},
+    {cat:'Furnishing', item:'Area rug',                          weight:3},
+    {cat:'Furnishing', item:'Wall art / paintings (curated)',    weight:3},
+    {cat:'Furnishing', item:'Waste bins (2)',                    weight:1},
+    {cat:'Tech',       item:'TV / screen (55"+) mounted',        weight:25},
+    {cat:'Tech',       item:'Secondary TV (living area)',        weight:10},
+    {cat:'Tech',       item:'TV remotes + channel setup',        weight:1},
+    {cat:'Tech',       item:'Wi-Fi coverage tested',             weight:3},
+    {cat:'Tech',       item:'Thermostat / AC remote',            weight:1},
+    {cat:'Tech',       item:'Room key card system',              weight:10},
+    {cat:'Tech',       item:'Bluetooth speaker / audio system',  weight:3},
     ..._BASE_UTENSILS,
-    {cat:'Utensils',   item:'Mini-bar fridge (stocked)'},
-    {cat:'Utensils',   item:'Coffee / tea machine (premium)'},
-    {cat:'Utensils',   item:'Wine glasses & bottle opener'},
+    {cat:'Utensils',   item:'Mini-bar fridge (stocked)',         weight:10},
+    {cat:'Utensils',   item:'Coffee / tea machine (premium)',    weight:3},
+    {cat:'Utensils',   item:'Wine glasses & bottle opener',      weight:1},
     ..._BASE_BATH,
-    {cat:'Bathroom',   item:'Bathtub (optional)'},
-    {cat:'Bathroom',   item:'Rainfall shower head'},
-    {cat:'Bathroom',   item:'Bathrobe & slippers (2 sets)'},
-    {cat:'Final',      item:'Suite number plaque (brass)'},
-    {cat:'Final',      item:'Guest welcome kit'},
-    {cat:'Final',      item:'Fire safety card'},
-    {cat:'Final',      item:'Final cleaning & handover'},
+    {cat:'Bathroom',   item:'Bathtub (optional)',                weight:10},
+    {cat:'Bathroom',   item:'Rainfall shower head',              weight:3},
+    {cat:'Bathroom',   item:'Bathrobe & slippers (2 sets)',      weight:1},
+    {cat:'Final',      item:'Suite number plaque (brass)',       weight:1},
+    {cat:'Final',      item:'Guest welcome kit',                 weight:1},
+    {cat:'Final',      item:'Fire safety card',                  weight:1},
+    {cat:'Final',      item:'Final cleaning & handover',         weight:10},
   ],
 
   // ─── Building B Presidential Suite ─────────────────────────────────
   'Presidential Suite': [
     ..._BASE_CIVIL,
-    {cat:'Civil',      item:'Decorative ceiling / cornice (custom)'},
-    {cat:'Civil',      item:'Feature wall (marble / wood panel)'},
-    {cat:'Civil',      item:'Separate living room partition'},
-    {cat:'Civil',      item:'Dining area flooring'},
+    {cat:'Civil',      item:'Decorative ceiling / cornice (custom)', weight:10},
+    {cat:'Civil',      item:'Feature wall (marble / wood panel)',    weight:10},
+    {cat:'Civil',      item:'Separate living room partition',     weight:10},
+    {cat:'Civil',      item:'Dining area flooring',               weight:10},
     ..._BASE_ELEC,
-    {cat:'Electrical', item:'Chandeliers (master + living)'},
-    {cat:'Electrical', item:'Full smart home system'},
-    {cat:'Electrical', item:'Mood / scene lighting'},
-    {cat:'Electrical', item:'In-suite security system'},
-    {cat:'Furnishing', item:'Premium main door & lock'},
-    {cat:'Furnishing', item:'King bed (custom, canopy or upholstered)'},
-    {cat:'Furnishing', item:'Luxury mattress'},
-    {cat:'Furnishing', item:'Luxury linens (600TC+)'},
-    {cat:'Furnishing', item:'Decorative cushions & throws'},
-    {cat:'Furnishing', item:'Bedside tables (2)'},
-    {cat:'Furnishing', item:'Walk-in wardrobe (large)'},
-    {cat:'Furnishing', item:'Luggage bench'},
-    {cat:'Furnishing', item:'Executive desk & chair'},
-    {cat:'Furnishing', item:'Dressing table + vanity chair'},
-    {cat:'Furnishing', item:'Full-length mirror'},
-    {cat:'Furnishing', item:'Living room sofa set (3+2+1)'},
-    {cat:'Furnishing', item:'Coffee table (designer)'},
-    {cat:'Furnishing', item:'Side tables (2)'},
-    {cat:'Furnishing', item:'Dining table (4–6 seater)'},
-    {cat:'Furnishing', item:'Dining chairs'},
-    {cat:'Furnishing', item:'Kitchenette cabinets'},
-    {cat:'Furnishing', item:'Curtains (motorised, blackout)'},
-    {cat:'Furnishing', item:'Area rugs (bedroom + living)'},
-    {cat:'Furnishing', item:'Paintings / curated art collection'},
-    {cat:'Furnishing', item:'Decor accessories (vases, sculptures)'},
-    {cat:'Furnishing', item:'Waste bins (3+)'},
-    {cat:'Tech',       item:'Master bedroom TV (65"+)'},
-    {cat:'Tech',       item:'Living room TV (75"+)'},
-    {cat:'Tech',       item:'Dining area TV (optional)'},
-    {cat:'Tech',       item:'Home theatre / surround audio'},
-    {cat:'Tech',       item:'All remotes + universal controller'},
-    {cat:'Tech',       item:'Wi-Fi coverage tested (mesh)'},
-    {cat:'Tech',       item:'Thermostat / multi-zone AC'},
-    {cat:'Tech',       item:'Room key card system'},
+    {cat:'Electrical', item:'Chandeliers (master + living)',      weight:25},
+    {cat:'Electrical', item:'Full smart home system',             weight:25},
+    {cat:'Electrical', item:'Mood / scene lighting',              weight:10},
+    {cat:'Electrical', item:'In-suite security system',           weight:10},
+    {cat:'Furnishing', item:'Premium main door & lock',           weight:10},
+    {cat:'Furnishing', item:'King bed (custom, canopy or upholstered)', weight:25},
+    {cat:'Furnishing', item:'Luxury mattress',                    weight:25},
+    {cat:'Furnishing', item:'Luxury linens (600TC+)',             weight:3},
+    {cat:'Furnishing', item:'Decorative cushions & throws',       weight:1},
+    {cat:'Furnishing', item:'Bedside tables (2)',                 weight:3},
+    {cat:'Furnishing', item:'Walk-in wardrobe (large)',           weight:25},
+    {cat:'Furnishing', item:'Luggage bench',                      weight:1},
+    {cat:'Furnishing', item:'Executive desk & chair',             weight:10},
+    {cat:'Furnishing', item:'Dressing table + vanity chair',      weight:10},
+    {cat:'Furnishing', item:'Full-length mirror',                 weight:3},
+    {cat:'Furnishing', item:'Living room sofa set (3+2+1)',       weight:25},
+    {cat:'Furnishing', item:'Coffee table (designer)',            weight:10},
+    {cat:'Furnishing', item:'Side tables (2)',                    weight:1},
+    {cat:'Furnishing', item:'Dining table (4–6 seater)',          weight:25},
+    {cat:'Furnishing', item:'Dining chairs',                      weight:10},
+    {cat:'Furnishing', item:'Kitchenette cabinets',               weight:25},
+    {cat:'Furnishing', item:'Curtains (motorised, blackout)',     weight:10},
+    {cat:'Furnishing', item:'Area rugs (bedroom + living)',       weight:10},
+    {cat:'Furnishing', item:'Paintings / curated art collection', weight:3},
+    {cat:'Furnishing', item:'Decor accessories (vases, sculptures)', weight:1},
+    {cat:'Furnishing', item:'Waste bins (3+)',                    weight:1},
+    {cat:'Tech',       item:'Master bedroom TV (65"+)',           weight:25},
+    {cat:'Tech',       item:'Living room TV (75"+)',              weight:25},
+    {cat:'Tech',       item:'Dining area TV (optional)',          weight:3},
+    {cat:'Tech',       item:'Home theatre / surround audio',      weight:25},
+    {cat:'Tech',       item:'All remotes + universal controller', weight:3},
+    {cat:'Tech',       item:'Wi-Fi coverage tested (mesh)',       weight:10},
+    {cat:'Tech',       item:'Thermostat / multi-zone AC',         weight:10},
+    {cat:'Tech',       item:'Room key card system',               weight:10},
     ..._BASE_UTENSILS,
-    {cat:'Utensils',   item:'Full mini-bar (stocked)'},
-    {cat:'Utensils',   item:'Espresso machine'},
-    {cat:'Utensils',   item:'Microwave / oven'},
-    {cat:'Utensils',   item:'Kitchen utensils set'},
-    {cat:'Utensils',   item:'Crockery set (6+)'},
-    {cat:'Utensils',   item:'Cutlery set'},
-    {cat:'Utensils',   item:'Wine & champagne glasses'},
-    {cat:'Utensils',   item:'Bar tools (shaker, opener, etc.)'},
+    {cat:'Utensils',   item:'Full mini-bar (stocked)',            weight:10},
+    {cat:'Utensils',   item:'Espresso machine',                   weight:3},
+    {cat:'Utensils',   item:'Microwave / oven',                   weight:10},
+    {cat:'Utensils',   item:'Kitchen utensils set',               weight:3},
+    {cat:'Utensils',   item:'Crockery set (6+)',                  weight:3},
+    {cat:'Utensils',   item:'Cutlery set',                        weight:3},
+    {cat:'Utensils',   item:'Wine & champagne glasses',           weight:1},
+    {cat:'Utensils',   item:'Bar tools (shaker, opener, etc.)',   weight:1},
     ..._BASE_BATH,
-    {cat:'Bathroom',   item:'Jacuzzi / premium bathtub'},
-    {cat:'Bathroom',   item:'Rainfall + handheld shower'},
-    {cat:'Bathroom',   item:'Double vanity (his & hers)'},
-    {cat:'Bathroom',   item:'Guest powder room'},
-    {cat:'Bathroom',   item:'Bathrobes & slippers (2 sets luxury)'},
-    {cat:'Bathroom',   item:'Premium amenities line'},
-    {cat:'Final',      item:'Suite plaque (premium brass/marble)'},
-    {cat:'Final',      item:'Welcome amenities tray'},
-    {cat:'Final',      item:'Fresh flowers'},
-    {cat:'Final',      item:'Fire safety card'},
-    {cat:'Final',      item:'Final cleaning & handover'},
+    {cat:'Bathroom',   item:'Jacuzzi / premium bathtub',          weight:25},
+    {cat:'Bathroom',   item:'Rainfall + handheld shower',         weight:10},
+    {cat:'Bathroom',   item:'Double vanity (his & hers)',         weight:10},
+    {cat:'Bathroom',   item:'Guest powder room',                  weight:25},
+    {cat:'Bathroom',   item:'Bathrobes & slippers (2 sets luxury)', weight:1},
+    {cat:'Bathroom',   item:'Premium amenities line',             weight:1},
+    {cat:'Final',      item:'Suite plaque (premium brass/marble)',weight:1},
+    {cat:'Final',      item:'Welcome amenities tray',             weight:1},
+    {cat:'Final',      item:'Fresh flowers',                      weight:1},
+    {cat:'Final',      item:'Fire safety card',                   weight:1},
+    {cat:'Final',      item:'Final cleaning & handover',          weight:10},
   ],
 
   // ─── Building B Common Lounges ─────────────────────────────────────
   'Common Lounge': [
-    {cat:'Civil',      item:'Floor finish'},
-    {cat:'Civil',      item:'Wall treatment / paint'},
-    {cat:'Civil',      item:'Ceiling finish'},
-    {cat:'Civil',      item:'Feature wall / decor paneling'},
-    {cat:'Electrical', item:'Main lighting'},
-    {cat:'Electrical', item:'Accent / mood lighting'},
-    {cat:'Electrical', item:'AC / HVAC system'},
-    {cat:'Electrical', item:'Sockets & charging points'},
-    {cat:'Electrical', item:'Audio system'},
-    {cat:'Furnishing', item:'Sofa / seating clusters'},
-    {cat:'Furnishing', item:'Coffee tables'},
-    {cat:'Furnishing', item:'Side tables'},
-    {cat:'Furnishing', item:'Accent chairs'},
-    {cat:'Furnishing', item:'Rugs'},
-    {cat:'Furnishing', item:'Wall art / decor'},
-    {cat:'Furnishing', item:'Plants / greenery'},
-    {cat:'Furnishing', item:'Curtains / blinds'},
-    {cat:'Tech',       item:'Large screen / TV'},
-    {cat:'Tech',       item:'Wi-Fi coverage tested'},
-    {cat:'Utensils',   item:'Coffee / tea station'},
-    {cat:'Utensils',   item:'Water dispenser'},
-    {cat:'Utensils',   item:'Service tray & glassware'},
-    {cat:'Bathroom',   item:'Nearby guest washroom ready'},
-    {cat:'Final',      item:'Signage & branding'},
-    {cat:'Final',      item:'Final cleaning & handover'},
+    {cat:'Civil',      item:'Floor finish',                       weight:25},
+    {cat:'Civil',      item:'Wall treatment / paint',             weight:10},
+    {cat:'Civil',      item:'Ceiling finish',                     weight:10},
+    {cat:'Civil',      item:'Feature wall / decor paneling',      weight:10},
+    {cat:'Electrical', item:'Main lighting',                      weight:10},
+    {cat:'Electrical', item:'Accent / mood lighting',             weight:3},
+    {cat:'Electrical', item:'AC / HVAC system',                   weight:25},
+    {cat:'Electrical', item:'Sockets & charging points',          weight:3},
+    {cat:'Electrical', item:'Audio system',                       weight:10},
+    {cat:'Furnishing', item:'Sofa / seating clusters',            weight:25},
+    {cat:'Furnishing', item:'Coffee tables',                      weight:3},
+    {cat:'Furnishing', item:'Side tables',                        weight:1},
+    {cat:'Furnishing', item:'Accent chairs',                      weight:10},
+    {cat:'Furnishing', item:'Rugs',                               weight:3},
+    {cat:'Furnishing', item:'Wall art / decor',                   weight:3},
+    {cat:'Furnishing', item:'Plants / greenery',                  weight:1},
+    {cat:'Furnishing', item:'Curtains / blinds',                  weight:3},
+    {cat:'Tech',       item:'Large screen / TV',                  weight:25},
+    {cat:'Tech',       item:'Wi-Fi coverage tested',              weight:3},
+    {cat:'Utensils',   item:'Coffee / tea station',               weight:10},
+    {cat:'Utensils',   item:'Water dispenser',                    weight:3},
+    {cat:'Utensils',   item:'Service tray & glassware',           weight:1},
+    {cat:'Bathroom',   item:'Nearby guest washroom ready',        weight:10},
+    {cat:'Final',      item:'Signage & branding',                 weight:3},
+    {cat:'Final',      item:'Final cleaning & handover',          weight:10},
   ],
 
-  // ─── Legacy types (kept for backward compat) ───────────────────────
-  'Standard':     null,  // will alias to Double Bed
-  'Deluxe':       null,  // will alias to Governor Suite
-  'Suite':        null,  // will alias to Governor Suite
-  'Penthouse':    null,  // will alias to Presidential Suite
-  'Common Area':  null,  // will alias to Common Lounge
+  // ─── Legacy types (aliased below) ──────────────────────────────────
+  'Standard':     null,
+  'Deluxe':       null,
+  'Suite':        null,
+  'Penthouse':    null,
+  'Common Area':  null,
 };
 // Backward-compat aliases
 ROOM_TEMPLATES['Standard']    = ROOM_TEMPLATES['Double Bed'];
@@ -5946,6 +5954,15 @@ ROOM_TEMPLATES['Deluxe']      = ROOM_TEMPLATES['Governor Suite'];
 ROOM_TEMPLATES['Suite']       = ROOM_TEMPLATES['Governor Suite'];
 ROOM_TEMPLATES['Penthouse']   = ROOM_TEMPLATES['Presidential Suite'];
 ROOM_TEMPLATES['Common Area'] = ROOM_TEMPLATES['Common Lounge'];
+
+// Weight → tier label (for display)
+const WEIGHT_TIER = (w) => {
+  const n = +w || 1;
+  if(n >= 25) return {label:'Critical', color:'#d04040'};
+  if(n >= 10) return {label:'Major',    color:'#c9a84c'};
+  if(n >= 3)  return {label:'Standard', color:'#4a9eff'};
+  return        {label:'Minor',    color:'#8a8a8a'};
+};
 
 // Icon per room type for visual distinction on cards
 const ROOM_TYPE_ICONS = {
@@ -5960,6 +5977,7 @@ const ROOM_TYPE_ICONS = {
   'Penthouse':          '👑',
   'Common Area':        '☕',
 };
+
 
 let _rcRooms = [];
 let _rcItems = []; // all room_checklist rows
@@ -6101,15 +6119,36 @@ function renderRoomsTable(){
 }
 
 // Compute % for a room: avg of checklist item statuses
+// Compute a room's completion % using weighted items.
+// Weight acts as a multiplier: done items contribute 100% of their weight,
+// in-progress items contribute 50%, pending contribute 0%. The result is
+// expressed as a percent of total weight.
+// Example: a room with 3 items weighted [25, 10, 1] totalling 36 weight;
+// if only the 25-weight "bed" is done → pct = 25/36 = 69.4%.
 function computeRoomPct(roomId, fallbackPct){
   const items = _rcItems.filter(i=>i.room_id===roomId);
   if(!items.length) return +fallbackPct || 0;
-  const sum = items.reduce((s,i)=>{
-    if(i.status==='done') return s + 100;
-    if(i.status==='in_progress') return s + 50;
-    return s + 0;
-  },0);
-  return sum / items.length;
+  let totalW = 0, earnedW = 0;
+  items.forEach(i => {
+    const w = +i.weight || 1;
+    totalW += w;
+    if(i.status === 'done')       earnedW += w;
+    else if(i.status === 'in_progress') earnedW += w * 0.5;
+  });
+  return totalW ? (earnedW / totalW) * 100 : 0;
+}
+
+// Compute progress for a specific category within a room (same weighted logic)
+function computeCategoryPct(items){
+  if(!items.length) return 0;
+  let totalW = 0, earnedW = 0;
+  items.forEach(i => {
+    const w = +i.weight || 1;
+    totalW += w;
+    if(i.status === 'done')             earnedW += w;
+    else if(i.status === 'in_progress') earnedW += w * 0.5;
+  });
+  return totalW ? (earnedW / totalW) * 100 : 0;
 }
 
 function renderRoomCards(){
@@ -6173,15 +6212,25 @@ function renderRoomCards(){
           const ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
           return (ia===-1?999:ia) - (ib===-1?999:ib);
         });
-        itemsHtml = sortedCats.map(cat=>{
+        // Tiny legend — explains the colour dots on each item
+        itemsHtml = `<div style="display:flex;align-items:center;gap:12px;padding:6px 10px;margin-bottom:10px;background:rgba(0,0,0,0.03);border-radius:6px;font-size:10px;color:var(--text-muted);flex-wrap:wrap;">
+          <span>Importance:</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#8a8a8a;"></span>Minor</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#4a9eff;"></span>Standard</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#c9a84c;"></span>Major</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#d04040;"></span>Critical</span>
+          <span style="margin-left:auto;color:var(--text-muted);">% is weighted by importance</span>
+        </div>`;
+        itemsHtml += sortedCats.map(cat=>{
           const catItems = byCat[cat];
           const catDone = catItems.filter(i=>i.status==='done').length;
-          const catPct = catItems.length ? (catDone/catItems.length)*100 : 0;
+          const catPct = computeCategoryPct(catItems);   // weighted
           return `<div style="margin-bottom:12px;">
             <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
               <span>${_esc(cat)}</span>
               <span style="display:flex;align-items:center;gap:6px;">
-                <span style="color:var(--gold);font-weight:600;">${catDone}/${catItems.length}</span>
+                <span style="color:var(--gold);font-weight:600;">${Math.round(catPct)}%</span>
+                <span style="color:var(--text-muted);font-size:9px;">(${catDone}/${catItems.length})</span>
                 <span style="width:40px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;"><span style="display:block;height:100%;background:${catPct>=99.5?'#4caf7d':catPct>0?'#b89558':'#888'};width:${catPct}%;"></span></span>
               </span>
             </div>
@@ -6194,8 +6243,12 @@ function renderRoomCards(){
                 const iconColor = s==='done' ? '#4caf7d' : s==='in_progress' ? '#b89558' : '#888';
                 const canEdit = canWrite() ? `onclick="event.stopPropagation();cycleChecklistItem('${it.id}')"` : '';
                 const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px;" onclick="event.stopPropagation();deleteChecklistItem('${it.id}')">✕</button>` : '';
+                const tier = WEIGHT_TIER(it.weight);
+                // Tier dot — small coloured circle showing importance
+                const tierDot = `<span title="${tier.label} (weight ${it.weight||1})" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tier.color};flex-shrink:0;"></span>`;
                 return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border:1px solid ${border};border-radius:6px;cursor:${canWrite()?'pointer':'default'};font-size:12px;transition:background .15s;" ${canEdit}>
                   <span style="color:${iconColor};font-size:14px;width:14px;text-align:center;">${iconCh}</span>
+                  ${tierDot}
                   <span style="flex:1;color:var(--text);${s==='done'?'text-decoration:line-through;opacity:0.6;':''}">${_esc(it.item_name)}</span>
                   ${delBtn}
                 </div>`;
@@ -6205,10 +6258,16 @@ function renderRoomCards(){
         }).join('');
         // Add-item inline form
         if(canWrite()){
-          itemsHtml += `<div style="display:flex;gap:6px;padding:8px;background:var(--surface2);border:1px dashed var(--border);border-radius:6px;margin-top:8px;">
-            <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;background:transparent;border:none;color:var(--text);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem('${r.id}');}">
-            <select id="rc-newcat-${r.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);">
+          itemsHtml += `<div style="display:flex;gap:6px;padding:8px;background:var(--surface2);border:1px dashed var(--border);border-radius:6px;margin-top:8px;flex-wrap:wrap;">
+            <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;min-width:180px;background:transparent;border:none;color:var(--text);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem('${r.id}');}">
+            <select id="rc-newcat-${r.id}" title="Category" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);">
               <option>Civil</option><option>Electrical</option><option>Furnishing</option><option>Tech</option><option selected>Utensils</option><option>Bathroom</option><option>Final</option><option>Other</option>
+            </select>
+            <select id="rc-newweight-${r.id}" title="Importance — affects how much this item contributes to room %" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text);">
+              <option value="1">Minor</option>
+              <option value="3" selected>Standard</option>
+              <option value="10">Major</option>
+              <option value="25">Critical</option>
             </select>
             <button class="btn btn-primary btn-sm" style="padding:3px 10px;font-size:11px;" onclick="event.stopPropagation();addChecklistItem('${r.id}')">+ Add</button>
           </div>`;
@@ -6257,10 +6316,11 @@ async function initRoomChecklist(roomId, roomType){
     item_name: t.item,
     category: t.cat,
     status: 'pending',
-    sort_order: idx
+    sort_order: idx,
+    weight: +t.weight || 1,
   }));
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+    let r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
       method:'POST',
       headers:{...headers,'Prefer':'return=minimal'},
       body: JSON.stringify(payload)
@@ -6272,7 +6332,19 @@ async function initRoomChecklist(roomId, roomType){
         showMigrationBanner();
         return;
       }
-      throw new Error(err);
+      // Fallback: weight column missing — strip and retry so legacy installs
+      // don't die. Weights will default to 1 until they run the migration.
+      if(/weight/i.test(err) && /column/i.test(err)){
+        toast('⚠ Run the weight SQL migration for weighted progress','error');
+        const stripped = payload.map(p => { const {weight, ...rest} = p; return rest; });
+        r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+          method:'POST', headers:{...headers,'Prefer':'return=minimal'},
+          body: JSON.stringify(stripped)
+        });
+        if(!r.ok) throw new Error(await r.text());
+      } else {
+        throw new Error(err);
+      }
     }
     toast(`${template.length} items added ✓`);
     loadRooms();
@@ -6318,13 +6390,22 @@ async function addChecklistItem(roomId){
   if(!canWrite()) return;
   const input = document.getElementById(`rc-newitem-${roomId}`);
   const cat = document.getElementById(`rc-newcat-${roomId}`).value;
+  const weightEl = document.getElementById(`rc-newweight-${roomId}`);
+  const weight = weightEl ? +weightEl.value : 3;  // default Standard
   const name = (input?.value||'').trim();
   if(!name){ toast('Item name required','error'); return; }
   const existing = _rcItems.filter(i=>i.room_id===roomId).length;
-  const payload = { room_id: roomId, item_name: name, category: cat, status:'pending', sort_order: existing };
+  const payload = { room_id: roomId, item_name: name, category: cat, status:'pending', sort_order: existing, weight };
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
-    if(!r.ok) throw new Error(await r.text());
+    let r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    if(!r.ok){
+      const err = await r.text();
+      if(/weight/i.test(err) && /column/i.test(err)){
+        delete payload.weight;
+        r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
+      }
+      if(!r.ok) throw new Error(await r.text());
+    }
     if(input) input.value = '';
     loadRooms();
   }catch(e){ console.error(e); toast('Error adding item','error'); }
@@ -6500,7 +6581,8 @@ async function bulkCreateBejaanRooms(){
   }catch(e){ console.error('bulk-create: rooms insert failed', e); toast('Error creating rooms: '+e.message,'error'); return; }
 
   // Step 3: build checklist items for every room based on its type.
-  // One big batch insert for all checklist items across all 77 rooms.
+  // Includes weight (1=Minor, 3=Standard, 10=Major, 25=Critical) so the
+  // weighted progress math works right out of the gate.
   const itemsPayload = [];
   for(const room of createdRooms){
     const template = ROOM_TEMPLATES[room.room_type] || [];
@@ -6511,28 +6593,175 @@ async function bulkCreateBejaanRooms(){
         category: t.cat,
         status: 'pending',
         sort_order: idx,
+        weight: +t.weight || 1,
       });
     });
   }
 
   toast(`Seeding ${itemsPayload.length} checklist items…`);
+  // Track whether we need to strip weight on retries (runs once then sticks)
+  let stripWeight = false;
+  let inserted = 0, failedChunks = 0;
   try{
-    // Supabase has a request size limit; batch in chunks of 500 to be safe.
-    const CHUNK = 500;
+    // Supabase has a request size limit; batch in chunks of 200 to be safe.
+    // Smaller than before because the previous 500-chunk runs sometimes died
+    // part-way through, leaving rooms with only 1-2 categories.
+    const CHUNK = 200;
     for(let i=0; i<itemsPayload.length; i+=CHUNK){
-      const chunk = itemsPayload.slice(i, i+CHUNK);
-      const r = await fetch(`${SB_URL}/rest/v1/room_checklist`, {
+      let chunk = itemsPayload.slice(i, i+CHUNK);
+      if(stripWeight){
+        chunk = chunk.map(it => { const {weight, ...rest} = it; return rest; });
+      }
+      let r = await fetch(`${SB_URL}/rest/v1/room_checklist`, {
         method:'POST',
         headers: {...headers, Prefer:'return=minimal'},
         body: JSON.stringify(chunk)
       });
-      if(!r.ok){ console.error('chunk', i, 'failed:', await r.text()); }
+      if(!r.ok){
+        const err = await r.text();
+        console.error('[bulk] chunk', i, 'failed:', err);
+        // If weight column missing → strip it and retry THIS chunk + all following
+        if(/weight/i.test(err) && /column/i.test(err)){
+          stripWeight = true;
+          toast('⚠ Run bejaan_room_weight.sql for weighted progress','error');
+          const stripped = chunk.map(it => { const {weight, ...rest} = it; return rest; });
+          r = await fetch(`${SB_URL}/rest/v1/room_checklist`, {
+            method:'POST',
+            headers: {...headers, Prefer:'return=minimal'},
+            body: JSON.stringify(stripped)
+          });
+          if(r.ok){ inserted += chunk.length; continue; }
+          console.error('[bulk] retry without weight also failed:', await r.text());
+        }
+        failedChunks++;
+      } else {
+        inserted += chunk.length;
+      }
     }
   }catch(e){ console.error('bulk-create: checklist insert failed', e); toast('Rooms created but checklist seed failed — see console','error'); }
 
-  toast(`✓ Created ${createdRooms.length} rooms with ${itemsPayload.length} checklist items`);
+  if(failedChunks > 0){
+    toast(`⚠ Only ${inserted} of ${itemsPayload.length} items seeded — ${failedChunks} chunks failed (see console)`,'error');
+  } else {
+    toast(`✓ Created ${createdRooms.length} rooms with ${inserted} checklist items`);
+  }
   delete cache['rooms'];
   loadRooms();
+}
+
+// ═══ SYNC TEMPLATES — top up missing items on existing rooms ══════════════
+// Reads every room, compares to the template for its type, and inserts only
+// items that aren't already there (matched by item_name). Useful when the
+// template gets new items, or when a previous bulk-create only half-seeded.
+// Also updates the weight on existing items when the template now has weights.
+// Preserves all existing statuses — nothing ticked will become unticked.
+// ══════════════════════════════════════════════════════════════════════════
+async function syncRoomTemplates(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  if(!confirm('This will ADD any missing checklist items to every existing room and update weights. Nothing existing is removed or un-ticked. Continue?')) return;
+
+  try{
+    const [rooms, items] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/rooms?select=id,room_name,room_type`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/room_checklist?select=id,room_id,item_name,weight&order=sort_order.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+
+    const itemsByRoom = {};
+    items.forEach(it => {
+      if(!itemsByRoom[it.room_id]) itemsByRoom[it.room_id] = [];
+      itemsByRoom[it.room_id].push(it);
+    });
+
+    const toInsert = [];          // payloads for missing items
+    const toReweight = [];        // {id, weight} for items needing weight update
+    let stripWeight = false;
+
+    for(const room of rooms){
+      const template = ROOM_TEMPLATES[room.room_type];
+      if(!template) continue;
+      const existing = itemsByRoom[room.id] || [];
+      const existingByName = {};
+      existing.forEach(e => { existingByName[e.item_name.toLowerCase().trim()] = e; });
+
+      template.forEach((t, idx) => {
+        const key = t.item.toLowerCase().trim();
+        const ex = existingByName[key];
+        if(!ex){
+          toInsert.push({
+            room_id: room.id,
+            item_name: t.item,
+            category: t.cat,
+            status: 'pending',
+            sort_order: existing.length + idx,
+            weight: +t.weight || 1,
+          });
+        } else if(!ex.weight || ex.weight === 1){
+          // Only overwrite weight if existing is default (1) — don't clobber
+          // user-customised weights.
+          if(+t.weight && +t.weight !== ex.weight){
+            toReweight.push({id: ex.id, weight: +t.weight});
+          }
+        }
+      });
+    }
+
+    if(!toInsert.length && !toReweight.length){
+      toast('Everything already up to date ✓');
+      return;
+    }
+
+    toast(`Adding ${toInsert.length} missing items, re-weighting ${toReweight.length}…`);
+
+    // Insert missing items in chunks
+    let inserted = 0;
+    const CHUNK = 200;
+    for(let i=0; i<toInsert.length; i+=CHUNK){
+      let chunk = toInsert.slice(i, i+CHUNK);
+      if(stripWeight) chunk = chunk.map(it => { const {weight, ...rest} = it; return rest; });
+      let r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+        method:'POST', headers:{...headers, Prefer:'return=minimal'},
+        body: JSON.stringify(chunk)
+      });
+      if(!r.ok){
+        const err = await r.text();
+        if(/weight/i.test(err) && /column/i.test(err)){
+          stripWeight = true;
+          toast('⚠ Run bejaan_room_weight.sql to enable weights','error');
+          const stripped = chunk.map(it => { const {weight, ...rest} = it; return rest; });
+          r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+            method:'POST', headers:{...headers, Prefer:'return=minimal'},
+            body: JSON.stringify(stripped)
+          });
+          if(r.ok){ inserted += chunk.length; continue; }
+        }
+        console.error('[sync] chunk', i, 'failed:', await r.text());
+      } else {
+        inserted += chunk.length;
+      }
+    }
+
+    // Update weights on existing items (one PATCH per item — could batch but
+    // with < a few hundred this is simpler)
+    let reweighted = 0;
+    if(!stripWeight){
+      for(const u of toReweight){
+        try{
+          const r = await fetch(`${SB_URL}/rest/v1/room_checklist?id=eq.${u.id}`,{
+            method:'PATCH', headers,
+            body: JSON.stringify({weight: u.weight})
+          });
+          if(r.ok) reweighted++;
+        }catch(e){ /* skip */ }
+      }
+    }
+
+    toast(`✓ Added ${inserted} items · Re-weighted ${reweighted}`);
+    delete cache['rooms'];
+    loadRooms();
+  }catch(e){
+    console.error('syncRoomTemplates:', e);
+    toast('Sync failed — see console','error');
+  }
 }
 
 // BUDGET
