@@ -988,10 +988,10 @@ tr:hover td{background:var(--green-bg);}
 <div class="section" id="section-cashflow">
   <div class="page-header"><div class="page-title">Cashflow</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('cashflow')">Export CSV</button></div>
 
-  <!-- HEADLINE STATS — total outstanding, next week, next month -->
+  <!-- HEADLINE STATS -->
   <div class="stat-grid" id="cf-stats" style="margin-bottom:18px;">
-    <div class="stat-card gold"><div class="stat-label">This Week</div><div class="stat-value" id="cf-this-week">—</div><div class="stat-sub" id="cf-this-week-sub">cash required</div></div>
-    <div class="stat-card blue"><div class="stat-label">Next Week</div><div class="stat-value" id="cf-next-week">—</div><div class="stat-sub" id="cf-next-week-sub">upcoming</div></div>
+    <div class="stat-card gold"><div class="stat-label">This Half</div><div class="stat-value" id="cf-this-half">—</div><div class="stat-sub" id="cf-this-half-sub">cash required</div></div>
+    <div class="stat-card blue"><div class="stat-label">Next Half</div><div class="stat-value" id="cf-next-half">—</div><div class="stat-sub" id="cf-next-half-sub">upcoming</div></div>
     <div class="stat-card green"><div class="stat-label">Next 30 Days</div><div class="stat-value" id="cf-next-30">—</div><div class="stat-sub" id="cf-next-30-sub">total requirement</div></div>
     <div class="stat-card red"><div class="stat-label">Overdue</div><div class="stat-value" id="cf-overdue">—</div><div class="stat-sub" id="cf-overdue-sub">past due date</div></div>
   </div>
@@ -1009,37 +1009,36 @@ tr:hover td{background:var(--green-bg);}
     <button class="btn btn-primary" onclick="addCashflow()">+ Add Entry</button>
   </div>
 
-  <!-- MONTHLY VIEW (kept from before) -->
-  <div class="card"><div class="card-title">Monthly Cashflow Requirements</div><div class="chart-container"><canvas id="chart-cashflow"></canvas></div></div>
-
-  <!-- WEEKLY HEATMAP -->
+  <!-- MAIN CHART — stacked bars by half-month, segmented by vendor -->
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
       <div>
-        <div class="card-title" style="margin-bottom:2px;">Weekly Heatmap</div>
-        <div style="font-size:11px;color:var(--text-muted);">Darker cells = more cash required that week. Hover for details.</div>
+        <div class="card-title" style="margin-bottom:2px;">Cashflow by Half-Month</div>
+        <div style="font-size:11px;color:var(--text-muted);">Each half = 1st–15th or 16th–end of month. Hover bars for vendor breakdown · click for full detail.</div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="btn btn-secondary btn-sm" id="cf-range-btn" onclick="toggleCfRange()">Show all weeks</button>
+        <button class="btn btn-secondary btn-sm" id="cf-range-btn" onclick="toggleCfRange()">Show all halves</button>
       </div>
     </div>
-    <div id="cf-heatmap" style="overflow-x:auto;"></div>
+    <div class="chart-container"><canvas id="chart-cashflow"></canvas></div>
   </div>
 
-  <!-- WEEKLY BAR CHART -->
+  <!-- HALF-MONTH LIST -->
   <div class="card">
-    <div class="card-title">Weekly Cashflow Requirements</div>
-    <div class="chart-container"><canvas id="chart-cashflow-weekly"></canvas></div>
+    <div class="card-title">Upcoming Schedule</div>
+    <div id="cf-halfmonth-list"></div>
   </div>
 
-  <!-- WEEKLY LIST / DETAIL -->
-  <div class="card">
-    <div class="card-title">Weekly Schedule</div>
-    <div id="cf-weekly-list"></div>
-  </div>
+  <!-- ALL ENTRIES TABLE — with vendor column -->
+  <div class="card"><div class="card-title">All Entries</div><div class="table-wrap"><table><thead><tr><th>Due Date</th><th>Vendor</th><th>Description</th><th>Category</th><th>Priority</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
 
-  <!-- CASHFLOW SCHEDULE (existing table with all individual entries) -->
-  <div class="card"><div class="card-title">All Entries</div><div class="table-wrap"><table><thead><tr><th>Due Date</th><th>Description</th><th>Category</th><th>Priority</th><th>Responsible</th><th>Amount (PKR)</th><th></th></tr></thead><tbody id="cashflow-tbody"></tbody></table></div></div>
+  <!-- DETAIL MODAL — shown when a bar is clicked -->
+  <div id="cf-detail-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)closeCfDetail()">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:680px;width:100%;max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div id="cf-detail-header" style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0;"></div>
+      <div id="cf-detail-body" style="flex:1;overflow-y:auto;padding:12px 22px 22px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- DRAFT LIABILITY (Pending Agreements) -->
@@ -7101,280 +7100,299 @@ async function saveEditBudget(){
 async function addBudget(){if(!isAdmin())return;const cat=document.getElementById('b-cat').value.trim();if(!cat){toast('Category required','error');return;}try{await sbInsert('budget',{category:cat,budgeted:+document.getElementById('b-budgeted').value||null,actual_spent:+document.getElementById('b-actual').value||null,responsible:document.getElementById('b-resp').value,notes:document.getElementById('b-notes').value});toast('Budget category added ✓');['b-cat','b-budgeted','b-actual','b-resp','b-notes'].forEach(id=>document.getElementById(id).value='');delete cache['budget'];loadBudget();loadOverview();}catch(e){toast('Error','error');}}
 
 // CASHFLOW
-// ═══ CASHFLOW — monthly + weekly views ═════════════════════════════════
-// `data` rows have month (e.g. '2026-06') and ideally due_date (e.g.
-// '2026-06-05'). If due_date is missing we fall back to the 1st of the month
-// (so older rows before the migration still show, just less precisely).
-// ════════════════════════════════════════════════════════════════════════
+// ═══ CASHFLOW — half-month buckets ═════════════════════════════════════════
+// Each month is split into two halves:
+//   H1 = days 1-15
+//   H2 = days 16-end of month
+// Payments are bucketed into the half containing their due_date. Missing
+// due_date falls back to 1st of month (H1).
+//
+// Key format: "2026-06-H1"
+// ════════════════════════════════════════════════════════════════════════════
 
-let _cfShowAllWeeks = false;   // toggle: only future or include past
+let _cfShowAllHalves = false;   // toggle: show past halves too
+let _cfChart = null;            // Chart.js instance (kept for destroy)
+let _cfHalfData = {};           // last-rendered bucket map (for click-to-detail)
+let _cfVendorMap = {};          // vendor_id → {name, color}
 
-// ISO-week utilities. Weeks are Monday-start. Key format: "2026-W23"
-function _toISOWeek(date){
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  // Thursday of same week determines year
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
-}
-function _isoWeekStart(year, week){
-  // Returns the Monday of that ISO week as a Date
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const dow = simple.getUTCDay();
-  const monday = new Date(simple);
-  if(dow <= 4) monday.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-  else         monday.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-  return monday;
-}
-function _weekRangeLabel(weekKey){
-  const [y, w] = weekKey.split('-W').map(Number);
-  const mon = _isoWeekStart(y, w);
-  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
-  const fmt = d => d.toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
-  return `${fmt(mon)} – ${fmt(sun)}`;
-}
+// Extract row date (prefer due_date, fallback to month+01)
 function _cfRowDate(c){
-  // Prefer due_date; fall back to month-01 so rows without due_date still show.
   if(c.due_date) return new Date(c.due_date + 'T00:00:00');
   if(c.month && /^\d{4}-\d{2}$/.test(c.month)) return new Date(c.month + '-01T00:00:00');
   return null;
 }
 
-async function loadCashflow(){
-  try{
-    const data = await getData('cashflow');
-    const rows = data || [];
-
-    // ─── Headline stats ─────────────────────────────────────────────
-    renderCashflowStats(rows);
-
-    // ─── "All entries" table ────────────────────────────────────────
-    const tbody = document.getElementById('cashflow-tbody');
-    if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';
-    } else {
-      // Sort by due date ascending
-      const sorted = [...rows].sort((a,b) => {
-        const da = _cfRowDate(a), db = _cfRowDate(b);
-        if(!da && !db) return 0;
-        if(!da) return 1;
-        if(!db) return -1;
-        return da - db;
-      });
-      tbody.innerHTML = sorted.map(c => {
-        const adminBtn = isAdmin()
-          ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td>`
-          : '<td></td>';
-        const dateStr = c.due_date
-          ? new Date(c.due_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
-          : (c.month || '—');
-        return `<tr><td>${dateStr}</td><td>${c.description||'—'}</td><td>${c.category||'—'}</td><td>${statusBadge(c.priority||'Medium')}</td><td>${c.responsible||'—'}</td><td>PKR ${fmt(c.amount)}</td>${adminBtn}</tr>`;
-      }).join('');
-    }
-
-    // ─── Monthly chart (unchanged behaviour) ────────────────────────
-    const bm = {};
-    rows.forEach(c => { const m = c.month || ''; bm[m] = (bm[m]||0) + (+c.amount||0); });
-    const months = Object.keys(bm).filter(Boolean).sort();
-    const ctx = document.getElementById('chart-cashflow');
-    if(ctx._chart) ctx._chart.destroy();
-    ctx._chart = new Chart(ctx, {
-      type:'bar',
-      data:{labels: months, datasets:[{label:'Required Cash (PKR)', data: months.map(m=>bm[m]), backgroundColor:'#c9a84c99', borderColor:'#c9a84c', borderWidth:1}]},
-      options:{responsive:true, maintainAspectRatio:false, scales:{x:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}, y:{ticks:{color:'#8a8580'},grid:{color:'#dde8e2'}}}, plugins:{legend:{labels:{color:'#8a8580'}}}}
-    });
-
-    // ─── Weekly bucketing ───────────────────────────────────────────
-    // Bucket every row into its ISO week.
-    const byWeek = {};           // key → {total, rows:[]}
-    rows.forEach(c => {
-      const d = _cfRowDate(c);
-      if(!d) return;
-      const key = _toISOWeek(d);
-      if(!byWeek[key]) byWeek[key] = {total:0, rows:[]};
-      byWeek[key].total += (+c.amount||0);
-      byWeek[key].rows.push(c);
-    });
-
-    // Pick week keys to display.
-    // Always show a contiguous range from "first week with data" (or current
-    // week if showAllWeeks is off and we only want future) through
-    // "last week with data" so the heatmap/bar chart are contiguous.
-    const allWeekKeys = Object.keys(byWeek).sort();
-    if(!allWeekKeys.length){
-      renderWeeklyEmpty();
-      return;
-    }
-    const todayKey = _toISOWeek(new Date());
-    const firstKey = _cfShowAllWeeks ? allWeekKeys[0] : (allWeekKeys.find(k => k >= todayKey) || todayKey);
-    const lastKey  = allWeekKeys[allWeekKeys.length - 1];
-
-    // Expand to contiguous sequence of ISO weeks between firstKey and lastKey
-    const weekSequence = _enumerateWeeks(firstKey, lastKey);
-
-    renderWeeklyHeatmap(weekSequence, byWeek);
-    renderWeeklyBarChart(weekSequence, byWeek);
-    renderWeeklyList(weekSequence, byWeek, todayKey);
-
-    // Update toggle button label
-    const btn = document.getElementById('cf-range-btn');
-    if(btn) btn.textContent = _cfShowAllWeeks ? 'Show upcoming only' : 'Show all weeks';
-
-  }catch(e){ console.error('loadCashflow:', e); toast('Failed to load cashflow','error'); }
+// Which half-month does this date belong to? Returns 'YYYY-MM-H1' or 'YYYY-MM-H2'.
+function _toHalfMonthKey(date){
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const half = date.getDate() <= 15 ? 'H1' : 'H2';
+  return `${y}-${m}-${half}`;
 }
 
-function toggleCfRange(){ _cfShowAllWeeks = !_cfShowAllWeeks; loadCashflow(); }
+// Human label for a half-month key.  "2026-06-H1" → "Jun 2026 · 1–15"
+function _halfLabel(key){
+  const [y, m, h] = key.split('-');
+  const monthName = new Date(+y, +m - 1, 1).toLocaleDateString('en-GB', {month:'short', year:'numeric'});
+  const lastDay = new Date(+y, +m, 0).getDate();  // 0th of next month = last day of this
+  const range = h === 'H1' ? '1–15' : `16–${lastDay}`;
+  return `${monthName} · ${range}`;
+}
+function _halfShortLabel(key){
+  const [y, m, h] = key.split('-');
+  const short = new Date(+y, +m - 1, 1).toLocaleDateString('en-GB', {month:'short'});
+  return `${short} ${h}`;
+}
 
-// Enumerate ISO weeks from startKey to endKey inclusive
-function _enumerateWeeks(startKey, endKey){
+// Range check: is a date inside this half-month?
+function _halfRange(key){
+  const [y, m, h] = key.split('-');
+  const year = +y, mon = +m;
+  const lastDay = new Date(year, mon, 0).getDate();
+  if(h === 'H1'){
+    return { start: new Date(year, mon-1, 1), end: new Date(year, mon-1, 15, 23, 59, 59) };
+  }
+  return { start: new Date(year, mon-1, 16), end: new Date(year, mon-1, lastDay, 23, 59, 59) };
+}
+
+// Enumerate a contiguous sequence of half-month keys from startKey to endKey (inclusive)
+function _enumerateHalves(startKey, endKey){
   const out = [];
-  let [y, w] = startKey.split('-W').map(Number);
+  let [y, m, h] = startKey.split('-');
+  y = +y; m = +m;
   while(true){
-    const key = `${y}-W${String(w).padStart(2,'0')}`;
+    const key = `${y}-${String(m).padStart(2,'0')}-${h}`;
     out.push(key);
     if(key === endKey) break;
-    // Advance one week
-    const nextMon = _isoWeekStart(y, w); nextMon.setUTCDate(nextMon.getUTCDate() + 7);
-    const nextKey = _toISOWeek(nextMon);
-    [y, w] = nextKey.split('-W').map(Number);
-    if(out.length > 200) break;  // safety
+    // Advance: H1 → H2 in same month; H2 → H1 in next month
+    if(h === 'H1'){ h = 'H2'; }
+    else { h = 'H1'; m += 1; if(m > 12){ m = 1; y += 1; } }
+    if(out.length > 100) break;  // safety
   }
   return out;
 }
 
-// ─── Headline stats ────────────────────────────────────────────────
+// Compact PKR formatter
+function _compactNum(n){
+  n = +n || 0;
+  if(Math.abs(n) >= 10000000) return (n/10000000).toFixed(2) + ' Cr';
+  if(Math.abs(n) >= 100000)   return (n/100000).toFixed(2) + ' L';
+  if(Math.abs(n) >= 1000)     return (n/1000).toFixed(1) + 'K';
+  return '' + Math.round(n);
+}
+
+// Stable color from vendor id (HSL hue hash) so each vendor keeps the same hue
+function _colorFromId(id){
+  if(!id) return '#888';
+  let hash = 0;
+  for(let i=0;i<id.length;i++) hash = ((hash<<5) - hash + id.charCodeAt(i)) | 0;
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 45%, 55%)`;
+}
+
+async function loadCashflow(){
+  try{
+    const [rows, vendors] = await Promise.all([
+      getData('cashflow'),
+      fetch(`${SB_URL}/rest/v1/vendors?select=id,vendor_name`,{headers})
+        .then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+
+    // Build vendor lookup with deterministic colors
+    _cfVendorMap = {};
+    (vendors||[]).forEach(v => {
+      _cfVendorMap[v.id] = { name: v.vendor_name || 'Unknown', color: _colorFromId(v.id) };
+    });
+
+    const data = rows || [];
+
+    renderCashflowStats(data);
+    renderAllEntriesTable(data);
+
+    // Bucket rows by half-month key
+    const byHalf = {};
+    data.forEach(c => {
+      const d = _cfRowDate(c);
+      if(!d) return;
+      const key = _toHalfMonthKey(d);
+      if(!byHalf[key]) byHalf[key] = { total:0, rows:[] };
+      byHalf[key].total += (+c.amount||0);
+      byHalf[key].rows.push(c);
+    });
+
+    const allHalfKeys = Object.keys(byHalf).sort();
+    if(!allHalfKeys.length){
+      renderCashflowEmpty();
+      return;
+    }
+
+    const todayKey = _toHalfMonthKey(new Date());
+    const firstKey = _cfShowAllHalves
+      ? allHalfKeys[0]
+      : (allHalfKeys.find(k => k >= todayKey) || todayKey);
+    const lastKey = allHalfKeys[allHalfKeys.length - 1];
+    const halfSequence = _enumerateHalves(firstKey, lastKey);
+
+    _cfHalfData = byHalf;
+    renderCashflowChart(halfSequence, byHalf);
+    renderHalfMonthList(halfSequence, byHalf, todayKey);
+
+    const btn = document.getElementById('cf-range-btn');
+    if(btn) btn.textContent = _cfShowAllHalves ? 'Show upcoming only' : 'Show all halves';
+
+  }catch(e){ console.error('loadCashflow:', e); toast('Failed to load cashflow','error'); }
+}
+
+function toggleCfRange(){ _cfShowAllHalves = !_cfShowAllHalves; loadCashflow(); }
+
+// ─── Headline stats ────────────────────────────────────────────────────
 function renderCashflowStats(rows){
   const today = new Date();
-  const thisWeek = _toISOWeek(today);
-  const nextMon = new Date(today); nextMon.setDate(today.getDate() + 7);
-  const nextWeek = _toISOWeek(nextMon);
+  const thisHalf = _toHalfMonthKey(today);
+  // Next half key
+  let [y, m, h] = thisHalf.split('-');
+  y = +y; m = +m;
+  if(h === 'H1'){ h = 'H2'; }
+  else { h = 'H1'; m += 1; if(m > 12){ m = 1; y += 1; } }
+  const nextHalf = `${y}-${String(m).padStart(2,'0')}-${h}`;
   const in30 = new Date(today); in30.setDate(today.getDate() + 30);
-  let thisW = 0, nextW = 0, next30 = 0, overdue = 0;
+
+  let thisH = 0, nextH = 0, next30 = 0, overdue = 0;
   rows.forEach(c => {
     const d = _cfRowDate(c);
     if(!d) return;
     const amt = +c.amount || 0;
-    const wk = _toISOWeek(d);
-    if(wk === thisWeek) thisW += amt;
-    if(wk === nextWeek) nextW += amt;
+    const hk = _toHalfMonthKey(d);
+    if(hk === thisHalf) thisH += amt;
+    if(hk === nextHalf) nextH += amt;
     if(d >= today && d <= in30) next30 += amt;
-    if(d < today) overdue += amt;  // already passed due date
+    if(d < today) overdue += amt;
   });
+
   const set = (id, value, sub) => {
     const el = document.getElementById(id);
     const elSub = document.getElementById(id + '-sub');
     if(el) el.textContent = value ? 'PKR ' + fmt(value) : '—';
     if(elSub && sub !== undefined) elSub.textContent = sub;
   };
-  set('cf-this-week', thisW, `ending ${_weekRangeLabel(thisWeek).split(' – ')[1]}`);
-  set('cf-next-week', nextW, `starting ${_weekRangeLabel(nextWeek).split(' – ')[0]}`);
+  set('cf-this-half', thisH, _halfLabel(thisHalf));
+  set('cf-next-half', nextH, _halfLabel(nextHalf));
   set('cf-next-30',   next30, 'next 30 days');
   set('cf-overdue',   overdue, overdue ? 'action needed' : 'all on track');
 }
 
-// ─── Weekly heatmap ────────────────────────────────────────────────
-// Displays each week of each month as a tiny square in a grid.
-// Rows = months, Columns = week 1/2/3/4/5 within that month.
-// This is easier to read than a strict calendar grid.
-function renderWeeklyHeatmap(weekSeq, byWeek){
-  const el = document.getElementById('cf-heatmap');
-  if(!el) return;
-  if(!weekSeq.length){ el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No weekly data yet.</div>'; return; }
-
-  // Max amount for scaling colour intensity
-  const max = Math.max(...weekSeq.map(k => byWeek[k]?.total || 0)) || 1;
-
-  // Group weeks by their starting month for row labelling
-  const monthRows = {};
-  weekSeq.forEach(k => {
-    const [y, w] = k.split('-W').map(Number);
-    const mon = _isoWeekStart(y, w);
-    const monKey = `${mon.getUTCFullYear()}-${String(mon.getUTCMonth()+1).padStart(2,'0')}`;
-    if(!monthRows[monKey]) monthRows[monKey] = [];
-    monthRows[monKey].push(k);
+// ─── All Entries table (with vendor column) ───────────────────────────
+function renderAllEntriesTable(rows){
+  const tbody = document.getElementById('cashflow-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No cashflow entries yet.</td></tr>';
+    return;
+  }
+  const sorted = [...rows].sort((a,b) => {
+    const da = _cfRowDate(a), db = _cfRowDate(b);
+    if(!da && !db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return da - db;
   });
-
-  const todayKey = _toISOWeek(new Date());
-  const parts = [];
-  parts.push(`<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;">`);
-  Object.keys(monthRows).sort().forEach(monKey => {
-    const [y, m] = monKey.split('-');
-    const monName = new Date(+y, +m-1, 1).toLocaleDateString('en-GB',{month:'long', year:'2-digit'});
-    parts.push(`<div style="font-size:11px;color:var(--text-muted);padding-top:6px;font-weight:500;">${monName}</div>`);
-    parts.push(`<div style="display:flex;gap:4px;flex-wrap:wrap;">`);
-    monthRows[monKey].forEach(k => {
-      const total = byWeek[k]?.total || 0;
-      const intensity = total / max;           // 0..1
-      const isPast = k < todayKey;
-      const isCurrent = k === todayKey;
-      // Colour ramp (gold): from soft tint to full gold
-      const alpha = total > 0 ? (0.15 + intensity * 0.80) : 0;
-      const bg = total > 0 ? `rgba(201,168,76,${alpha.toFixed(2)})` : 'var(--surface2)';
-      const border = isCurrent ? '2px solid var(--gold)' : '1px solid var(--border)';
-      const opacity = isPast && !total ? 0.45 : 1;
-      const w = k.split('-W')[1];
-      const label = total > 0 ? `W${w}: PKR ${fmt(total)}\n${_weekRangeLabel(k)}` : `W${w}: no payments\n${_weekRangeLabel(k)}`;
-      parts.push(`<div title="${label.replace(/"/g,'&quot;')}" style="min-width:62px;height:46px;background:${bg};border:${border};border-radius:6px;padding:4px 6px;font-size:10px;display:flex;flex-direction:column;justify-content:space-between;opacity:${opacity};cursor:default;">
-        <span style="color:var(--text-muted);font-weight:600;">W${w}</span>
-        <span style="color:var(--text);font-weight:${total>0?'600':'400'};font-size:${total>0?'10px':'9px'};">${total>0? 'PKR '+_compactNum(total) : '—'}</span>
-      </div>`);
-    });
-    parts.push(`</div>`);
-  });
-  parts.push(`</div>`);
-  el.innerHTML = parts.join('');
+  tbody.innerHTML = sorted.map(c => {
+    const adminBtn = isAdmin()
+      ? `<td><button class="btn btn-danger btn-sm" onclick="deleteRow('cashflow','${c.id}',loadCashflow)">✕</button></td>`
+      : '<td></td>';
+    const dateStr = c.due_date
+      ? new Date(c.due_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+      : (c.month || '—');
+    const vendor = _cfVendorMap[c.source_vendor_id];
+    const vendorCell = vendor
+      ? `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${vendor.color};"></span>${_esc(vendor.name)}</span>`
+      : '<span style="color:var(--text-muted);">—</span>';
+    return `<tr><td>${dateStr}</td><td>${vendorCell}</td><td>${_esc(c.description||'')}</td><td>${_esc(c.category||'—')}</td><td>${statusBadge(c.priority||'Medium')}</td><td>PKR ${fmt(c.amount)}</td>${adminBtn}</tr>`;
+  }).join('');
 }
 
-// Compact number formatter: 1,425,000 → "1.4M", 250,000 → "250K"
-function _compactNum(n){
-  n = +n || 0;
-  if(Math.abs(n) >= 10000000) return (n/10000000).toFixed(2) + ' Cr';  // Indian/Pakistani crore
-  if(Math.abs(n) >= 100000)   return (n/100000).toFixed(2) + ' L';     // lakh
-  if(Math.abs(n) >= 1000)     return (n/1000).toFixed(1) + 'K';
-  return '' + Math.round(n);
-}
-
-// ─── Weekly bar chart ──────────────────────────────────────────────
-function renderWeeklyBarChart(weekSeq, byWeek){
-  const ctx = document.getElementById('chart-cashflow-weekly');
+// ─── Stacked bar chart: x=half-month, stacks=vendors ─────────────────
+function renderCashflowChart(halfSeq, byHalf){
+  const ctx = document.getElementById('chart-cashflow');
   if(!ctx) return;
-  if(ctx._chart) ctx._chart.destroy();
-  const labels = weekSeq.map(k => {
-    const w = k.split('-W')[1];
-    return `W${w} · ${_weekRangeLabel(k).split(' – ')[0]}`;
+  if(_cfChart) { _cfChart.destroy(); _cfChart = null; }
+
+  // Collect unique vendor_ids present in the visible range
+  const vendorSet = new Set();
+  halfSeq.forEach(hk => {
+    (byHalf[hk]?.rows || []).forEach(r => {
+      vendorSet.add(r.source_vendor_id || '__other__');
+    });
   });
-  const data = weekSeq.map(k => byWeek[k]?.total || 0);
-  const todayKey = _toISOWeek(new Date());
-  const colours = weekSeq.map(k => {
-    if(k === todayKey) return '#4a9eff';          // this week — blue
-    if(k < todayKey)   return '#8a858066';        // past — grey
-    return '#c9a84cbb';                           // future — gold
+  const vendorIds = Array.from(vendorSet);
+
+  // Build one dataset per vendor
+  const datasets = vendorIds.map(vid => {
+    const vendor = _cfVendorMap[vid];
+    const label = vendor ? vendor.name : 'Other / Manual';
+    const color = vendor ? vendor.color : '#a8a8a8';
+    const data = halfSeq.map(hk => {
+      const rows = (byHalf[hk]?.rows || []).filter(r => (r.source_vendor_id || '__other__') === vid);
+      return rows.reduce((s,r) => s + (+r.amount||0), 0);
+    });
+    return {
+      label,
+      data,
+      backgroundColor: color,
+      borderColor: color,
+      borderWidth: 0,
+      borderRadius: 3,
+      barPercentage: 0.7,
+    };
   });
-  ctx._chart = new Chart(ctx, {
+
+  const labels = halfSeq.map(_halfShortLabel);
+  const todayKey = _toHalfMonthKey(new Date());
+
+  _cfChart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Required Cash (PKR)',
-        data,
-        backgroundColor: colours,
-        borderColor: colours,
-        borderWidth: 1,
-      }]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if(!elements.length) return;
+        const halfIndex = elements[0].index;
+        const key = halfSeq[halfIndex];
+        openCfDetail(key);
+      },
       scales: {
-        x: {ticks:{color:'#8a8580', maxRotation:60, minRotation:45, font:{size:9}}, grid:{color:'#dde8e2'}},
-        y: {ticks:{color:'#8a8580', callback:v=>_compactNum(v)}, grid:{color:'#dde8e2'}}
+        x: {
+          stacked: true,
+          ticks: { color:'#8a8580', font:{size:10}, maxRotation: 45, minRotation: 0 },
+          grid: { display: false }
+        },
+        y: {
+          stacked: true,
+          ticks: { color:'#8a8580', callback: v => _compactNum(v) },
+          grid: { color:'#dde8e2' }
+        }
       },
       plugins: {
-        legend: {display:false},
+        legend: {
+          display: vendorIds.length <= 15,
+          position: 'bottom',
+          labels: { color:'#8a8580', font:{size:10}, usePointStyle:true, padding:8, boxWidth:8 }
+        },
         tooltip: {
           callbacks: {
-            label: (ctx) => 'PKR ' + fmt(ctx.parsed.y)
+            title: (items) => {
+              const key = halfSeq[items[0].dataIndex];
+              return _halfLabel(key) + (key === todayKey ? '  (current)' : '');
+            },
+            label: (item) => {
+              if(item.parsed.y <= 0) return null;
+              return ` ${item.dataset.label}: PKR ${fmt(item.parsed.y)}`;
+            },
+            footer: (items) => {
+              const total = items.reduce((s,i) => s + (i.parsed.y||0), 0);
+              return `Total: PKR ${fmt(total)}`;
+            }
           }
         }
       }
@@ -7382,32 +7400,30 @@ function renderWeeklyBarChart(weekSeq, byWeek){
   });
 }
 
-// ─── Weekly list with per-week breakdown ──────────────────────────
-function renderWeeklyList(weekSeq, byWeek, todayKey){
-  const el = document.getElementById('cf-weekly-list');
+// ─── Half-month list below the chart ──────────────────────────────────
+function renderHalfMonthList(halfSeq, byHalf, todayKey){
+  const el = document.getElementById('cf-halfmonth-list');
   if(!el) return;
-  const entries = weekSeq.filter(k => (byWeek[k]?.rows || []).length > 0);
-  if(!entries.length){
-    el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No weekly entries in range.</div>';
+  const withData = halfSeq.filter(k => (byHalf[k]?.rows || []).length > 0);
+  if(!withData.length){
+    el.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No entries in range.</div>';
     return;
   }
-  el.innerHTML = entries.map(k => {
-    const bucket = byWeek[k];
+  el.innerHTML = withData.map(k => {
+    const bucket = byHalf[k];
     const isPast = k < todayKey;
     const isCurrent = k === todayKey;
-    const tag = isCurrent ? '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">THIS WEEK</span>'
+    const tag = isCurrent ? '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">CURRENT</span>'
               : isPast ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">PAST</span>'
               : '<span style="background:rgba(184,149,88,.15);color:var(--gold);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">UPCOMING</span>';
-    const w = k.split('-W')[1];
-    const rows = (bucket.rows||[]).slice().sort((a,b)=>{
+    const rows = [...(bucket.rows||[])].sort((a,b)=>{
       const da = _cfRowDate(a), db = _cfRowDate(b);
       return (da && db) ? (da - db) : 0;
     });
-    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;">
+    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;cursor:pointer;" onclick="openCfDetail('${k}')" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="padding:12px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <b style="font-size:13px;">Week ${w}</b>
-          <span style="color:var(--text-muted);font-size:12px;">${_weekRangeLabel(k)}</span>
+          <b style="font-size:13px;">${_halfLabel(k)}</b>
           ${tag}
         </div>
         <div style="text-align:right;">
@@ -7416,30 +7432,123 @@ function renderWeeklyList(weekSeq, byWeek, todayKey){
         </div>
       </div>
       <div style="padding:8px 14px;">
-        ${rows.map(c => {
+        ${rows.slice(0, 5).map(c => {
           const d = _cfRowDate(c);
-          const dStr = d ? d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}) : (c.month||'—');
+          const dStr = d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : (c.month||'—');
+          const vendor = _cfVendorMap[c.source_vendor_id];
+          const vendorDot = vendor
+            ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${vendor.color};margin-right:6px;"></span>`
+            : '';
+          const vendorLabel = vendor ? `<b>${_esc(vendor.name)}</b>` : '';
           return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);gap:10px;font-size:12px;">
             <div style="flex:1;min-width:0;">
-              <div style="color:var(--text);">${_esc(c.description||'—')}</div>
-              <div style="color:var(--text-muted);font-size:10px;margin-top:2px;">${dStr} · ${_esc(c.category||'—')}${c.priority?' · '+c.priority:''}${c.responsible?' · '+_esc(c.responsible):''}</div>
+              <div style="color:var(--text);">${vendorDot}${vendorLabel}${vendor?' · ':''}${_esc(c.description||'—')}</div>
+              <div style="color:var(--text-muted);font-size:10px;margin-top:2px;">${dStr} · ${_esc(c.category||'—')}${c.priority?' · '+c.priority:''}</div>
             </div>
             <div style="flex-shrink:0;font-weight:600;color:var(--text);">PKR ${fmt(c.amount)}</div>
           </div>`;
         }).join('')}
+        ${rows.length > 5 ? `<div style="padding:8px 0 4px;font-size:11px;color:var(--text-muted);text-align:center;">+ ${rows.length - 5} more — click to view all</div>` : ''}
       </div>
     </div>`;
   }).join('');
 }
 
-function renderWeeklyEmpty(){
-  const heatmap = document.getElementById('cf-heatmap');
-  const list = document.getElementById('cf-weekly-list');
-  if(heatmap) heatmap.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No dated entries yet. Add a cashflow requirement with a due date to populate the weekly view.</div>';
-  if(list) list.innerHTML = '';
-  const ctx = document.getElementById('chart-cashflow-weekly');
-  if(ctx && ctx._chart){ ctx._chart.destroy(); ctx._chart = null; }
+function renderCashflowEmpty(){
+  const ctx = document.getElementById('chart-cashflow');
+  if(ctx && _cfChart){ _cfChart.destroy(); _cfChart = null; }
+  const list = document.getElementById('cf-halfmonth-list');
+  if(list) list.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;text-align:center;">No dated entries yet. Add a cashflow requirement with a due date to populate the view.</div>';
 }
+
+// ─── Detail modal when a bar or card is clicked ──────────────────────
+function openCfDetail(halfKey){
+  const bucket = _cfHalfData[halfKey];
+  if(!bucket || !bucket.rows.length){ toast('No entries in this half','info'); return; }
+  const modal = document.getElementById('cf-detail-modal');
+  if(!modal) return;
+  const header = document.getElementById('cf-detail-header');
+  const body = document.getElementById('cf-detail-body');
+  const todayKey = _toHalfMonthKey(new Date());
+  const isPast = halfKey < todayKey;
+  const isCurrent = halfKey === todayKey;
+  const tag = isCurrent ? '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">CURRENT</span>'
+            : isPast ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">OVERDUE</span>'
+            : '<span style="background:rgba(184,149,88,.15);color:var(--gold);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">UPCOMING</span>';
+
+  header.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <h2 style="margin:0 0 6px 0;font-family:'Playfair Display',serif;font-size:22px;font-weight:600;">${_halfLabel(halfKey)}</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        ${tag}
+        <span style="font-size:13px;color:var(--text-muted);">${bucket.rows.length} payment${bucket.rows.length===1?'':'s'} · total <b style="color:var(--gold);">PKR ${fmt(bucket.total)}</b></span>
+      </div>
+    </div>
+    <button onclick="closeCfDetail()" aria-label="Close" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;color:var(--text-muted);flex-shrink:0;line-height:1;">×</button>
+  `;
+
+  // Group by vendor for the detail body
+  const byVendor = {};
+  bucket.rows.forEach(r => {
+    const vid = r.source_vendor_id || '__other__';
+    if(!byVendor[vid]) byVendor[vid] = { vendor: _cfVendorMap[vid], rows: [] };
+    byVendor[vid].rows.push(r);
+  });
+  const vendorIds = Object.keys(byVendor).sort((a,b) => {
+    const na = byVendor[a].vendor?.name || 'ZZ';
+    const nb = byVendor[b].vendor?.name || 'ZZ';
+    return na.localeCompare(nb);
+  });
+
+  body.innerHTML = vendorIds.map(vid => {
+    const g = byVendor[vid];
+    const vendorName = g.vendor ? g.vendor.name : 'Other / Manual';
+    const vendorColor = g.vendor ? g.vendor.color : '#a8a8a8';
+    const vTotal = g.rows.reduce((s,r)=>s+(+r.amount||0), 0);
+    const rows = [...g.rows].sort((a,b) => {
+      const da = _cfRowDate(a), db = _cfRowDate(b);
+      return (da && db) ? (da - db) : 0;
+    });
+    return `<div style="margin-top:14px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:none;">
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${vendorColor};flex-shrink:0;"></span>
+        <b style="font-size:14px;flex:1;">${_esc(vendorName)}</b>
+        <span style="font-size:13px;font-weight:700;color:var(--gold);">PKR ${fmt(vTotal)}</span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:0 0 8px 8px;border-top:none;">
+        ${rows.map((c, idx) => {
+          const d = _cfRowDate(c);
+          const dStr = d ? d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}) : (c.month||'—');
+          return `<div style="padding:10px 12px;${idx < rows.length-1 ? 'border-bottom:1px dashed var(--border);' : ''}font-size:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div style="flex:1;min-width:0;">
+              <div style="color:var(--text);margin-bottom:3px;">${_esc(c.description||'—')}</div>
+              <div style="color:var(--text-muted);font-size:10px;">${dStr} · ${_esc(c.category||'—')}${c.priority?' · '+c.priority:''}${c.responsible?' · '+_esc(c.responsible):''}</div>
+            </div>
+            <div style="flex-shrink:0;font-weight:700;color:var(--text);">PKR ${fmt(c.amount)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCfDetail(){
+  const modal = document.getElementById('cf-detail-modal');
+  if(modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// Esc to close the cashflow detail modal
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    const modal = document.getElementById('cf-detail-modal');
+    if(modal && modal.style.display === 'flex') closeCfDetail();
+  }
+});
+
 async function addCashflow(){
   if(!isAdmin()) return;
   const dueDate = document.getElementById('cf-due-date').value;
