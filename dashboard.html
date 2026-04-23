@@ -6004,12 +6004,32 @@ function _roomBuilding(r){
   return '—';
 }
 
+// Supabase caps a single request at 1000 rows by default. Since we have
+// ~5500 checklist items across 87 rooms, we need to paginate manually.
+// This helper fetches all rows by walking Range headers 0-999, 1000-1999, etc.
+async function _fetchAllChecklistItems(){
+  const out = [];
+  let from = 0;
+  const CHUNK = 1000;
+  while(true){
+    const r = await fetch(`${SB_URL}/rest/v1/room_checklist?select=*&order=sort_order.asc`, {
+      headers: {...headers, Range: `${from}-${from+CHUNK-1}`}
+    });
+    if(!r.ok){ console.warn('[loadRooms] page', from, 'failed:', r.status); break; }
+    const batch = await r.json();
+    out.push(...batch);
+    if(batch.length < CHUNK) break;    // last page
+    from += CHUNK;
+    if(from > 20000) break;             // safety stop
+  }
+  return out;
+}
+
 async function loadRooms(){
   try{
     const [rooms, items] = await Promise.all([
       getData('rooms'),
-      fetch(`${SB_URL}/rest/v1/room_checklist?select=*&order=sort_order.asc`,{headers})
-        .then(r=>r.ok?r.json():[]).catch(()=>[])
+      _fetchAllChecklistItems().catch(e => { console.warn('checklist fetch failed', e); return []; })
     ]);
     _rcRooms = rooms || [];
     _rcItems = Array.isArray(items) ? items : [];
@@ -6506,10 +6526,26 @@ async function renderOverviewRoomsGrid(){
   const hint = document.getElementById('ov-rooms-hint');
   if(!grid) return;
   try{
+    // Paginate to get past the 1000-row cap on room_checklist
+    const fetchAllOvItems = async () => {
+      const out = [];
+      let from = 0;
+      while(true){
+        const r = await fetch(`${SB_URL}/rest/v1/room_checklist?select=room_id,status`, {
+          headers: {...headers, Range: `${from}-${from+999}`}
+        });
+        if(!r.ok) break;
+        const batch = await r.json();
+        out.push(...batch);
+        if(batch.length < 1000) break;
+        from += 1000;
+        if(from > 20000) break;
+      }
+      return out;
+    };
     const [rooms, items] = await Promise.all([
       getData('rooms'),
-      fetch(`${SB_URL}/rest/v1/room_checklist?select=room_id,status`,{headers})
-        .then(r=>r.ok?r.json():[]).catch(()=>[])
+      fetchAllOvItems().catch(e => { console.warn('ov items fetch:', e); return []; })
     ]);
     if(!rooms.length){
       grid.innerHTML = '<div style="padding:18px;color:var(--text-muted);font-size:12px;">No rooms yet.</div>';
@@ -6740,9 +6776,26 @@ async function syncRoomTemplates(){
   if(!confirm('This will ADD any missing checklist items to every existing room and update weights. Nothing existing is removed or un-ticked. Continue?')) return;
 
   try{
+    // Paginate items fetch past the 1000-row Supabase cap
+    const fetchAllSyncItems = async () => {
+      const out = [];
+      let from = 0;
+      while(true){
+        const r = await fetch(`${SB_URL}/rest/v1/room_checklist?select=id,room_id,item_name,weight&order=sort_order.asc`, {
+          headers: {...headers, Range: `${from}-${from+999}`}
+        });
+        if(!r.ok) break;
+        const batch = await r.json();
+        out.push(...batch);
+        if(batch.length < 1000) break;
+        from += 1000;
+        if(from > 20000) break;
+      }
+      return out;
+    };
     const [rooms, items] = await Promise.all([
       fetch(`${SB_URL}/rest/v1/rooms?select=id,room_name,room_type`,{headers}).then(r=>r.json()),
-      fetch(`${SB_URL}/rest/v1/room_checklist?select=id,room_id,item_name,weight&order=sort_order.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetchAllSyncItems().catch(()=>[]),
     ]);
 
     const itemsByRoom = {};
