@@ -6377,7 +6377,16 @@ function renderRoomModal(){
 
   // Add-item form
   if(canWrite()){
-    html += `<div style="display:flex;gap:6px;padding:10px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;margin-top:12px;flex-wrap:wrap;">
+    // Count same-type rooms so hint is accurate
+    const sameTypeCount = _rcRooms.filter(x => x.room_type === r.room_type).length;
+    const scopeHint = sameTypeCount > 1
+      ? `<div style="font-size:10px;color:var(--text-muted);margin:10px 0 4px 2px;display:flex;align-items:center;gap:6px;">
+          <span style="color:var(--gold);">ℹ</span>
+          Adding or removing items here affects all <b>${sameTypeCount} ${_esc(r.room_type)}</b> rooms. Ticked items are never touched.
+        </div>`
+      : '';
+    html += scopeHint;
+    html += `<div style="display:flex;gap:6px;padding:10px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;margin-top:4px;flex-wrap:wrap;">
       <input id="rc-newitem-${r.id}" placeholder="Add custom item…" style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem('${r.id}');}">
       <select id="rc-newcat-${r.id}" title="Category" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--text);">
         <option>Civil</option><option>Electrical</option><option>Furnishing</option><option>Tech</option><option selected>Utensils</option><option>Bathroom</option><option>Final</option><option>Other</option>
@@ -6388,7 +6397,7 @@ function renderRoomModal(){
         <option value="10">Major</option>
         <option value="25">Critical</option>
       </select>
-      <button class="btn btn-primary btn-sm" onclick="addChecklistItem('${r.id}')">+ Add</button>
+      <button class="btn btn-primary btn-sm" onclick="addChecklistItem('${r.id}')">+ Add to all ${_esc(r.room_type)}s</button>
     </div>`;
   }
 
@@ -6483,6 +6492,10 @@ async function cycleChecklistItem(itemId){
   }catch(e){ console.error(e); toast('Save failed','error'); item.status = item.status; }
 }
 
+// ═══ ADD CHECKLIST ITEM — propagates to all rooms of the SAME TYPE ══════════
+// When you add "Welcome chocolate" to RoomADB01 (Double Bed), the same item
+// is added to every other Double Bed that doesn't already have it. Rooms that
+// already have an item with this name are skipped, so re-adding is safe.
 async function addChecklistItem(roomId){
   if(!canWrite()) return;
   const input = document.getElementById(`rc-newitem-${roomId}`);
@@ -6491,33 +6504,155 @@ async function addChecklistItem(roomId){
   const weight = weightEl ? +weightEl.value : 3;  // default Standard
   const name = (input?.value||'').trim();
   if(!name){ toast('Item name required','error'); return; }
-  const existing = _rcItems.filter(i=>i.room_id===roomId).length;
-  const payload = { room_id: roomId, item_name: name, category: cat, status:'pending', sort_order: existing, weight };
+
+  // Find this room's type
+  const sourceRoom = _rcRooms.find(r => r.id === roomId);
+  const sourceType = sourceRoom?.room_type;
+  if(!sourceType){
+    toast('Cannot determine room type','error');
+    return;
+  }
+
+  // Find all rooms of the same type
+  const sameTypeRooms = _rcRooms.filter(r => r.room_type === sourceType);
+  // For each of those, check if it already has an item with this name
+  const nameLower = name.toLowerCase().trim();
+  const targetRooms = [];
+  let skippedExisting = 0;
+  for(const r of sameTypeRooms){
+    const existingItems = _rcItems.filter(i => i.room_id === r.id);
+    const hasIt = existingItems.some(i => (i.item_name||'').toLowerCase().trim() === nameLower);
+    if(hasIt) skippedExisting++;
+    else targetRooms.push(r);
+  }
+
+  if(targetRooms.length === 0){
+    toast(`All ${sameTypeRooms.length} ${sourceType} rooms already have this item.`, 'info');
+    return;
+  }
+
+  // Confirmation dialog — so accidents don't cascade
+  const msg = `Add "${name}" to ${targetRooms.length} ${sourceType} room${targetRooms.length===1?'':'s'}?` +
+    (skippedExisting ? `\n\n${skippedExisting} room${skippedExisting===1?'':'s'} already have this item and will be skipped.` : '');
+  if(!confirm(msg)) return;
+
+  // Build the bulk insert payload
+  const payload = targetRooms.map(r => {
+    const existing = _rcItems.filter(i => i.room_id === r.id).length;
+    return {
+      room_id: r.id,
+      item_name: name,
+      category: cat,
+      status: 'pending',
+      sort_order: existing,
+      weight,
+    };
+  });
+
   try{
-    let r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
+    let r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+      method:'POST', headers, body: JSON.stringify(payload)
+    });
     if(!r.ok){
       const err = await r.text();
+      // Fallback A: weight column missing
       if(/weight/i.test(err) && /column/i.test(err)){
-        delete payload.weight;
-        r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{ method:'POST', headers, body: JSON.stringify(payload) });
+        const stripped = payload.map(p => { const {weight, ...rest} = p; return rest; });
+        r = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+          method:'POST', headers, body: JSON.stringify(stripped)
+        });
+      }
+      // Fallback B: unique constraint violation — means our check missed
+      // a race; fall back to one-by-one so unique ones still land.
+      else if(/duplicate|rc_unique_room_item|23505/i.test(err)){
+        let ok = 0;
+        for(const row of payload){
+          const rr = await fetch(`${SB_URL}/rest/v1/room_checklist`,{
+            method:'POST', headers, body: JSON.stringify(row)
+          });
+          if(rr.ok) ok++;
+        }
+        toast(`Added to ${ok}/${payload.length} rooms (${payload.length-ok} already had it)`);
+        if(input) input.value = '';
+        await loadRooms();
+        if(_roomModalId) renderRoomModal();
+        return;
       }
       if(!r.ok) throw new Error(await r.text());
     }
+    toast(`✓ Added "${name}" to ${targetRooms.length} ${sourceType} room${targetRooms.length===1?'':'s'}`);
     if(input) input.value = '';
     await loadRooms();
     if(_roomModalId) renderRoomModal();
   }catch(e){ console.error(e); toast('Error adding item','error'); }
 }
 
+// ═══ DELETE CHECKLIST ITEM — removes from all rooms of SAME TYPE ═════════════
+// When you ✕ "Skirting" on RoomADB01 (Double Bed), it deletes "Skirting" from
+// every Double Bed where it's still pending. Rooms where someone has already
+// ticked it (done/in_progress) are left alone — so no one loses progress.
 async function deleteChecklistItem(itemId){
   if(!isAdmin()) return;
-  if(!confirm('Remove this item?')) return;
+  const item = _rcItems.find(i => i.id === itemId);
+  if(!item){ toast('Item not found','error'); return; }
+  const itemName = item.item_name || '';
+  const sourceRoom = _rcRooms.find(r => r.id === item.room_id);
+  const sourceType = sourceRoom?.room_type;
+  if(!sourceType){
+    // Fall back to single-room delete if we can't determine type
+    if(!confirm(`Remove "${itemName}" from this room?`)) return;
+    try{
+      await fetch(`${SB_URL}/rest/v1/room_checklist?id=eq.${itemId}`,{method:'DELETE',headers});
+      _rcItems = _rcItems.filter(i=>i.id!==itemId);
+      renderRoomCards();
+      if(_roomModalId) renderRoomModal();
+    }catch(e){ toast('Error','error'); }
+    return;
+  }
+
+  // Find all matching items across rooms of the same type
+  const nameLower = itemName.toLowerCase().trim();
+  const sameTypeRoomIds = new Set(_rcRooms.filter(r => r.room_type === sourceType).map(r => r.id));
+  const candidates = _rcItems.filter(i =>
+    sameTypeRoomIds.has(i.room_id) &&
+    (i.item_name||'').toLowerCase().trim() === nameLower
+  );
+  // Split into deletable (pending) vs skipped (ticked)
+  const deletable = candidates.filter(i => !i.status || i.status === 'pending');
+  const skipped = candidates.filter(i => i.status && i.status !== 'pending');
+
+  if(deletable.length === 0){
+    toast(`"${itemName}" is ticked in every ${sourceType} room — nothing to delete.`, 'info');
+    return;
+  }
+
+  // Confirm
+  let msg = `Delete "${itemName}" from ${deletable.length} ${sourceType} room${deletable.length===1?'':'s'}?`;
+  if(skipped.length){
+    msg += `\n\n${skipped.length} room${skipped.length===1?'':'s'} where this item is already ticked will be left alone.`;
+  }
+  if(!confirm(msg)) return;
+
+  // Bulk delete by id=in.(...)
   try{
-    await fetch(`${SB_URL}/rest/v1/room_checklist?id=eq.${itemId}`,{method:'DELETE',headers});
-    _rcItems = _rcItems.filter(i=>i.id!==itemId);
+    // Chunk just in case — Supabase URL length limit is ~8KB, so 500 UUIDs fit easily
+    let deleted = 0;
+    const CHUNK = 100;
+    for(let i=0; i<deletable.length; i+=CHUNK){
+      const chunk = deletable.slice(i, i+CHUNK);
+      const inList = chunk.map(it => `"${it.id}"`).join(',');
+      const r = await fetch(`${SB_URL}/rest/v1/room_checklist?id=in.(${inList})`,{
+        method:'DELETE', headers
+      });
+      if(r.ok) deleted += chunk.length;
+      else console.error('[delete] chunk failed:', await r.text());
+    }
+    const deletedIds = new Set(deletable.map(it => it.id));
+    _rcItems = _rcItems.filter(i => !deletedIds.has(i.id));
+    toast(`✓ Deleted from ${deleted} ${sourceType} room${deleted===1?'':'s'}${skipped.length?` (${skipped.length} skipped)`:''}`);
     renderRoomCards();
     if(_roomModalId) renderRoomModal();
-  }catch(e){ toast('Error','error'); }
+  }catch(e){ console.error(e); toast('Error deleting','error'); }
 }
 
 // Overview grid renderer — called from loadOverview
