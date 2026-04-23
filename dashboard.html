@@ -2223,7 +2223,10 @@ async function backfillApprovedCashflow(){
       const name = vmap[c.vendor_id] || 'Vendor';
       const label = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
       console.log(`[backfill] Pushing ${ms.length} milestones for ${label}`);
-      await pushVendorScheduleToCashflow(c.id, label, c.total_contract, ms);
+      // BUG FIX: previously passed c.id (contract id) which caused FK violations on
+      // cashflow.source_vendor_id. Use c.vendor_id so cashflow rows correctly
+      // reference a real vendor.
+      await pushVendorScheduleToCashflow(c.vendor_id, label, c.total_contract, ms);
       fixed++;
     }
     if(fixed > 0){
@@ -7636,7 +7639,9 @@ async function saveEditVendor(){
           }
           const contractLabel = c.contract_name ? `${name} — ${c.contract_name}` : `${name} — Contract ${c.contract_number}`;
           const before = await _countCashflowForVendor(id);
-          await pushVendorScheduleToCashflow(c.id, contractLabel, c.total_contract, ms);
+          // BUG FIX: previously passed c.id (the contract id). Pass c.vendor_id
+          // so the cashflow row's source_vendor_id actually matches a real vendor.
+          await pushVendorScheduleToCashflow(c.vendor_id, contractLabel, c.total_contract, ms);
           const after = await _countCashflowForVendor(id);
           totalPushed += Math.max(0, after - before) + ms.length;  // approx; used only for toast
         }catch(pushErr){
