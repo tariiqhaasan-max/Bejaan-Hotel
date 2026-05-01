@@ -64,6 +64,10 @@ tr:hover td{background:var(--green-bg);}
 .badge-blue{background:rgba(58,134,200,.12);color:#2a66a0;}
 .badge-orange{background:rgba(224,138,76,.12);color:#b06030;}
 .badge-gray{background:rgba(90,112,102,.1);color:var(--text-muted);}
+/* Vendor filter preset chips */
+.vf-preset{padding:5px 11px;background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:14px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.vf-preset:hover{border-color:var(--green-dim);color:var(--green-dim);}
+.vf-preset.active{background:var(--green-dim);color:#fff;border-color:var(--green-dim);}
 .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);margin-bottom:10px;font-size:13px;}
 .alert-warning{background:rgba(224,138,76,.08);border:1px solid rgba(224,138,76,.2);color:#b06030;}
 .alert-danger{background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.2);color:#c04040;}
@@ -567,6 +571,60 @@ tr:hover td{background:var(--green-bg);}
 
   <div class="card">
     <div class="card-title">All Vendors & Payments</div>
+
+    <!-- ── FILTER BAR ───────────────────────────────────────── -->
+    <div id="vendor-filters" style="margin-bottom:14px">
+      <!-- Quick-preset chips (one-click filter combos) -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-right:4px">Quick:</span>
+        <button class="vf-preset" data-preset="all"        onclick="applyVendorPreset('all')">All</button>
+        <button class="vf-preset" data-preset="overdue"    onclick="applyVendorPreset('overdue')">⚠ Overdue</button>
+        <button class="vf-preset" data-preset="pending"    onclick="applyVendorPreset('pending')">⏳ Pending Approval</button>
+        <button class="vf-preset" data-preset="drafts"     onclick="applyVendorPreset('drafts')">📝 Draft Contracts</button>
+        <button class="vf-preset" data-preset="approved"   onclick="applyVendorPreset('approved')">✓ Approved Contracts</button>
+        <button class="vf-preset" data-preset="unapproved" onclick="applyVendorPreset('unapproved')">✗ Unapproved</button>
+        <button class="vf-preset" data-preset="active"     onclick="applyVendorPreset('active')">▶ In Progress</button>
+        <button class="vf-preset" data-preset="balance"    onclick="applyVendorPreset('balance')">💰 Outstanding Balance</button>
+      </div>
+      <!-- Detailed filter row (combinable dropdowns + search) -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input type="text" id="vf-search" placeholder="Search vendor or category…" oninput="renderVendorRows()"
+          style="flex:1;min-width:180px;padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+        <select id="vf-status" onchange="renderVendorRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Pending Approval">Pending Approval</option>
+          <option value="Approved">Approved</option>
+          <option value="In Progress">In Progress</option>
+          <option value="On Hold">On Hold</option>
+          <option value="Completed">Completed</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+        <select id="vf-approval" onchange="renderVendorRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Approvals</option>
+          <option value="Approved">Approved</option>
+          <option value="Pending Approval">Pending Approval</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+        <select id="vf-agreement" onchange="renderVendorRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Agreements</option>
+          <option value="Approved">Approved</option>
+          <option value="Mixed">Mixed (partial)</option>
+          <option value="Draft">Draft</option>
+        </select>
+        <select id="vf-due" onchange="renderVendorRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Due Dates</option>
+          <option value="overdue">Overdue (past + In Progress)</option>
+          <option value="this-week">Due this week</option>
+          <option value="this-month">Due this month</option>
+          <option value="future">Future (next 90 days)</option>
+          <option value="no-date">No due date set</option>
+        </select>
+        <button onclick="clearVendorFilters()" class="btn btn-secondary btn-sm" style="font-size:11px">Clear</button>
+        <span id="vf-count" style="font-size:11px;color:var(--text-muted);margin-left:auto"></span>
+      </div>
+    </div>
+
     <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Agreement</th><th>Total</th><th>Paid</th><th>Balance</th><th>Tasks</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
   </div>
 </div>
@@ -4644,10 +4702,69 @@ async function loadAlerts(){
 }
 
 // VENDORS
+// ── Vendor filter state — module-scoped so renderVendorRows can read filters ──
+let _vendorCache = null;       // { data, allPays, allTasks, allContracts }
+let _vendorActivePreset = '';  // 'all' | 'overdue' | 'pending' | etc. — for chip highlight
+
+function clearVendorFilters() {
+  ['vf-search','vf-status','vf-approval','vf-agreement','vf-due'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  _vendorActivePreset = 'all';
+  renderVendorRows();
+}
+
+function applyVendorPreset(preset) {
+  // Reset all filters first
+  ['vf-search','vf-status','vf-approval','vf-agreement','vf-due'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  // Apply this preset's filter combination
+  switch (preset) {
+    case 'all':
+      break; // already cleared
+    case 'overdue':
+      // Past due AND status = In Progress
+      document.getElementById('vf-due').value = 'overdue';
+      document.getElementById('vf-status').value = 'In Progress';
+      break;
+    case 'pending':
+      document.getElementById('vf-approval').value = 'Pending Approval';
+      break;
+    case 'drafts':
+      document.getElementById('vf-agreement').value = 'Draft';
+      break;
+    case 'approved':
+      document.getElementById('vf-agreement').value = 'Approved';
+      break;
+    case 'unapproved':
+      document.getElementById('vf-approval').value = 'Pending Approval';
+      // also surface Rejected via filter; we'll OR them in matching logic
+      break;
+    case 'active':
+      document.getElementById('vf-status').value = 'In Progress';
+      break;
+    case 'balance':
+      // No dropdown for "has balance"; matching logic checks the special preset name
+      break;
+  }
+  _vendorActivePreset = preset;
+  // Update chip active styling
+  document.querySelectorAll('.vf-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+  renderVendorRows();
+}
+
 async function loadVendors(){
   try{
-    const data=await getData('vendors');const tbody=document.getElementById('vendors-tbody');
-    if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="14">No vendors added yet.</td></tr>';return;}
+    const data=await getData('vendors');
+    if(!data.length){
+      const tbody=document.getElementById('vendors-tbody');
+      if(tbody) tbody.innerHTML='<tr class="empty-row"><td colspan="14">No vendors added yet.</td></tr>';
+      _vendorCache = null;
+      return;
+    }
     // Fetch all task payments once for auto-paid calc
     let allPays = [];
     try{
@@ -4665,111 +4782,193 @@ async function loadVendors(){
       const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers});
       if(r.ok) allContracts = await r.json();
     }catch(e){ /* table may not exist pre-migration */ }
-    const contractsByVendor = {};
-    allContracts.forEach(c => {
-      (contractsByVendor[c.vendor_id] = contractsByVendor[c.vendor_id] || []).push(c);
-    });
-    const taskCountByVendor = {};
-    allTasks.forEach(t=>{ taskCountByVendor[t.vendor_id] = (taskCountByVendor[t.vendor_id]||0) + 1; });
-    const paidByVendor = {};
-    allPays.forEach(p=>{ paidByVendor[p.vendor_id] = (paidByVendor[p.vendor_id]||0) + (+p.amount||0); });
-
-    const today=new Date();today.setHours(0,0,0,0);
-    const vStatusOpts = [
-      {value:'Pending',        label:'Pending'},
-      {value:'Pending Approval',label:'Pending Approval'},
-      {value:'Approved',        label:'Approved'},
-      {value:'In Progress',     label:'In Progress'},
-      {value:'On Hold',         label:'On Hold'},
-      {value:'Completed',       label:'Completed'},
-      {value:'Rejected',        label:'Rejected'}
-    ];
-
-    // Running totals for the grand total footer
-    let grandTotal = 0, grandPaid = 0, grandBalance = 0;
-    let totalTasks = 0, totalOverdue = 0;
-
-    tbody.innerHTML=data.map(v=>{
-      const contracts = contractsByVendor[v.id] || [];
-      const hasContracts = contracts.length > 0;
-
-      // If contracts exist, sum from contracts. Otherwise, use vendor-level fields (legacy).
-      let totalAmt, paidAmt;
-      if(hasContracts){
-        totalAmt = contracts.reduce((s,c)=>s+(+c.total_contract||0), 0);
-        // Paid = sum of contract-level paid (auto or manual)
-        paidAmt = contracts.reduce((s,c)=>{
-          const autoP = allPays.filter(p => p.vendor_id === v.id).reduce((a,p)=>a+(+p.amount||0),0);
-          // If contract has manual override, use its amount_paid; else use aggregate auto-paid proportional
-          return s + (+c.amount_paid||0);
-        }, 0);
-        // If any contract uses auto, prefer summed auto-paid for the vendor
-        const autoPaidTotal = paidByVendor[v.id] || 0;
-        if (autoPaidTotal > paidAmt) paidAmt = autoPaidTotal;
-      } else {
-        totalAmt = +v.total_contract || 0;
-        const autoPaid = paidByVendor[v.id] || 0;
-        paidAmt = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid > 0 ? autoPaid : (+v.amount_paid||0));
-      }
-      const bal = totalAmt - paidAmt;
-
-      grandTotal += totalAmt; grandPaid += paidAmt; grandBalance += bal;
-
-      const od=v.due_date&&new Date(v.due_date)<today&&v.status!=='Completed';
-      const schedule=getVendorSchedule(v.id);
-      const totalPct=schedule.reduce((a,s)=>a+(+s.pct||0),0);
-      const paidCount=schedule.filter(s=>s.payStatus==='Paid').length;
-      const overdueCount=schedule.filter(s=>s.date<new Date().toISOString().slice(0,10)&&s.payStatus==='Scheduled').length;
-      totalOverdue += overdueCount;
-      let schedBadge=!schedule.length?'<span class="badge badge-gray">No schedule</span>':overdueCount?`<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`:paidCount===schedule.length?'<span class="badge badge-green">✓ All paid</span>':`<span class="badge badge-blue">${schedule.length} payment${schedule.length>1?'s':''} · ${totalPct}%</span>`;
-      const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
-      const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
-
-      // Agreement badge — if multiple contracts, show their aggregate state
-      let ag = v.agreement_status || 'Draft';
-      if(hasContracts){
-        const approvedCount = contracts.filter(isContractApproved).length;
-        ag = approvedCount === contracts.length ? 'Approved' : (approvedCount > 0 ? `Mixed (${approvedCount}/${contracts.length})` : 'Draft');
-      }
-      const agBadge = ag === 'Approved'
-        ? '<span class="badge badge-green">✓ Approved</span>'
-        : ag.startsWith('Mixed')
-          ? `<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">${ag}</span>`
-          : '<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">📝 Draft</span>';
-
-      // Contract badge in vendor name column
-      const contractBadge = hasContracts
-        ? `<span class="badge badge-blue" style="margin-left:6px;font-size:10px;" title="${contracts.length} contract${contracts.length>1?'s':''}">📜 ${contracts.length}</span>`
-        : '';
-
-      // Tasks count button
-      const tCount = taskCountByVendor[v.id] || 0;
-      totalTasks += tCount;
-      const tasksBtn = tCount > 0
-        ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" title="Manage tasks">📋 ${tCount} task${tCount>1?'s':''}</button>`
-        : canWrite() ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" style="opacity:0.6;" title="Add tasks">+ Add</button>` : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
-
-      const paidBadge = (!hasContracts && !v.paid_manual_override && (paidByVendor[v.id]||0) > 0)
-        ? `<span style="font-size:9px;color:var(--gold);margin-left:4px;">AUTO</span>` : '';
-      const statusCell = canWrite()
-        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="status" data-type="select" data-options='${JSON.stringify(vStatusOpts).replace(/'/g,"&#39;")}' data-reload="loadVendors" data-raw="${v.status||'Pending'}">${statusBadge(v.status||'Pending')}</td>`
-        : `<td>${statusBadge(v.status||'Pending')}</td>`;
-      const notesCell = canWrite()
-        ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="notes" data-type="textarea" data-reload="loadVendors" data-raw="${(v.notes||'').replace(/"/g,'&quot;')}" style="max-width:150px;font-size:12px;">${v.notes||'— click to add —'}</td>`
-        : `<td style="max-width:150px;font-size:12px;">${v.notes||''}</td>`;
-
-      return`<tr><td><b>${v.vendor_name||'—'}</b>${contractBadge}</td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>${agBadge}</td><td>PKR ${fmt(totalAmt)}</td><td>PKR ${fmt(paidAmt)}${paidBadge}</td><td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td>${tasksBtn}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
-    }).join('')
-    // GRAND TOTAL FOOTER ROW
-    + `<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--gold);">
-        <td colspan="4" style="font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);">TOTAL (${data.length} vendor${data.length>1?'s':''})</td>
-        <td style="color:var(--gold);">PKR ${fmt(grandTotal)}</td>
-        <td style="color:#4caf7d;">PKR ${fmt(grandPaid)}</td>
-        <td style="color:#c0392b;">PKR ${fmt(grandBalance)}</td>
-        <td style="color:var(--text-muted);font-size:11px;">${totalTasks} task${totalTasks!==1?'s':''}</td>
-        <td colspan="6"></td>
-      </tr>`;
+    _vendorCache = { data, allPays, allTasks, allContracts };
+    // Default to "All" preset on load
+    if (!_vendorActivePreset) {
+      _vendorActivePreset = 'all';
+      const allBtn = document.querySelector('.vf-preset[data-preset="all"]');
+      if (allBtn) allBtn.classList.add('active');
+    }
+    renderVendorRows();
   }catch(e){console.error(e);toast('Failed to load vendors','error');}
+}
+
+function renderVendorRows(){
+  const tbody=document.getElementById('vendors-tbody');
+  if(!tbody || !_vendorCache) return;
+  const {data, allPays, allTasks, allContracts} = _vendorCache;
+
+  // Read current filter values
+  const fSearch = (document.getElementById('vf-search')?.value || '').trim().toLowerCase();
+  const fStatus = document.getElementById('vf-status')?.value || '';
+  const fApproval = document.getElementById('vf-approval')?.value || '';
+  const fAgreement = document.getElementById('vf-agreement')?.value || '';
+  const fDue = document.getElementById('vf-due')?.value || '';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayISO = today.toISOString().slice(0,10);
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  const future90 = new Date(today); future90.setDate(future90.getDate() + 90);
+
+  const contractsByVendor = {};
+  allContracts.forEach(c => {
+    (contractsByVendor[c.vendor_id] = contractsByVendor[c.vendor_id] || []).push(c);
+  });
+  const taskCountByVendor = {};
+  allTasks.forEach(t=>{ taskCountByVendor[t.vendor_id] = (taskCountByVendor[t.vendor_id]||0) + 1; });
+  const paidByVendor = {};
+  allPays.forEach(p=>{ paidByVendor[p.vendor_id] = (paidByVendor[p.vendor_id]||0) + (+p.amount||0); });
+
+  const vStatusOpts = [
+    {value:'Pending',         label:'Pending'},
+    {value:'Pending Approval',label:'Pending Approval'},
+    {value:'Approved',        label:'Approved'},
+    {value:'In Progress',     label:'In Progress'},
+    {value:'On Hold',         label:'On Hold'},
+    {value:'Completed',       label:'Completed'},
+    {value:'Rejected',        label:'Rejected'}
+  ];
+
+  // Pre-compute vendor-level derived data needed for filtering
+  const enriched = data.map(v => {
+    const contracts = contractsByVendor[v.id] || [];
+    const hasContracts = contracts.length > 0;
+    let totalAmt, paidAmt;
+    if(hasContracts){
+      totalAmt = contracts.reduce((s,c)=>s+(+c.total_contract||0), 0);
+      paidAmt = contracts.reduce((s,c)=>s + (+c.amount_paid||0), 0);
+      const autoPaidTotal = paidByVendor[v.id] || 0;
+      if (autoPaidTotal > paidAmt) paidAmt = autoPaidTotal;
+    } else {
+      totalAmt = +v.total_contract || 0;
+      const autoPaid = paidByVendor[v.id] || 0;
+      paidAmt = v.paid_manual_override ? (+v.amount_paid||0) : (autoPaid > 0 ? autoPaid : (+v.amount_paid||0));
+    }
+    const bal = totalAmt - paidAmt;
+    const od = v.due_date && new Date(v.due_date) < today && v.status!=='Completed';
+    // Derive aggregate agreement state
+    let ag = v.agreement_status || 'Draft';
+    if(hasContracts){
+      const approvedCount = contracts.filter(isContractApproved).length;
+      ag = approvedCount === contracts.length ? 'Approved'
+         : (approvedCount > 0 ? 'Mixed' : 'Draft');
+    }
+    return {v, contracts, hasContracts, totalAmt, paidAmt, bal, od, ag};
+  });
+
+  // ── Apply filters ───────────────────────────────────────────────
+  const filtered = enriched.filter(({v, totalAmt, paidAmt, bal, ag}) => {
+    // Text search across vendor name + category
+    if (fSearch) {
+      const hay = ((v.vendor_name||'') + ' ' + (v.category||'') + ' ' + (v.responsible||'')).toLowerCase();
+      if (!hay.includes(fSearch)) return false;
+    }
+    // Status filter
+    if (fStatus && (v.status||'Pending') !== fStatus) return false;
+    // Approval filter — for "unapproved" preset we need OR semantics
+    if (_vendorActivePreset === 'unapproved') {
+      const a = v.approval || 'Pending Approval';
+      if (a !== 'Pending Approval' && a !== 'Rejected') return false;
+    } else if (fApproval && (v.approval||'Pending Approval') !== fApproval) return false;
+    // Agreement filter — handle Mixed match (string starts with "Mixed")
+    if (fAgreement) {
+      if (fAgreement === 'Mixed') {
+        if (!ag.startsWith('Mixed')) return false;
+      } else if (ag !== fAgreement) return false;
+    }
+    // Due date filter
+    if (fDue) {
+      if (fDue === 'no-date') { if (v.due_date) return false; }
+      else if (!v.due_date) return false;
+      else {
+        const dueDate = new Date(v.due_date);
+        if (fDue === 'overdue') {
+          // Per spec: past due AND status = In Progress
+          if (!(dueDate < today && (v.status||'Pending') === 'In Progress')) return false;
+        } else if (fDue === 'this-week') {
+          if (dueDate < today || dueDate > weekEnd) return false;
+        } else if (fDue === 'this-month') {
+          if (dueDate < today || dueDate > monthEnd) return false;
+        } else if (fDue === 'future') {
+          if (dueDate < today || dueDate > future90) return false;
+        }
+      }
+    }
+    // "balance" preset — vendors with outstanding balance only
+    if (_vendorActivePreset === 'balance' && bal <= 0) return false;
+    return true;
+  });
+
+  // Show count in filter row
+  const cntEl = document.getElementById('vf-count');
+  if (cntEl) {
+    if (filtered.length === enriched.length) cntEl.textContent = `${enriched.length} vendors`;
+    else cntEl.textContent = `${filtered.length} of ${enriched.length} vendors`;
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="14">No vendors match the current filter.</td></tr>';
+    return;
+  }
+
+  // Running totals for the grand total footer
+  let grandTotal = 0, grandPaid = 0, grandBalance = 0;
+  let totalTasks = 0, totalOverdue = 0;
+
+  tbody.innerHTML = filtered.map(({v, contracts, hasContracts, totalAmt, paidAmt, bal, od, ag}) => {
+    grandTotal += totalAmt; grandPaid += paidAmt; grandBalance += bal;
+    const schedule = getVendorSchedule(v.id);
+    const totalPct = schedule.reduce((a,s)=>a+(+s.pct||0),0);
+    const paidCount = schedule.filter(s=>s.payStatus==='Paid').length;
+    const overdueCount = schedule.filter(s=>s.date<todayISO&&s.payStatus==='Scheduled').length;
+    totalOverdue += overdueCount;
+    let schedBadge = !schedule.length ? '<span class="badge badge-gray">No schedule</span>'
+      : overdueCount ? `<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`
+      : paidCount===schedule.length ? '<span class="badge badge-green">✓ All paid</span>'
+      : `<span class="badge badge-blue">${schedule.length} payment${schedule.length>1?'s':''} · ${totalPct}%</span>`;
+    const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
+    const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
+
+    // Agreement badge — show full "Mixed (n/m)" if applicable
+    let agDisplay = ag;
+    if (hasContracts && ag === 'Mixed') {
+      const approvedCount = contracts.filter(isContractApproved).length;
+      agDisplay = `Mixed (${approvedCount}/${contracts.length})`;
+    }
+    const agBadge = ag === 'Approved'
+      ? '<span class="badge badge-green">✓ Approved</span>'
+      : ag === 'Mixed'
+        ? `<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">${agDisplay}</span>`
+        : '<span class="badge" style="background:rgba(184,149,88,0.15);color:#b89558;">📝 Draft</span>';
+    const contractBadge = hasContracts
+      ? `<span class="badge badge-blue" style="margin-left:6px;font-size:10px;" title="${contracts.length} contract${contracts.length>1?'s':''}">📜 ${contracts.length}</span>`
+      : '';
+    const tCount = (taskCountByVendor[v.id] || 0);
+    totalTasks += tCount;
+    const tasksBtn = tCount > 0
+      ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" title="Manage tasks">📋 ${tCount} task${tCount>1?'s':''}</button>`
+      : canWrite() ? `<button class="btn btn-secondary btn-sm" onclick="openEditVendor('${v.id}')" style="opacity:0.6;" title="Add tasks">+ Add</button>` : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
+    const paidBadge = (!hasContracts && !v.paid_manual_override && (paidByVendor[v.id]||0) > 0)
+      ? `<span style="font-size:9px;color:var(--gold);margin-left:4px;">AUTO</span>` : '';
+    const statusCell = canWrite()
+      ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="status" data-type="select" data-options='${JSON.stringify(vStatusOpts).replace(/'/g,"&#39;")}' data-reload="loadVendors" data-raw="${v.status||'Pending'}">${statusBadge(v.status||'Pending')}</td>`
+      : `<td>${statusBadge(v.status||'Pending')}</td>`;
+    const notesCell = canWrite()
+      ? `<td class="edit-cell" data-tbl="vendors" data-id="${v.id}" data-field="notes" data-type="textarea" data-reload="loadVendors" data-raw="${(v.notes||'').replace(/"/g,'&quot;')}" style="max-width:150px;font-size:12px;">${v.notes||'— click to add —'}</td>`
+      : `<td style="max-width:150px;font-size:12px;">${v.notes||''}</td>`;
+
+    return `<tr><td><b>${v.vendor_name||'—'}</b>${contractBadge}</td><td>${v.category||'—'}</td><td>${v.responsible||'—'}</td><td>${agBadge}</td><td>PKR ${fmt(totalAmt)}</td><td>PKR ${fmt(paidAmt)}${paidBadge}</td><td class="${od?'overdue':''}">PKR ${fmt(bal)}</td><td>${tasksBtn}</td><td><button class="btn btn-secondary btn-sm" onclick="openPaySchedule('${v.id}')">${schedBadge}</button></td><td class="${od?'overdue':''}">${fmtDate(v.due_date)}</td>${statusCell}<td>${statusBadge(v.approval||'Pending Approval')}</td>${notesCell}<td style="white-space:nowrap;">${editBtn} ${delBtn}</td></tr>`;
+  }).join('')
+  // GRAND TOTAL FOOTER ROW (totals reflect filtered rows only)
+  + `<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--gold);">
+      <td colspan="4" style="font-family:'Playfair Display',serif;font-size:14px;color:var(--gold);">TOTAL (${filtered.length} vendor${filtered.length>1?'s':''})</td>
+      <td style="color:var(--gold);">PKR ${fmt(grandTotal)}</td>
+      <td style="color:#4caf7d;">PKR ${fmt(grandPaid)}</td>
+      <td style="color:#c0392b;">PKR ${fmt(grandBalance)}</td>
+      <td style="color:var(--text-muted);font-size:11px;">${totalTasks} task${totalTasks!==1?'s':''}</td>
+      <td colspan="6"></td>
+    </tr>`;
 }
 async function addVendor(){
   if(!isAdmin())return;
