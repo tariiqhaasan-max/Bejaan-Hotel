@@ -68,6 +68,10 @@ tr:hover td{background:var(--green-bg);}
 .vf-preset{padding:5px 11px;background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:14px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
 .vf-preset:hover{border-color:var(--green-dim);color:var(--green-dim);}
 .vf-preset.active{background:var(--green-dim);color:#fff;border-color:var(--green-dim);}
+/* Task filter preset chips — same look */
+.tf-preset{padding:5px 11px;background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:14px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.tf-preset:hover{border-color:var(--green-dim);color:var(--green-dim);}
+.tf-preset.active{background:var(--green-dim);color:#fff;border-color:var(--green-dim);}
 .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);margin-bottom:10px;font-size:13px;}
 .alert-warning{background:rgba(224,138,76,.08);border:1px solid rgba(224,138,76,.2);color:#b06030;}
 .alert-danger{background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.2);color:#c04040;}
@@ -666,6 +670,52 @@ tr:hover td{background:var(--green-bg);}
   </div>
   <div class="card">
     <div class="card-title">Tasks by Work Package</div>
+
+    <!-- ── TASK FILTER BAR ───────────────────────────────────── -->
+    <div id="task-filters" style="margin-bottom:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-right:4px">Quick:</span>
+        <button class="tf-preset" data-preset="all"        onclick="applyTaskPreset('all')">All</button>
+        <button class="tf-preset" data-preset="blocked"    onclick="applyTaskPreset('blocked')">🚫 Blocked</button>
+        <button class="tf-preset" data-preset="behind"     onclick="applyTaskPreset('behind')">⚠ Behind Target</button>
+        <button class="tf-preset" data-preset="active"     onclick="applyTaskPreset('active')">▶ In Progress</button>
+        <button class="tf-preset" data-preset="not-started" onclick="applyTaskPreset('not-started')">○ Not Started</button>
+        <button class="tf-preset" data-preset="complete"   onclick="applyTaskPreset('complete')">✓ Completed</button>
+        <button class="tf-preset" data-preset="vendor"     onclick="applyTaskPreset('vendor')">📋 Vendor Tasks</button>
+        <button class="tf-preset" data-preset="bcc"        onclick="applyTaskPreset('bcc')">🏗 Work Packages</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input type="text" id="tf-search" placeholder="Search task title, description, notes…" oninput="renderTaskRows()"
+          style="flex:1;min-width:180px;padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+        <select id="tf-status" onchange="renderTaskRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Statuses</option>
+          <option value="not_started">Not Started</option>
+          <option value="in_progress">In Progress</option>
+          <option value="blocked">Blocked</option>
+          <option value="complete">Completed</option>
+        </select>
+        <select id="tf-type" onchange="renderTaskRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Types</option>
+          <option value="bcc">Work Packages</option>
+          <option value="vendor">Vendor Tasks</option>
+        </select>
+        <select id="tf-progress" onchange="renderTaskRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <option value="">All Progress</option>
+          <option value="zero">0% (untouched)</option>
+          <option value="early">1–25% (early)</option>
+          <option value="mid">26–75% (mid)</option>
+          <option value="late">76–99% (almost done)</option>
+          <option value="done">100% (complete)</option>
+          <option value="behind">Behind target (≥20% gap)</option>
+        </select>
+        <select id="tf-vendor" onchange="renderTaskRows()" style="padding:7px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px;max-width:180px">
+          <option value="">All Vendors</option>
+        </select>
+        <button onclick="clearTaskFilters()" class="btn btn-secondary btn-sm" style="font-size:11px">Clear</button>
+        <span id="tf-count" style="font-size:11px;color:var(--text-muted);margin-left:auto"></span>
+      </div>
+    </div>
+
     <div id="tasks-body"><div class="loading"><div class="spinner"></div> Loading…</div></div>
   </div>
 </div>
@@ -1842,6 +1892,39 @@ function editCell({tbl, id, field, value, rawValue, type='text', step, options, 
 // ============================================================================
 // TASKS (from bcc_tasks + bcc_task_areas, PDF Apr–May 2026 milestone plan)
 // ============================================================================
+// ── Task filter state ────────────────────────────────────────────
+let _taskCache = null;            // { tasks, vTasks, vmap, amap }
+let _taskActivePreset = '';
+
+function clearTaskFilters() {
+  ['tf-search','tf-status','tf-type','tf-progress','tf-vendor'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  _taskActivePreset = 'all';
+  renderTaskRows();
+}
+
+function applyTaskPreset(preset) {
+  ['tf-search','tf-status','tf-type','tf-progress','tf-vendor'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  switch (preset) {
+    case 'all':         break;
+    case 'blocked':     document.getElementById('tf-status').value = 'blocked'; break;
+    case 'behind':      document.getElementById('tf-progress').value = 'behind'; break;
+    case 'active':      document.getElementById('tf-status').value = 'in_progress'; break;
+    case 'not-started': document.getElementById('tf-status').value = 'not_started'; break;
+    case 'complete':    document.getElementById('tf-status').value = 'complete'; break;
+    case 'vendor':      document.getElementById('tf-type').value = 'vendor'; break;
+    case 'bcc':         document.getElementById('tf-type').value = 'bcc'; break;
+  }
+  _taskActivePreset = preset;
+  document.querySelectorAll('.tf-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+  renderTaskRows();
+}
+
 async function loadTasks(){
   try{
     const [tasks, areas, vendors, vTasks] = await Promise.all([
@@ -1855,120 +1938,210 @@ async function loadTasks(){
     const vmap={}; vendors.forEach(v=>vmap[v.id]=v.vendor_name);
     const amap={}; areas.forEach(a=>{(amap[a.task_id]=amap[a.task_id]||[]).push(a);});
 
-    // KPIs (based on bcc_tasks only — they have the formal structure)
-    const overall = tasks.length ? (tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length) : 0;
-    const target  = tasks.length ? (tasks.reduce((s,t)=>{
-      const ars=amap[t.id]||[];
-      const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
-      return s+tgt;
-    },0)/tasks.length) : 0;
-    const active  = tasks.filter(t=>t.status==='in_progress').length;
-    const behind  = tasks.filter(t=>{
-      const ars=amap[t.id]||[];
-      const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
-      return tgt - (+t.current_pct||0) >= 20;
-    }).length;
-    document.getElementById('task-overall').textContent = Math.round(overall)+'%';
-    document.getElementById('task-target').textContent  = Math.round(target)+'%';
-    document.getElementById('task-active').textContent  = active;
-    document.getElementById('task-behind').textContent  = behind;
+    // Cache data so renderTaskRows can filter and re-render without refetching
+    _taskCache = { tasks, vTasks, vmap, amap, vendors };
 
-    // Group by vendor
-    const body = document.getElementById('tasks-body');
-    const totalTasks = tasks.length + vTasks.length;
-    if(!totalTasks){body.innerHTML='<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks yet.</div>';return;}
-    const groups={};
-    tasks.forEach(t=>{const v=vmap[t.vendor_id]||'Unassigned';(groups[v]=groups[v]||[]).push({...t, _kind:'bcc'});});
-    // Fold vendor_tasks into the same groups with _kind flag so we render them
-    // slightly differently (no task_code, simpler progress, no areas).
-    vTasks.forEach(vt=>{
-      const v = vmap[vt.vendor_id] || 'Unassigned';
-      (groups[v]=groups[v]||[]).push({
-        id: vt.id,
-        task_code: null,
-        title: vt.task_name,
-        description: vt.responsible_employee ? ('👤 ' + vt.responsible_employee) : '',
-        notes: vt.notes,
-        current_pct: +vt.progress_pct || 0,
-        desired_target_pct: 100,
-        duration_days: null,
-        status: (vt.status || 'Not Started').toLowerCase().replace(' ','_'),
-        vendor_id: vt.vendor_id,
-        proposed_date: vt.proposed_date,
-        _kind: 'vendor',
-      });
-    });
+    // Populate vendor dropdown (sorted by name; Unassigned at the top)
+    const vendorSel = document.getElementById('tf-vendor');
+    if (vendorSel) {
+      const usedVendorIds = new Set();
+      tasks.forEach(t => usedVendorIds.add(t.vendor_id));
+      vTasks.forEach(t => usedVendorIds.add(t.vendor_id));
+      const sortedVendors = vendors
+        .filter(v => usedVendorIds.has(v.id))
+        .sort((a,b) => (a.vendor_name||'').localeCompare(b.vendor_name||''));
+      const hasUnassigned = (tasks.some(t => !t.vendor_id) || vTasks.some(t => !t.vendor_id));
+      const cur = vendorSel.value;
+      vendorSel.innerHTML = '<option value="">All Vendors</option>'
+        + (hasUnassigned ? '<option value="__unassigned">Unassigned</option>' : '')
+        + sortedVendors.map(v => `<option value="${v.id}">${v.vendor_name||'—'}</option>`).join('');
+      vendorSel.value = cur;
+    }
 
-    body.innerHTML = Object.entries(groups).map(([vendor,ts])=>{
-      const rows = ts.map(t=>{
-        const isVendorTask = t._kind === 'vendor';
-        const ars = amap[t.id]||[];
-        const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
-        const curr = +t.current_pct||0;
-        const gap = tgt - curr;
-        const barCls = gap >= 30 ? 'red' : (gap >= 15 ? 'orange' : '');
-        const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area_name||a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
-        const statusOpts = [
-          {value:'not_started', label:'Not Started'},
-          {value:'in_progress', label:'In Progress'},
-          {value:'blocked',     label:'Blocked'},
-          {value:'complete',    label:'Completed'}
-        ];
-        const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Completed'}[t.status]||t.status||'—';
-        const tbl = isVendorTask ? 'vendor_tasks' : 'bcc_tasks';
-        const fieldPct = isVendorTask ? 'progress_pct' : 'current_pct';
-        const fieldStatus = 'status';  // both tables use 'status'
-        const editBtn = (canWrite() && !isVendorTask)
-          ? `<button class="btn-icon" title="Edit task" onclick="openEditTask('${t.id}')">✎</button>`
-          : '';
-        const delBtn = isAdmin()
-          ? `<button class="btn btn-danger btn-sm" title="Delete task" onclick="deleteRow('${tbl}','${t.id}',loadTasks)">✕</button>`
-          : '';
-        // Notes row — editable on bcc_tasks, read-only on vendor_tasks
-        const notesCell = (canWrite() && !isVendorTask)
-          ? `<div class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="notes" data-type="textarea" data-reload="loadTasks" data-raw="${(t.notes||'').replace(/"/g,'&quot;')}" style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;min-height:20px;">${t.notes||'— click to add notes —'}</div>`
-          : (t.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;">"${t.notes}"</div>` : '');
-        // Code column: bcc uses task_code, vendor tasks use a subtle V-tag
-        const codeCell = isVendorTask
-          ? `<span style="font-size:10px;padding:2px 5px;background:rgba(224,138,76,.15);color:#b8741f;border-radius:3px;font-weight:600;letter-spacing:0.05em;">VEND</span>`
-          : (t.task_code||'—');
-        // Due/duration: bcc uses duration_days, vendor tasks use proposed_date
-        const durCell = isVendorTask
-          ? (t.proposed_date ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}` : '—')
-          : (t.duration_days ? t.duration_days+' days' : '—');
-        return `<tr>
-          <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${codeCell}</td>
-          <td>
-            <div style="font-weight:500;">${t.title||'—'}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.description||''}</div>
-            ${areaChips?`<div style="margin-top:6px;">${areaChips}</div>`:''}
-            ${notesCell}
-          </td>
-          <td style="min-width:170px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div class="progress-bar" style="flex:1;"><div class="progress-fill ${barCls}" style="width:${Math.min(100,curr)}%"></div></div>
-              <span class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldPct}" data-type="number" data-step="0.5" data-reload="loadTasks" data-raw="${curr}" style="min-width:46px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;padding:2px 4px;">${Math.round(curr)}%</span>
-            </div>
-            <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">${isVendorTask?'':'Target '+Math.round(tgt)+'%'+(gap>0?' · '+Math.round(gap)+'% gap':' · on track')}</div>
-          </td>
-          <td>${durCell}</td>
-          <td class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldStatus}" data-type="select" data-options='${JSON.stringify(statusOpts).replace(/'/g,"&#39;")}' data-reload="loadTasks" data-raw="${t.status||'not_started'}">${statusBadge(statusLabel)}</td>
-          <td style="white-space:nowrap;">${editBtn} ${delBtn}</td>
-        </tr>`;
-      }).join('');
-      return `<div style="margin-bottom:18px;">
-        <div style="font-weight:600;font-size:13px;color:var(--green);margin-bottom:8px;padding:6px 0;border-bottom:1px solid var(--border);">${vendor} <span style="font-weight:400;color:var(--text-muted);">· ${ts.length} task${ts.length>1?'s':''}</span></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th style="width:50px;">#</th><th>Task</th><th>Progress</th><th>Duration</th><th>Status</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>`;
-    }).join('');
-  }catch(e){
-    console.error(e);
-    toast('Failed to load tasks: '+e.message,'error');
-    document.getElementById('tasks-body').innerHTML = '<div style="padding:20px;color:var(--red);">Error loading tasks. Check console.</div>';
+    if (!_taskActivePreset) {
+      _taskActivePreset = 'all';
+      const allBtn = document.querySelector('.tf-preset[data-preset="all"]');
+      if (allBtn) allBtn.classList.add('active');
+    }
+    renderTaskRows();
+  }catch(e){console.error(e);toast('Failed to load tasks','error');}
+}
+
+function renderTaskRows() {
+  const body = document.getElementById('tasks-body');
+  if (!body || !_taskCache) return;
+  const { tasks, vTasks, vmap, amap } = _taskCache;
+
+  // ── KPIs (always reflect ALL bcc_tasks, not filtered set — gives a stable
+  // overall picture regardless of what the user is filtering for) ──
+  const overall = tasks.length ? (tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length) : 0;
+  const target  = tasks.length ? (tasks.reduce((s,t)=>{
+    const ars=amap[t.id]||[];
+    const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+    return s+tgt;
+  },0)/tasks.length) : 0;
+  const active  = tasks.filter(t=>t.status==='in_progress').length;
+  const behind  = tasks.filter(t=>{
+    const ars=amap[t.id]||[];
+    const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+    return tgt - (+t.current_pct||0) >= 20;
+  }).length;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('task-overall', Math.round(overall)+'%');
+  setText('task-target',  Math.round(target)+'%');
+  setText('task-active',  active);
+  setText('task-behind',  behind);
+
+  const totalTasks = tasks.length + vTasks.length;
+  if (!totalTasks) {
+    body.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks yet.</div>';
+    return;
   }
+
+  // Build a unified list with type tag
+  const all = [];
+  tasks.forEach(t => all.push({ ...t, _kind: 'bcc' }));
+  vTasks.forEach(vt => {
+    all.push({
+      id: vt.id,
+      task_code: null,
+      title: vt.task_name,
+      description: vt.responsible_employee ? ('👤 ' + vt.responsible_employee) : '',
+      notes: vt.notes,
+      current_pct: +vt.progress_pct || 0,
+      desired_target_pct: 100,
+      duration_days: null,
+      status: (vt.status || 'Not Started').toLowerCase().replace(' ','_'),
+      vendor_id: vt.vendor_id,
+      proposed_date: vt.proposed_date,
+      _kind: 'vendor',
+    });
+  });
+
+  // ── Apply filters ──────────────────────────────────────────
+  const fSearch = (document.getElementById('tf-search')?.value || '').trim().toLowerCase();
+  const fStatus = document.getElementById('tf-status')?.value || '';
+  const fType = document.getElementById('tf-type')?.value || '';
+  const fProgress = document.getElementById('tf-progress')?.value || '';
+  const fVendor = document.getElementById('tf-vendor')?.value || '';
+
+  const filtered = all.filter(t => {
+    // Search across title + description + notes + task_code
+    if (fSearch) {
+      const hay = [(t.title||''), (t.description||''), (t.notes||''), (t.task_code||'')]
+        .join(' ').toLowerCase();
+      if (!hay.includes(fSearch)) return false;
+    }
+    // Status
+    if (fStatus && (t.status || 'not_started') !== fStatus) return false;
+    // Type
+    if (fType && t._kind !== fType) return false;
+    // Vendor
+    if (fVendor) {
+      if (fVendor === '__unassigned') {
+        if (t.vendor_id) return false;
+      } else if (t.vendor_id !== fVendor) return false;
+    }
+    // Progress
+    if (fProgress) {
+      const p = +t.current_pct || 0;
+      if (fProgress === 'zero' && p !== 0) return false;
+      if (fProgress === 'early' && (p < 1 || p > 25)) return false;
+      if (fProgress === 'mid' && (p < 26 || p > 75)) return false;
+      if (fProgress === 'late' && (p < 76 || p > 99)) return false;
+      if (fProgress === 'done' && p !== 100) return false;
+      if (fProgress === 'behind') {
+        // Apply only to bcc_tasks (vendor tasks don't have a target)
+        if (t._kind !== 'bcc') return false;
+        const ars = amap[t.id] || [];
+        const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+        if (tgt - p < 20) return false;
+      }
+    }
+    return true;
+  });
+
+  // Show count
+  const cntEl = document.getElementById('tf-count');
+  if (cntEl) {
+    if (filtered.length === all.length) cntEl.textContent = `${all.length} tasks`;
+    else cntEl.textContent = `${filtered.length} of ${all.length} tasks`;
+  }
+
+  if (!filtered.length) {
+    body.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">No tasks match the current filter.</div>';
+    return;
+  }
+
+  // Group filtered tasks by vendor (for the existing vendor-grouped layout)
+  const groups = {};
+  filtered.forEach(t => {
+    const v = vmap[t.vendor_id] || 'Unassigned';
+    (groups[v] = groups[v] || []).push(t);
+  });
+
+  body.innerHTML = Object.entries(groups).map(([vendor,ts])=>{
+    const rows = ts.map(t=>{
+      const isVendorTask = t._kind === 'vendor';
+      const ars = amap[t.id]||[];
+      const tgt = ars.length ? ars.reduce((x,a)=>x+(+a.target_pct||0),0)/ars.length : (+t.desired_target_pct||0);
+      const curr = +t.current_pct||0;
+      const gap = tgt - curr;
+      const barCls = gap >= 30 ? 'red' : (gap >= 15 ? 'orange' : '');
+      const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area_name||a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
+      const statusOpts = [
+        {value:'not_started', label:'Not Started'},
+        {value:'in_progress', label:'In Progress'},
+        {value:'blocked',     label:'Blocked'},
+        {value:'complete',    label:'Completed'}
+      ];
+      const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Completed'}[t.status]||t.status||'—';
+      const tbl = isVendorTask ? 'vendor_tasks' : 'bcc_tasks';
+      const fieldPct = isVendorTask ? 'progress_pct' : 'current_pct';
+      const fieldStatus = 'status';
+      const editBtn = (canWrite() && !isVendorTask)
+        ? `<button class="btn-icon" title="Edit task" onclick="openEditTask('${t.id}')">✎</button>`
+        : '';
+      const delBtn = isAdmin()
+        ? `<button class="btn btn-danger btn-sm" title="Delete task" onclick="deleteRow('${tbl}','${t.id}',loadTasks)">✕</button>`
+        : '';
+      const notesCell = (canWrite() && !isVendorTask)
+        ? `<div class="edit-cell" data-tbl="bcc_tasks" data-id="${t.id}" data-field="notes" data-type="textarea" data-reload="loadTasks" data-raw="${(t.notes||'').replace(/"/g,'&quot;')}" style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;min-height:20px;">${t.notes||'— click to add notes —'}</div>`
+        : (t.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;">"${t.notes}"</div>` : '');
+      const codeCell = isVendorTask
+        ? `<span style="font-size:10px;padding:2px 5px;background:rgba(224,138,76,.15);color:#b8741f;border-radius:3px;font-weight:600;letter-spacing:0.05em;">VEND</span>`
+        : (t.task_code||'—');
+      const durCell = isVendorTask
+        ? (t.proposed_date ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}` : '—')
+        : (t.duration_days ? t.duration_days+' days' : '—');
+      return `<tr>
+        <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${codeCell}</td>
+        <td>
+          <div style="font-weight:500;">${t.title||'—'}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.description||''}</div>
+          ${areaChips?`<div style="margin-top:6px;">${areaChips}</div>`:''}
+          ${notesCell}
+        </td>
+        <td style="min-width:170px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="progress-bar" style="flex:1;"><div class="progress-fill ${barCls}" style="width:${Math.min(100,curr)}%"></div></div>
+            <span class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldPct}" data-type="number" data-step="0.5" data-reload="loadTasks" data-raw="${curr}" style="min-width:46px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;padding:2px 4px;">${Math.round(curr)}%</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">${isVendorTask?'':'Target '+Math.round(tgt)+'%'+(gap>0?' · '+Math.round(gap)+'% gap':' · on track')}</div>
+        </td>
+        <td>${durCell}</td>
+        <td class="edit-cell" data-tbl="${tbl}" data-id="${t.id}" data-field="${fieldStatus}" data-type="select" data-options='${JSON.stringify(statusOpts).replace(/'/g,"&#39;")}' data-reload="loadTasks" data-raw="${t.status||'not_started'}">${statusBadge(statusLabel)}</td>
+        <td style="white-space:nowrap;">${editBtn} ${delBtn}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="margin-bottom:18px;">
+      <div style="font-weight:600;font-size:13px;color:var(--green);margin-bottom:8px;padding:6px 0;border-bottom:1px solid var(--border);">${vendor} <span style="font-weight:400;color:var(--text-muted);">· ${ts.length} task${ts.length>1?'s':''}</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="width:50px;">#</th><th>Task</th><th>Progress</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
 }
 
 // ---------- Edit Task modal ----------
