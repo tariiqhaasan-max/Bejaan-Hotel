@@ -6652,6 +6652,100 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape' && _roomModalId) closeRoomModal();
 });
 
+// Open a clean print-friendly window with a blank checklist for the
+// chosen room. Always prints empty checkboxes (regardless of current
+// status) so site teams have a fresh checklist to fill in.
+function printRoomChecklist(roomId) {
+  const r = _rcRooms.find(x => x.id === roomId);
+  if (!r) { alert('Room not found.'); return; }
+  const items = _rcItems.filter(i => i.room_id === r.id);
+  if (!items.length) { alert('No checklist items for this room yet.'); return; }
+
+  const pct = computeRoomPct(r.id, r.percent_complete);
+  const bldg = _roomBuilding(r);
+
+  // Group items by category, same order as on-screen modal
+  const byCat = {};
+  items.forEach(it => { const c = it.category || 'Other'; if (!byCat[c]) byCat[c] = []; byCat[c].push(it); });
+  const catOrder = ['Civil','Electrical','Furnishing','Tech','Utensils','Bathroom','Plumbing','Final','Other'];
+  const sortedCats = Object.keys(byCat).sort((a,b) => {
+    const ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+
+  // Escape helper for the print window (CSP-safe)
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+  let body = '';
+  for (const cat of sortedCats) {
+    const catItems = byCat[cat];
+    body += '<h3 class="cat-hdr">' + esc(cat) + ' <span class="cat-count">(' + catItems.length + ')</span></h3>';
+    body += '<table class="checklist"><tbody>';
+    for (const it of catItems) {
+      body += '<tr>'
+        + '<td class="box">☐</td>'
+        + '<td class="item">' + esc(it.item || '—') + '</td>'
+        + '<td class="notes-line"></td>'
+        + '</tr>';
+    }
+    body += '</tbody></table>';
+  }
+
+  // Sign-off line at the bottom
+  body += '<div class="signoff">'
+    + '<div class="sig-block"><div class="sig-line"></div><div class="sig-label">Inspected by</div></div>'
+    + '<div class="sig-block"><div class="sig-line"></div><div class="sig-label">Date</div></div>'
+    + '</div>';
+
+  const html = '<!doctype html><html><head><meta charset="utf-8">'
+    + '<title>Checklist — ' + esc(r.room_name || 'Room') + '</title>'
+    + '<style>'
+    + '@page { size: letter; margin: 0.6in; }'
+    + 'body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color: #111; margin: 0; }'
+    + '.hdr { border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 18px; }'
+    + '.hdr h1 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 6px 0; font-size: 22px; }'
+    + '.hdr .meta { display: flex; gap: 18px; font-size: 11px; color: #444; flex-wrap: wrap; }'
+    + '.hdr .meta b { color: #111; font-weight: 600; }'
+    + '.cat-hdr { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #333; '
+    + '  margin: 16px 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid #aaa; font-weight: 700; }'
+    + '.cat-count { font-weight: 400; color: #888; letter-spacing: 0; text-transform: none; }'
+    + '.checklist { width: 100%; border-collapse: collapse; }'
+    + '.checklist td { padding: 6px 4px; border-bottom: 1px dotted #ccc; vertical-align: top; }'
+    + '.box { width: 18px; font-size: 16px; padding-right: 6px; line-height: 1; }'
+    + '.item { font-size: 12px; line-height: 1.35; width: 50%; }'
+    + '.notes-line { border-bottom: 1px solid #ccc; height: 1em; }'
+    + '.signoff { display: flex; gap: 40px; margin-top: 30px; padding-top: 16px; border-top: 1px solid #aaa; }'
+    + '.sig-block { flex: 1; }'
+    + '.sig-line { border-bottom: 1px solid #111; height: 28px; }'
+    + '.sig-label { font-size: 10px; color: #666; margin-top: 4px; letter-spacing: 0.05em; text-transform: uppercase; }'
+    + '@media print { .no-print { display: none; } }'
+    + '.print-btn { position: fixed; top: 12px; right: 12px; padding: 8px 16px; '
+    + '  background: #2d8a5e; color: #fff; border: 0; border-radius: 6px; '
+    + '  font-size: 13px; cursor: pointer; font-family: inherit; }'
+    + '</style></head><body>'
+    + '<button class="no-print print-btn" onclick="window.print()">🖨 Print this</button>'
+    + '<div class="hdr">'
+    +   '<h1>' + esc(r.room_name || 'Room Checklist') + '</h1>'
+    +   '<div class="meta">'
+    +     (bldg && bldg !== '—' ? '<span><b>Building:</b> ' + esc(bldg) + '</span>' : '')
+    +     '<span><b>Type:</b> ' + esc(r.room_type || '—') + '</span>'
+    +     '<span><b>Items:</b> ' + items.length + '</span>'
+    +     '<span><b>Current progress:</b> ' + Math.round(pct) + '%</span>'
+    +   '</div>'
+    + '</div>'
+    + body
+    + '<script>setTimeout(function(){window.print();}, 350);</' + 'script>'
+    + '</body></html>';
+
+  const w = window.open('', '_blank', 'width=820,height=1000');
+  if (!w) { alert('Popup blocked. Please allow popups for this site to print.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+
 function renderRoomModal(){
   if(!_roomModalId) return;
   const r = _rcRooms.find(x => x.id === _roomModalId);
@@ -6681,7 +6775,10 @@ function renderRoomModal(){
         <span style="font-size:18px;font-weight:700;color:${pctColor};line-height:1;">${Math.round(pct)}%</span>
       </div>
     </div>
-    <button onclick="closeRoomModal()" aria-label="Close" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;color:var(--text-muted);flex-shrink:0;line-height:1;">×</button>
+    <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0;">
+      <button onclick="printRoomChecklist('${r.id}')" aria-label="Print checklist" title="Print blank checklist for site teams" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;height:32px;padding:0 12px;cursor:pointer;font-size:12px;color:var(--text-muted);line-height:1;display:inline-flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif;">🖨 Print</button>
+      <button onclick="closeRoomModal()" aria-label="Close" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;color:var(--text-muted);line-height:1;">×</button>
+    </div>
   `;
 
   // ─── Body (checklist) ───────────────────────────────────────────────
