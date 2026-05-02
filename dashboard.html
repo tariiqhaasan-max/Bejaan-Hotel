@@ -6685,7 +6685,7 @@ function printRoomChecklist(roomId) {
     for (const it of catItems) {
       body += '<tr>'
         + '<td class="box">☐</td>'
-        + '<td class="item">' + esc(it.item || '—') + '</td>'
+        + '<td class="item">' + esc(it.item_name || '—') + '</td>'
         + '<td class="notes-line"></td>'
         + '</tr>';
     }
