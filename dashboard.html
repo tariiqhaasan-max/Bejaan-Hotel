@@ -1249,6 +1249,21 @@ tr:hover td{background:var(--green-bg);}
     <button class="btn btn-primary" onclick="createUser()">+ Create User</button>
     <div id="u-msg" style="margin-top:10px;font-size:13px;display:none;padding:8px 12px;border-radius:var(--radius);"></div>
   </div>
+  <!-- Sync orphan auth users (existed in Supabase Auth before they had a profile row) -->
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span>Sync Missing Users</span>
+      <button class="btn btn-secondary btn-sm" onclick="loadOrphanAuthUsers()">↻ Scan for Orphan Auth Users</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);padding:6px 0 12px;">
+      Lists Supabase Auth users who can sign in but don't have a profile row yet (so they can't be managed above).
+      Pick a role and click <b>Add</b> to create their profile.
+    </div>
+    <div id="orphan-users-result" style="font-size:12px;color:var(--text-muted);">
+      Click <b>Scan</b> to check for missing profiles.
+    </div>
+  </div>
+
   <div class="card"><div class="card-title">All Users</div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr></tbody></table></div></div>
 </div>
 </main>
@@ -1709,6 +1724,29 @@ async function checkAuth(){
           if(prof.full_name) CURRENT_NAME = prof.full_name;
           sessionStorage.setItem('bejaan_role', CURRENT_ROLE);
           sessionStorage.setItem('bejaan_name', CURRENT_NAME);
+        } else {
+          // No profile row exists for this auth user — auto-create one with
+          // role 'viewer' so the user shows up on the User Management page
+          // and the admin can change their role from there.
+          try {
+            const createRes = await fetch(`${SB_URL}/rest/v1/bejaan_profiles`, {
+              method: 'POST',
+              headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              body: JSON.stringify({
+                id: session.user.id,
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || session.user.email.split('@')[0],
+                role: 'viewer',
+                is_active: true
+              })
+            });
+            if (createRes.ok) {
+              CURRENT_ROLE = 'viewer';
+              CURRENT_NAME = session.user.user_metadata?.full_name || session.user.email;
+              sessionStorage.setItem('bejaan_role', CURRENT_ROLE);
+              sessionStorage.setItem('bejaan_name', CURRENT_NAME);
+            }
+          } catch (createErr) { /* non-fatal */ }
         }
       }
     }catch(e){ /* non-fatal, fallback to sessionStorage value */ }
@@ -2431,6 +2469,80 @@ async function toggleUserActive(id,active){
 async function changeUserRole(id,role){
   await fetch(`${SB_URL}/rest/v1/bejaan_profiles?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({role})});
   toast('Role updated ✓');loadUsers();
+}
+
+// ── Sync orphan auth users (those without a bejaan_profiles row) ──
+async function loadOrphanAuthUsers(){
+  const result = document.getElementById('orphan-users-result');
+  if (!result) return;
+  result.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning…</div>';
+  try {
+    // Call the SECURITY DEFINER RPC — admin-gated server-side
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/list_orphan_auth_users`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      // Clear hint if the SQL helper hasn't been installed yet
+      if (txt.includes('does not exist') || txt.includes('Could not find')) {
+        result.innerHTML = '<div style="color:var(--orange);padding:8px 12px;background:rgba(224,138,76,.08);border:1px solid rgba(224,138,76,.3);border-radius:6px;">'
+          + '⚠️ The SQL helper functions haven\'t been installed. Run <code>setup_user_sync.sql</code> in your Supabase SQL editor first, then come back and click Scan again.'
+          + '</div>';
+        return;
+      }
+      throw new Error(txt);
+    }
+    const data = await r.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      result.innerHTML = '<div style="color:var(--green);padding:8px 12px;">✓ All Auth users have profiles. Nothing to sync.</div>';
+      return;
+    }
+    result.innerHTML = '<div style="margin-bottom:8px;color:var(--text);">Found <b>' + data.length + '</b> Auth user' + (data.length>1?'s':'') + ' without a profile:</div>'
+      + '<div class="table-wrap"><table><thead><tr><th>Email</th><th>Auth Created</th><th>Full Name</th><th>Role</th><th>Action</th></tr></thead><tbody>'
+      + data.map(u => {
+          const safeId = u.id;
+          const safeEmail = (u.email||'').replace(/"/g, '&quot;');
+          const created = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+          return `<tr id="orphan-row-${safeId}">
+            <td><b>${safeEmail}</b></td>
+            <td style="color:var(--text-muted);font-size:11px;">${created}</td>
+            <td><input type="text" id="orphan-name-${safeId}" placeholder="Full name" style="padding:5px 8px;font-size:12px;width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);"></td>
+            <td><select id="orphan-role-${safeId}" style="padding:5px 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);">
+              <option value="viewer">Viewer (read-only)</option>
+              <option value="admin">Admin</option>
+              <option value="rooms_only">Rooms Only</option>
+            </select></td>
+            <td><button class="btn btn-primary btn-sm" onclick="addOrphanProfile('${safeId}','${safeEmail}')">+ Add</button></td>
+          </tr>`;
+        }).join('')
+      + '</tbody></table></div>';
+  } catch (e) {
+    console.error(e);
+    result.innerHTML = '<div style="color:var(--red);padding:8px 12px;background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.3);border-radius:6px;">Error: ' + (e.message || e) + '</div>';
+  }
+}
+
+async function addOrphanProfile(authId, email){
+  const name = (document.getElementById('orphan-name-'+authId)?.value || '').trim();
+  const role = document.getElementById('orphan-role-'+authId)?.value || 'viewer';
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/bejaan_profiles`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify({ id: authId, email, full_name: name || email.split('@')[0], role, is_active: true })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast('Profile added for ' + email + ' ✓');
+    // Remove the row from the orphan list and refresh main user table
+    const row = document.getElementById('orphan-row-'+authId);
+    if (row) row.remove();
+    loadUsers();
+  } catch (e) {
+    toast('Failed: ' + (e.message || e), 'error');
+    console.error(e);
+  }
 }
 
 // ============================================================
