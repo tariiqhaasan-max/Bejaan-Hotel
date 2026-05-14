@@ -1682,6 +1682,231 @@ tr:hover td{background:var(--green-bg);}
   </div>
 </div>
 
+<!-- MARK MILESTONE AS PAID MODAL -->
+<div id="milestone-pay-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeMilestonePayModal()">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-family:'Playfair Display',serif;font-size:17px;">Record Payment</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeMilestonePayModal()">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px;" id="mp-context">—</div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Amount Paid (PKR) *</label>
+      <input type="number" id="mp-amount" placeholder="0" step="any" min="0">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="mp-amount-hint">Defaults to remaining amount</div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Payment Date *</label>
+      <input type="date" id="mp-date">
+    </div>
+
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Note (optional)</label>
+      <input id="mp-note" placeholder="e.g. Cheque #1234, Bank transfer">
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--text-muted);">Scheduled:</span><b id="mp-scheduled">—</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--text-muted);">Already paid:</span><b id="mp-prev-paid">—</b></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">After this:</span><b id="mp-after" style="color:var(--green);">—</b></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button class="btn btn-danger btn-sm" id="mp-clear-btn" onclick="clearMilestonePayment()" style="display:none;">Clear Payment</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-secondary" onclick="closeMilestonePayModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMilestonePayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// MILESTONE PAYMENT MODAL — state + handlers
+// Marks a single milestone as paid (full or partial). On save:
+//   1. PATCHes the milestone row (paid_amount, pay_status, paid_date, note)
+//   2. INSERTs a row into vendor_task_payments — this auto-updates the
+//      vendor's amount_paid via the existing paidAuto calc.
+let _mpIdx = -1;  // index into _evMilestones for the milestone being paid
+function openMilestonePayModal(idx){
+  if(typeof isAdmin === 'function' && !isAdmin()){
+    toast('Only admins can record payments', 'error'); return;
+  }
+  const m = _evMilestones && _evMilestones[idx];
+  if(!m){ toast('Milestone not found', 'error'); return; }
+  _mpIdx = idx;
+
+  const total = currentVendorTotal || 0;
+  const scheduledAmt = total * ((+m.pct||0) / 100);
+  const prevPaid = +m.paidAmt || 0;
+  const remaining = Math.max(0, scheduledAmt - prevPaid);
+
+  document.getElementById('mp-context').textContent =
+    `${(+m.pct||0).toFixed(1)}% · due ${fmtDate(m.date)}${m.desc?' · '+m.desc:''}`;
+  document.getElementById('mp-amount').value = Math.round(remaining);
+  document.getElementById('mp-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mp-note').value = m.paidNote || '';
+  document.getElementById('mp-scheduled').textContent = fmtPKR(scheduledAmt);
+  document.getElementById('mp-prev-paid').textContent = fmtPKR(prevPaid);
+  document.getElementById('mp-after').textContent = fmtPKR(prevPaid + remaining);
+  document.getElementById('mp-clear-btn').style.display = (prevPaid > 0) ? 'inline-block' : 'none';
+  document.getElementById('mp-amount-hint').textContent =
+    (prevPaid > 0 ? `Already paid PKR ${fmt(prevPaid)} · ` : '') +
+    `Remaining: ${fmtPKR(remaining)}`;
+
+  // Recalc "after" preview live
+  const amtInput = document.getElementById('mp-amount');
+  amtInput.oninput = () => {
+    const add = +amtInput.value || 0;
+    document.getElementById('mp-after').textContent = fmtPKR(prevPaid + add);
+  };
+
+  document.getElementById('milestone-pay-modal').style.display = 'flex';
+}
+function closeMilestonePayModal(){
+  document.getElementById('milestone-pay-modal').style.display = 'none';
+  _mpIdx = -1;
+}
+
+// Patch a single milestone row in bejaan_contract_milestones by id.
+async function patchMilestone(id, fields){
+  if(!id) throw new Error('milestone id required');
+  const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {...headers, Prefer: 'return=representation'},
+    body: JSON.stringify(fields)
+  });
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// Insert a vendor_task_payments row. amount may be partial.
+async function insertVendorPayment(vendorId, amount, paidDate, note){
+  if(!vendorId) throw new Error('vendor_id required');
+  const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`, {
+    method: 'POST',
+    headers: {...headers, Prefer: 'return=representation'},
+    body: JSON.stringify({
+      vendor_id: vendorId,
+      task_id:   null,
+      amount:    Math.round(amount),
+      paid_date: paidDate || new Date().toISOString().slice(0,10),
+      note:      note || null
+    })
+  });
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function saveMilestonePayment(){
+  if(_mpIdx < 0) return;
+  const m = _evMilestones[_mpIdx];
+  if(!m){ toast('Milestone not found', 'error'); return; }
+  const addAmount = +document.getElementById('mp-amount').value || 0;
+  const paidDate = document.getElementById('mp-date').value;
+  const note = document.getElementById('mp-note').value.trim();
+
+  if(addAmount <= 0){ toast('Amount must be greater than 0', 'error'); return; }
+  if(!paidDate){ toast('Payment date is required', 'error'); return; }
+
+  const total = currentVendorTotal || 0;
+  const scheduledAmt = total * ((+m.pct||0) / 100);
+  const prevPaid = +m.paidAmt || 0;
+  const newPaidAmt = prevPaid + addAmount;
+  // Round to 2 dp to avoid float comparison issues
+  const isFullyPaid = (Math.round(newPaidAmt * 100) >= Math.round(scheduledAmt * 100));
+  const newStatus = isFullyPaid ? 'Paid' : 'Partial';
+
+  try{
+    // 1. Patch the milestone row
+    if(m.id){
+      await patchMilestone(m.id, {
+        paid_amount: Math.round(newPaidAmt * 100) / 100,
+        pay_status:  newStatus,
+        paid_date:   paidDate,
+        payment_note: note || null
+      });
+    } else {
+      // Edge case: milestone hasn't been saved to DB yet (rare). Just update memory.
+      console.warn('Milestone has no id yet; updating memory only', m);
+    }
+
+    // 2. Insert vendor_task_payments row (this drives vendor.amount_paid)
+    const vid = (typeof _evCurrentVendorId !== 'undefined' && _evCurrentVendorId) || currentVendorId;
+    if(vid){
+      await insertVendorPayment(vid, addAmount, paidDate,
+        `Milestone payment: ${(+m.pct||0).toFixed(1)}%${m.desc?' — '+m.desc:''}` + (note?` (${note})`:''));
+    }
+
+    // 3. Update in-memory + UI
+    m.paidAmt   = newPaidAmt;
+    m.payStatus = newStatus;
+    m.paidDate  = paidDate;
+    m.paidNote  = note;
+    // Sync the bulk cache so other parts of the dashboard see the new state
+    try{
+      const cKey = _evCurrentContractId ? ('c:' + _evCurrentContractId) : ('v:' + vid);
+      if(_msCache[cKey] && _msCache[cKey][_mpIdx]){
+        _msCache[cKey][_mpIdx].paidAmt = newPaidAmt;
+        _msCache[cKey][_mpIdx].payStatus = newStatus;
+        _msCache[cKey][_mpIdx].paidDate = paidDate;
+        _msCache[cKey][_mpIdx].paidNote = note;
+      }
+    }catch(_){ /* cache may be cold */ }
+
+    // 4. Invalidate caches and re-render
+    if(typeof _vtPayCache !== 'undefined' && vid){ delete _vtPayCache[vid]; }
+    if(typeof cache !== 'undefined'){ delete cache['vendors']; }
+
+    closeMilestonePayModal();
+    renderScheduleList();
+    toast(`Payment recorded: ${fmtPKR(addAmount)}${isFullyPaid?' (fully paid)':''}`);
+
+    // Refresh the vendor table in the background so amount_paid reflects
+    if(typeof loadVendors === 'function') loadVendors();
+    if(typeof renderEvContracts === 'function') renderEvContracts();
+  }catch(e){
+    console.error('saveMilestonePayment:', e);
+    toast('Error saving payment: ' + (e.message || e), 'error');
+  }
+}
+
+// Clear a payment (reverses the milestone — does NOT delete payment row history).
+// Used when user pressed Pay by mistake.
+async function clearMilestonePayment(){
+  if(_mpIdx < 0) return;
+  const m = _evMilestones[_mpIdx];
+  if(!m || !m.id) return;
+  if(!confirm('Clear payment record for this milestone? (Payment history rows in vendor_task_payments will remain — adjust those separately if needed.)')) return;
+  try{
+    await patchMilestone(m.id, {
+      paid_amount: 0,
+      pay_status:  'Scheduled',
+      paid_date:   null,
+      payment_note: null
+    });
+    m.paidAmt = 0; m.payStatus = 'Scheduled'; m.paidDate = ''; m.paidNote = '';
+    try{
+      const vid = (typeof _evCurrentVendorId !== 'undefined' && _evCurrentVendorId) || currentVendorId;
+      const cKey = _evCurrentContractId ? ('c:' + _evCurrentContractId) : ('v:' + vid);
+      if(_msCache[cKey] && _msCache[cKey][_mpIdx]){
+        _msCache[cKey][_mpIdx].paidAmt = 0;
+        _msCache[cKey][_mpIdx].payStatus = 'Scheduled';
+        _msCache[cKey][_mpIdx].paidDate = '';
+        _msCache[cKey][_mpIdx].paidNote = '';
+      }
+    }catch(_){ }
+    closeMilestonePayModal();
+    renderScheduleList();
+    toast('Payment cleared (milestone)');
+  }catch(e){
+    console.error('clearMilestonePayment:', e);
+    toast('Error: ' + (e.message || e), 'error');
+  }
+}
+</script>
+
 <script>
 // ============================================================
 // CONFIG
@@ -4074,6 +4299,8 @@ function _msDbToMem(row){
     priority:  row.priority || 'Normal',
     payStatus: row.pay_status || 'Scheduled',
     paidAmt:   +row.paid_amount || 0,
+    paidDate:  row.paid_date || '',
+    paidNote:  row.payment_note || '',
     _sort:     row.sort_order || 0,
   };
 }
@@ -4087,6 +4314,8 @@ function _msMemToDb(m, contractId, vendorId, sortIdx){
     priority:    m.priority || 'Normal',
     pay_status:  m.payStatus || 'Scheduled',
     paid_amount: +m.paidAmt || 0,
+    paid_date:   m.paidDate || null,
+    payment_note: m.paidNote || null,
     sort_order:  sortIdx || 0,
   };
 }
@@ -4375,22 +4604,36 @@ function renderEvMilestonesList(){
   list.innerHTML = _evMilestones.map((m,i)=>{
     const amt = total * ((+m.pct||0)/100);
     const today = new Date().toISOString().slice(0,10);
-    const overdue = m.date < today && m.payStatus !== 'Paid';
-    const paidBadge = m.payStatus === 'Paid' ? '<span style="background:rgba(76,175,125,.15);color:#4caf7d;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">✓ PAID</span>'
+    const paidAmt = +m.paidAmt || 0;
+    const remaining = Math.max(0, amt - paidAmt);
+    const isFullyPaid = m.payStatus === 'Paid' || (paidAmt > 0 && remaining < 1);
+    const isPartial = !isFullyPaid && paidAmt > 0;
+    const overdue = m.date < today && !isFullyPaid;
+    const paidBadge = isFullyPaid ? '<span style="background:rgba(76,175,125,.15);color:#4caf7d;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">✓ PAID</span>'
+                    : isPartial ? '<span style="background:rgba(224,138,76,.15);color:#e08a4c;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">◐ PARTIAL</span>'
                     : overdue ? '<span style="background:rgba(208,64,64,.15);color:#d04040;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">⚠ OVERDUE</span>'
                     : '<span style="background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">SCHEDULED</span>';
+    const paidLine = (paidAmt > 0)
+      ? `<div style="font-size:10px;color:#4caf7d;margin-top:2px;">Paid ${fmtPKR(paidAmt)}${m.paidDate?' on '+fmtDate(m.paidDate):''}${isPartial?' · '+fmtPKR(remaining)+' remaining':''}</div>`
+      : '';
+    const payBtnLabel = isFullyPaid ? '✎ Edit' : isPartial ? '+ Add' : '💰 Pay';
+    const payBtnClass = isFullyPaid ? 'btn-secondary' : 'btn-primary';
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <b style="font-size:14px;color:var(--gold);">${(+m.pct||0).toFixed(1)}%</b>
-          <span style="color:var(--text-muted);font-size:11px;">on ${fmtDate(m.date)}</span>
+          <span style="color:var(--text-muted);font-size:11px;">due ${fmtDate(m.date)}</span>
           ${paidBadge}
         </div>
         ${m.desc?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${_esc(m.desc)}</div>`:''}
+        ${paidLine}
       </div>
-      <div style="text-align:right;flex-shrink:0;">
+      <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
         <div style="font-size:13px;font-weight:500;color:var(--text);">${fmtPKR(amt)}</div>
-        <button class="btn btn-danger btn-sm" style="margin-top:4px;" onclick="removeEvMilestone(${i})">✕</button>
+        <div style="display:flex;gap:4px;">
+          <button class="btn ${payBtnClass} btn-sm" onclick="openMilestonePayModal(${i})">${payBtnLabel}</button>
+          <button class="btn btn-danger btn-sm" onclick="removeEvMilestone(${i})" title="Delete milestone">✕</button>
+        </div>
       </div>
     </div>`;
   }).join('');
