@@ -5514,15 +5514,24 @@ function renderVendorRows(){
 
   tbody.innerHTML = filtered.map(({v, contracts, hasContracts, totalAmt, paidAmt, bal, od, ag}) => {
     grandTotal += totalAmt; grandPaid += paidAmt; grandBalance += bal;
-    const schedule = getVendorSchedule(v.id);
+    // Aggregate ALL milestones for this vendor: from each contract + any legacy vendor-level ones.
+    // Previously only checked vendor-level (`v:<id>`) — missed contract milestones, so vendors
+    // with contract-scoped schedules were showing "No schedule" in the vendor table.
+    let schedule = [];
+    contracts.forEach(c => {
+      const arr = _msCache['c:' + c.id] || [];
+      if(arr.length) schedule = schedule.concat(arr);
+    });
+    const legacyVendorMs = _msCache['v:' + v.id] || [];
+    if(legacyVendorMs.length) schedule = schedule.concat(legacyVendorMs);
     const totalPct = schedule.reduce((a,s)=>a+(+s.pct||0),0);
     const paidCount = schedule.filter(s=>s.payStatus==='Paid').length;
-    const overdueCount = schedule.filter(s=>s.date<todayISO&&s.payStatus==='Scheduled').length;
+    const overdueCount = schedule.filter(s=>s.date<todayISO&&s.payStatus!=='Paid').length;
     totalOverdue += overdueCount;
     let schedBadge = !schedule.length ? '<span class="badge badge-gray">No schedule</span>'
       : overdueCount ? `<span class="badge badge-red">⚠ ${overdueCount} overdue</span>`
       : paidCount===schedule.length ? '<span class="badge badge-green">✓ All paid</span>'
-      : `<span class="badge badge-blue">${schedule.length} payment${schedule.length>1?'s':''} · ${totalPct}%</span>`;
+      : `<span class="badge badge-blue">${schedule.length} payment${schedule.length>1?'s':''}</span>`;
     const editBtn = canWrite() ? `<button class="btn-icon" title="Edit vendor" onclick="openEditVendor('${v.id}')">✎</button>` : '';
     const delBtn  = isAdmin() ? `<button class="btn btn-danger btn-sm" title="Delete" onclick="deleteRow('vendors','${v.id}',loadVendors)">✕</button>` : '';
 
