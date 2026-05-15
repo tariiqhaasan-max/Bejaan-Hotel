@@ -132,7 +132,7 @@ tr:hover td{background:var(--green-bg);}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
 
 /* ============ DARK EDITORIAL OVERVIEW ============ */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap');
 .ov-dark{
   --ov-bg:#0d0d0d;--ov-surface:#141414;--ov-surface2:#1c1c1c;
   --ov-border:rgba(184,149,88,0.18);--ov-border-strong:rgba(184,149,88,0.35);
@@ -156,32 +156,80 @@ tr:hover td{background:var(--green-bg);}
 /* ============================================================
    A3 Split-view Overview &mdash; layout
    ============================================================ */
+/* ============================================================
+   A5R2 chiseled emerald hero &mdash; Format 5
+   ============================================================ */
 .ov-hero-banner{
-  background:linear-gradient(135deg,#0d0d0d 0%,#141414 100%);
-  border:1px solid var(--ov-border);border-radius:16px;
-  padding:32px 36px;margin-bottom:18px;position:relative;overflow:hidden;
+  background:#073F36;border-radius:4px;
+  margin-bottom:18px;position:relative;overflow:hidden;
+  border:1px solid #C9A961;
   animation:ovFadeUp .6s ease both;
 }
-.ov-hero-banner::after{
-  content:'';position:absolute;top:0;right:0;width:380px;height:260px;
-  background:radial-gradient(ellipse at top right,rgba(184,149,88,0.12),transparent 65%);
-  pointer-events:none;
+.ov-hero-frame{
+  background:linear-gradient(180deg,#094A40 0%,#073F36 50%,#052D27 100%);
+  padding:30px 36px 26px;position:relative;
 }
-.ov-hero-eyebrow{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.22em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:18px;position:relative;z-index:1;}
-.ov-hero-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;position:relative;z-index:1;}
-.ov-hero-title{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:46px;line-height:1.06;color:var(--ov-cream);letter-spacing:-.005em;}
-.ov-hero-title em{font-style:italic;color:var(--ov-gold-lt);}
-.ov-hero-stats{display:flex;gap:0;}
-.ov-hero-stat{padding:6px 22px;border-right:1px solid var(--ov-border);}
-.ov-hero-stat.last{padding-right:0;border-right:none;}
-.ov-hero-stat:first-child{padding-left:0;}
-.ov-hs-label{font-size:10px;color:var(--ov-muted);letter-spacing:.16em;text-transform:uppercase;margin-bottom:5px;}
-.ov-hs-value{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;line-height:1;}
-.ov-hs-value.gold{color:var(--ov-gold);}
-.ov-hs-value.gold-lt{color:var(--ov-gold-lt);}
-.ov-hs-value.cream{color:var(--ov-cream);}
-.ov-hs-value.orange{color:#e08a4c;}
-.ov-hero-sub{font-size:12px;color:var(--ov-muted);margin-top:14px;position:relative;z-index:1;letter-spacing:.04em;}
+.ov-hero-frame::before{
+  content:'';position:absolute;top:10px;left:10px;right:10px;bottom:10px;
+  border:1px solid rgba(201,169,97,0.3);border-radius:2px;pointer-events:none;
+}
+.ov-hero-eyebrow{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  font-family:'Cinzel',serif;font-size:10px;font-weight:600;
+  letter-spacing:.5em;color:#C9A961;text-transform:uppercase;
+  margin-bottom:18px;position:relative;z-index:1;
+}
+.ov-hero-eyebrow .ov-line{width:40px;height:1px;background:#C9A961;display:inline-block;}
+.ov-hero-center{
+  display:flex;align-items:center;justify-content:center;gap:32px;
+  position:relative;z-index:1;flex-wrap:wrap;
+}
+.ov-hero-half{text-align:center;}
+.ov-hero-half-label{
+  font-family:'Cinzel',serif;font-size:9px;font-weight:600;
+  letter-spacing:.4em;color:#C9A961;text-transform:uppercase;margin-bottom:8px;
+}
+.ov-hero-countdown-row{display:flex;align-items:baseline;gap:8px;justify-content:center;}
+.ov-hero-countdown{
+  font-family:'Cinzel',serif;font-size:62px;font-weight:700;
+  line-height:0.9;color:#F2E8D2;letter-spacing:.02em;
+}
+.ov-hero-countdown-unit{
+  font-family:'Libre Caslon Text',serif;font-style:italic;
+  font-size:20px;color:#C9A961;
+}
+.ov-hero-divider{width:1px;height:80px;background:rgba(201,169,97,0.3);}
+.ov-hero-date-main{
+  font-family:'Cinzel',serif;font-size:30px;font-weight:600;
+  line-height:1.1;color:#F2E8D2;letter-spacing:.05em;
+}
+.ov-hero-date-day{
+  font-family:'Libre Caslon Text',serif;font-style:italic;
+  font-size:13px;color:#9DB5A8;margin-top:3px;
+}
+.ov-hero-sub{
+  font-size:11px;color:#9DB5A8;margin-top:16px;
+  text-align:center;position:relative;z-index:1;
+  letter-spacing:.04em;font-family:'Libre Caslon Text',serif;font-style:italic;
+}
+/* KPI strip under hero */
+.ov-hero-kpi-strip{
+  background:#052D27;padding:14px 36px;
+  display:flex;justify-content:space-around;gap:12px;flex-wrap:wrap;
+  border-top:1px solid rgba(201,169,97,0.2);
+}
+.ov-hero-kpi{text-align:center;flex:1;min-width:90px;}
+.ov-hk-label{
+  font-family:'Cinzel',serif;font-size:9px;font-weight:600;
+  letter-spacing:.28em;color:#9DB5A8;margin-bottom:5px;
+}
+.ov-hk-value{
+  font-family:'Libre Caslon Text',serif;font-size:26px;font-weight:700;
+  line-height:1;color:#F2E8D2;
+}
+.ov-hk-value.gold{color:#C9A961;}
+.ov-hk-value.orange{color:#E5A085;}
+.ov-hk-value.green{color:#5DBFA8;}
 
 /* Split row */
 .ov-split{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-bottom:14px;}
@@ -401,35 +449,50 @@ tr:hover td{background:var(--green-bg);}
 <!-- OVERVIEW (Dark Editorial) -->
 <div class="section active" id="section-overview">
   <div class="ov-dark">
-    <!-- HERO BANNER -->
+    <!-- HERO BANNER &mdash; Format 5 chiseled emerald + countdown -->
     <div class="ov-hero-banner">
-      <div class="ov-hero-eyebrow">
-        <span class="ov-line"></span>MASTER DASHBOARD &middot; <span id="ov-today"></span>
-      </div>
-      <div class="ov-hero-row">
-        <div class="ov-hero-title-wrap">
-          <h1 class="ov-hero-title">Bejaan Resort <em>build</em>,<br>at a <em>glance</em>.</h1>
+      <div class="ov-hero-frame">
+        <div class="ov-hero-eyebrow">
+          <span class="ov-line"></span>BEJAAN RESORT &middot; MASTER DASHBOARD &middot; <span id="ov-today"></span>
+          <span class="ov-line"></span>
         </div>
-        <div class="ov-hero-stats">
-          <div class="ov-hero-stat">
-            <div class="ov-hs-label">Opening</div>
-            <div class="ov-hs-value gold" id="ov-opening-short">&mdash;</div>
+        <div class="ov-hero-center">
+          <div class="ov-hero-half">
+            <div class="ov-hero-half-label">OPENING IN</div>
+            <div class="ov-hero-countdown-row">
+              <div class="ov-hero-countdown" id="ov-days-out">&mdash;</div>
+              <div class="ov-hero-countdown-unit">days</div>
+            </div>
           </div>
-          <div class="ov-hero-stat">
-            <div class="ov-hs-label">Active</div>
-            <div class="ov-hs-value cream" id="ov-opening-active">&mdash;</div>
-          </div>
-          <div class="ov-hero-stat">
-            <div class="ov-hs-label">Overdue</div>
-            <div class="ov-hs-value orange" id="ov-opening-overdue">&mdash;</div>
-          </div>
-          <div class="ov-hero-stat last">
-            <div class="ov-hs-label">Bottle</div>
-            <div class="ov-hs-value gold-lt" id="ov-opening-bottle">&mdash;</div>
+          <div class="ov-hero-divider"></div>
+          <div class="ov-hero-half">
+            <div class="ov-hero-half-label">DATE</div>
+            <div class="ov-hero-date-main" id="ov-date-main">&mdash;</div>
+            <div class="ov-hero-date-day" id="ov-date-day">&mdash;</div>
           </div>
         </div>
+        <div class="ov-hero-sub" id="ov-opening-rel">Calculating opening date&hellip;</div>
       </div>
-      <div class="ov-hero-sub" id="ov-opening-rel">Calculating opening date&hellip;</div>
+
+      <!-- KPI strip below hero -->
+      <div class="ov-hero-kpi-strip">
+        <div class="ov-hero-kpi">
+          <div class="ov-hk-label">ACTIVE</div>
+          <div class="ov-hk-value" id="ov-opening-active">&mdash;</div>
+        </div>
+        <div class="ov-hero-kpi">
+          <div class="ov-hk-label">OVERDUE</div>
+          <div class="ov-hk-value orange" id="ov-opening-overdue">&mdash;</div>
+        </div>
+        <div class="ov-hero-kpi">
+          <div class="ov-hk-label">BOTTLENECKS</div>
+          <div class="ov-hk-value gold" id="ov-opening-bottle">&mdash;</div>
+        </div>
+        <div class="ov-hero-kpi last">
+          <div class="ov-hk-label">COMPLETE</div>
+          <div class="ov-hk-value green" id="ov-overall-pct">&mdash;</div>
+        </div>
+      </div>
     </div>
 
     <!-- SPLIT: SCHEDULE + FINANCIAL -->
@@ -3279,20 +3342,30 @@ async function loadOverview(){
     const todayISO = new Date().toISOString().slice(0,10);
     const today = new Date(); today.setHours(0,0,0,0);
 
-    // ============== HERO ==============
+    // ============== HERO (Format 5: countdown + date side-by-side) ==============
     const openBottles = (bottles||[]).filter(b => b.status === 'open');
     const est = _estimateOpeningDate(tasks, contracts, vendors, openBottles);
     if(est.opening){
-      document.getElementById('ov-opening-short').textContent =
-        est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-      document.getElementById('ov-opening-date').textContent =
-        est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      // Date main: "15 JUL 2026"
+      const dt = est.opening;
+      const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const dateMain = `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+      document.getElementById('ov-date-main').textContent = dateMain;
+      document.getElementById('ov-date-day').textContent = dayNames[dt.getDay()];
+      // Legacy hidden field for any other code referencing it
+      const legacyDateEl = document.getElementById('ov-opening-date');
+      if(legacyDateEl) legacyDateEl.textContent = dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      // Days out
+      document.getElementById('ov-days-out').textContent = Math.max(0, est.daysOut);
       const subtxt = est.breakdown.gated
-        ? `${_fmtOpeningRel(est.daysOut)} \u00b7 \ud83d\uded1 gated by latest task deadline \u00b7 +${est.breakdown.penalty}d bottleneck penalty`
-        : `${_fmtOpeningRel(est.daysOut)} \u00b7 blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
+        ? `gated by latest task deadline \u00b7 +${est.breakdown.penalty}d bottleneck penalty`
+        : `blended estimate \u00b7 +${est.breakdown.penalty}d bottleneck penalty`;
       document.getElementById('ov-opening-rel').textContent = subtxt;
     } else {
-      document.getElementById('ov-opening-short').textContent = '\u2014';
+      document.getElementById('ov-date-main').textContent = '\u2014';
+      document.getElementById('ov-date-day').textContent = '\u2014';
+      document.getElementById('ov-days-out').textContent = '\u2014';
       document.getElementById('ov-opening-rel').textContent = 'No active tasks';
     }
     const activeCnt = (tasks||[]).filter(t => t.status !== 'complete' && (+t.current_pct < 100)).length;
@@ -3300,6 +3373,15 @@ async function loadOverview(){
     document.getElementById('ov-opening-active').textContent = activeCnt;
     document.getElementById('ov-opening-overdue').textContent = overdueCnt;
     document.getElementById('ov-opening-bottle').textContent = openBottles.length;
+    // Overall % complete (avg current_pct across active tasks, weighted by duration)
+    let overallPct = 0;
+    if((tasks||[]).length){
+      const allPct = tasks.reduce((s,t) => s + (+t.current_pct||0), 0) / tasks.length;
+      overallPct = Math.round(allPct);
+    }
+    const ovOverallEl = document.getElementById('ov-overall-pct');
+    if(ovOverallEl) ovOverallEl.innerHTML = overallPct + '<span style="font-size:14px;color:#9DB5A8;">%</span>';
+
 
     // ============== ZONE SCHEDULE ==============
     const zonesEl = document.getElementById('ov-zones');
