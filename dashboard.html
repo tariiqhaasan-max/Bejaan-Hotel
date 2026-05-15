@@ -50,6 +50,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .form-group label{font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;}
 .form-group input,.form-group select,.form-group textarea{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;transition:border-color .15s;}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--green);}
+/* Remove number input spinner arrows globally */
+input.no-spinner::-webkit-outer-spin-button,
+input.no-spinner::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+input.no-spinner{-moz-appearance:textfield;appearance:textfield;}
+/* Also strip spinners on all type=number inputs by default for cleaner UX */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .form-group textarea{resize:vertical;min-height:70px;}
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -1774,10 +1782,16 @@ tr:hover td{background:var(--green-bg);}
     <input type="hidden" id="ev-split-store" value="0">
 
     <!-- CONTRACT ITEMS — line items with receive tracking -->
-    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Contract Items <span id="ev-items-summary" style="color:var(--text-muted);font-size:10px;margin-left:6px;font-weight:400;letter-spacing:0;text-transform:none;"></span></div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvItemForm()">+ Add Item</button>
+    <div style="background:linear-gradient(135deg,#FFF5EB 0%,#FFF9F2 100%);border:1px solid #F0CCA0;border-left:4px solid #E89B4C;border-radius:10px;padding:18px;margin-top:18px;box-shadow:0 1px 3px rgba(232,155,76,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-family:'Libre Caslon Text',serif;font-size:16px;font-weight:700;color:#8B4F1A;display:flex;align-items:center;gap:8px;">
+            📦 Contract Items
+            <span id="ev-items-summary" style="color:#A66A2B;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;font-family:'Sora',sans-serif;"></span>
+          </div>
+          <div style="font-size:10px;color:#A66A2B;letter-spacing:0.06em;margin-top:2px;">Physical goods received into Store or Fixed Assets</div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" style="background:#E89B4C;border-color:#E89B4C;" onclick="toggleEvItemForm()">+ Add Item</button>
       </div>
 
       <!-- Add / Edit item form -->
@@ -1860,10 +1874,16 @@ tr:hover td{background:var(--green-bg);}
     </div>
 
     <!-- PAYMENT SCHEDULE (brought into the modal) -->
-    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Payment Schedule <span id="ev-sched-status" style="color:var(--gold);font-size:10px;margin-left:6px;"></span></div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEvMilestoneForm()">+ Payment</button>
+    <div style="background:linear-gradient(135deg,#EEF5EC 0%,#F4F9F2 100%);border:1px solid #B5D4AC;border-left:4px solid #5A9E58;border-radius:10px;padding:18px;margin-top:18px;box-shadow:0 1px 3px rgba(90,158,88,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-family:'Libre Caslon Text',serif;font-size:16px;font-weight:700;color:#1F4731;display:flex;align-items:center;gap:8px;">
+            💰 Payment Schedule
+            <span id="ev-sched-status" style="color:#a3823f;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;font-family:'Sora',sans-serif;"></span>
+          </div>
+          <div style="font-size:10px;color:#5A7060;letter-spacing:0.06em;margin-top:2px;">Cashflow milestones &mdash; record payments as they happen</div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="toggleEvMilestoneForm()">+ Payment</button>
       </div>
       <div id="ev-milestone-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -1883,12 +1903,16 @@ tr:hover td{background:var(--green-bg);}
     </div>
 
     <!-- TASKS (tracking only — no money) -->
-    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
+    <div style="background:linear-gradient(135deg,#EBF0F5 0%,#F2F5F9 100%);border:1px solid #B5C5D6;border-left:4px solid #5A7E9E;border-radius:10px;padding:18px;margin-top:18px;box-shadow:0 1px 3px rgba(90,126,158,0.08);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div>
-          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);">Vendor Tasks <span style="color:var(--text-muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;">(tracking — no money)</span></div>
+          <div style="font-family:'Libre Caslon Text',serif;font-size:16px;font-weight:700;color:#2A4D6B;display:flex;align-items:center;gap:8px;">
+            🛠️ Vendor Tasks
+            <span style="color:#5A7E9E;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;font-family:'Sora',sans-serif;">(tracking only)</span>
+          </div>
+          <div style="font-size:10px;color:#5A7E9E;letter-spacing:0.06em;margin-top:2px;">Work progress &mdash; no money attached</div>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openAddTask()">+ Add Task</button>
+        <button type="button" class="btn btn-primary btn-sm" style="background:#5A7E9E;border-color:#5A7E9E;" onclick="openAddTask()">+ Add Task</button>
       </div>
       <div id="ev-tasks-list" style="margin-bottom:8px;"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No tasks yet.</div></div>
 
@@ -2000,7 +2024,7 @@ tr:hover td{background:var(--green-bg);}
 
     <div class="form-group" style="margin-bottom:12px;">
       <label>Amount Paid (PKR) *</label>
-      <input type="number" id="mp-amount" placeholder="0" step="any" min="0">
+      <input type="number" id="mp-amount" placeholder="0" step="any" min="0" inputmode="decimal" class="no-spinner" autocomplete="off">
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="mp-amount-hint">Defaults to remaining amount</div>
     </div>
 
@@ -2042,13 +2066,19 @@ function openMilestonePayModal(idx){
   const m = _evMilestones && _evMilestones[idx];
   if(!m){ toast('Milestone not found', 'error'); return; }
   _mpIdx = idx;
-  const total = currentVendorTotal || 0;
+  // Read total from active contract (ev-total) first, fall back to currentVendorTotal
+  const evTotalEl = document.getElementById('ev-total');
+  const evTotal = evTotalEl ? (+evTotalEl.value || 0) : 0;
+  const total = evTotal || currentVendorTotal || 0;
   const scheduledAmt = total * ((+m.pct||0) / 100);
   const prevPaid = +m.paidAmt || 0;
   const remaining = Math.max(0, scheduledAmt - prevPaid);
   document.getElementById('mp-context').textContent =
-    `${(+m.pct||0).toFixed(1)}% · due ${fmtDate(m.date)}${m.desc?' · '+m.desc:''}`;
-  document.getElementById('mp-amount').value = Math.round(remaining);
+    `${(+m.pct||0).toFixed(1)}% \u00b7 due ${fmtDate(m.date)}${m.desc?' \u00b7 '+m.desc:''} \u00b7 Scheduled ${fmtPKR(scheduledAmt)}`;
+  // Pre-fill with FULL remaining amount (user can type a smaller amount)
+  const amtInput = document.getElementById('mp-amount');
+  amtInput.value = Math.round(remaining);
+  amtInput.select(); // highlight so user can immediately type to override
   document.getElementById('mp-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('mp-note').value = m.paidNote || '';
   document.getElementById('mp-scheduled').textContent = fmtPKR(scheduledAmt);
@@ -2056,14 +2086,15 @@ function openMilestonePayModal(idx){
   document.getElementById('mp-after').textContent = fmtPKR(prevPaid + remaining);
   document.getElementById('mp-clear-btn').style.display = (prevPaid > 0) ? 'inline-block' : 'none';
   document.getElementById('mp-amount-hint').textContent =
-    (prevPaid > 0 ? `Already paid PKR ${fmt(prevPaid)} · ` : '') +
-    `Remaining: ${fmtPKR(remaining)}`;
-  const amtInput = document.getElementById('mp-amount');
+    (prevPaid > 0 ? `Already paid PKR ${fmt(prevPaid)} \u00b7 ` : '') +
+    `Pay up to ${fmtPKR(remaining)} (or less)`;
   amtInput.oninput = () => {
     const add = +amtInput.value || 0;
     document.getElementById('mp-after').textContent = fmtPKR(prevPaid + add);
   };
   document.getElementById('milestone-pay-modal').style.display = 'flex';
+  // Focus the amount field so user can type immediately
+  setTimeout(() => amtInput.focus(), 50);
 }
 function closeMilestonePayModal(){
   document.getElementById('milestone-pay-modal').style.display = 'none';
