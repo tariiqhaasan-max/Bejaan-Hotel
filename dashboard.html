@@ -1009,6 +1009,44 @@ tr:hover td{background:var(--green-bg);}
   </div>
 </div>
 
+<!-- ============ APPROVE/REJECT MODAL (Finance Manager) ============ -->
+<div class="modal-overlay" id="approve-modal" style="display:none;" onclick="if(event.target===this)closeApproveModal()">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="apm-title">Review Material Issue</h3>
+    <div class="modal-sub">Issue # <span id="apm-number" style="font-family:ui-monospace,monospace;color:var(--gold);">—</span></div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:14px 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12px;">
+        <div><span style="color:var(--text-muted);">Item:</span> <b id="apm-item">—</b></div>
+        <div><span style="color:var(--text-muted);">Category:</span> <b id="apm-cat">—</b></div>
+        <div><span style="color:var(--text-muted);">Qty:</span> <b id="apm-qty">—</b></div>
+        <div><span style="color:var(--text-muted);">Unit cost:</span> <b id="apm-uc">—</b></div>
+        <div style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><span style="color:var(--text-muted);">Total value:</span> <b style="color:var(--gold);font-size:14px;" id="apm-tv">—</b></div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);">Destination Asset:</span> <b id="apm-to">—</b></div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);">FA category:</span> <b id="apm-fa">—</b></div>
+        <div style="grid-column:span 2;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><span style="color:var(--text-muted);">Issued by:</span> <b id="apm-by">—</b></div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);">Date:</span> <span id="apm-on">—</span></div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);">Purpose:</span> <span id="apm-purpose">—</span></div>
+        <div style="grid-column:span 2;"><span style="color:var(--text-muted);">Notes:</span> <span id="apm-notes">—</span></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Reject Reason <span style="font-size:10px;color:var(--text-muted);">(only required if rejecting)</span></label>
+      <input id="apm-reject" placeholder="Leave blank if approving">
+    </div>
+
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn btn-secondary btn-sm" onclick="printIssueReceipt(_apmCurrentId)">📄 Print Receipt</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="closeApproveModal()">Cancel</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectIssue()">✕ Reject</button>
+        <button class="btn btn-primary btn-sm" onclick="approveIssue()" style="background:var(--green);border-color:var(--green);">✓ Approve & Capitalize</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ROOMS -->
 <div class="section" id="section-rooms">
   <div class="page-header">
@@ -6917,20 +6955,78 @@ async function saveIssuance(){
   if(q<=0){ toast('Qty required','error'); return; }
   if(q > _issAvailable && !confirm('Quantity exceeds available stock. Save anyway?')) return;
   const dest = document.getElementById('iss-type').value;
+  const issuedBy = document.getElementById('iss-by').value.trim() || null;
+  const issuedDate = document.getElementById('iss-date').value || new Date().toISOString().slice(0,10);
+  const notes = document.getElementById('iss-notes').value.trim() || null;
+
+  if(dest==='fixed_asset'){
+    // ────────────────────────────────────────────────────────
+    // DRAFT WORKFLOW: write a material_issues row in 'draft' state.
+    // The Finance Manager approves it from the Approvals tab,
+    // and approval creates the corresponding inventory_issuances row
+    // (which updates stock/FA totals).
+    // ────────────────────────────────────────────────────────
+    const faId = document.getElementById('iss-fa').value || null;
+    if(!faId){ toast('Pick a destination Fixed Asset','error'); return; }
+    // Resolve FA category from cache
+    let faCategory = 'Building';
+    try{
+      const fa = (typeof _storeAssets !== 'undefined' ? _storeAssets : []).find(a => a.id === faId);
+      if(fa && fa.category) faCategory = fa.category;
+    }catch(_){ }
+    const draftPayload = {
+      item_name: _issItemName,
+      qty: q,
+      unit_cost: _issAvgCost,
+      issued_to: faId,                    // we store the FA UUID here for later approval to use
+      purpose: notes,
+      fixed_asset_category: faCategory,
+      status: 'draft',
+      store_keeper_id: null,
+      store_keeper_name: issuedBy || (window.currentUserEmail || null),
+      store_keeper_signed_at: new Date().toISOString(),
+      notes: notes
+    };
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/material_issues`,{
+        method:'POST', headers:{...headers,'Prefer':'return=representation'},
+        body: JSON.stringify(draftPayload)
+      });
+      if(!r.ok) throw new Error(await r.text());
+      const created = await r.json();
+      const issueRow = Array.isArray(created) ? created[0] : created;
+      toast('📋 Material issue saved as DRAFT — pending Finance approval');
+      closeIssueModal();
+      loadStore();
+      // Auto-update the Approvals badge
+      try{ loadApprovals(); }catch(_){ }
+      // Offer to print receipt right away
+      setTimeout(()=>{
+        if(issueRow && issueRow.id && confirm('Print material issue receipt now?')){
+          printIssueReceipt(issueRow.id);
+        }
+      }, 200);
+    }catch(e){
+      console.error(e);
+      toast('Error saving draft issue: '+(e.message||e),'error');
+    }
+    return;
+  }
+
+  // direct_expense path: keep original immediate-write behavior
   const payload = {
     item_name: _issItemName,
     qty: q,
     unit_cost: _issAvgCost,
     total_value: q * _issAvgCost,
     destination_type: dest,
-    fixed_asset_id: dest==='fixed_asset' ? (document.getElementById('iss-fa').value||null) : null,
-    expense_note: dest==='direct_expense' ? (document.getElementById('iss-expense-note').value.trim()||null) : null,
+    fixed_asset_id: null,
+    expense_note: document.getElementById('iss-expense-note').value.trim()||null,
     vendor_task_id: document.getElementById('iss-task').value || null,
-    issued_date: document.getElementById('iss-date').value || new Date().toISOString().slice(0,10),
-    issued_by: document.getElementById('iss-by').value.trim() || null,
-    notes: document.getElementById('iss-notes').value.trim() || null
+    issued_date: issuedDate,
+    issued_by: issuedBy,
+    notes: notes
   };
-  if(dest==='fixed_asset' && !payload.fixed_asset_id){ toast('Pick a destination Fixed Asset','error'); return; }
   if(dest==='direct_expense' && !payload.expense_note){ toast('Expense note required','error'); return; }
   try{
     const r = await fetch(`${SB_URL}/rest/v1/inventory_issuances`,{ method:'POST', headers, body: JSON.stringify(payload) });
@@ -6942,67 +7038,325 @@ async function saveIssuance(){
 }
 
 // ── APPROVALS (Material Issue → Fixed Asset) ──
-// Placeholder for tomorrow: query material_issues, render queue,
-// approve/reject buttons, PDF receipt generation.
+// Store Keeper creates DRAFT material_issues. Finance Manager approves
+// here. On approval we create the matching inventory_issuances row
+// (which feeds Store's stock + FA totals).
+
+let _apIssuesCache = [];      // most recent fetch
+let _apmCurrentId = null;     // issue being reviewed in modal
+
 async function loadApprovals(){
   try{
-    const r = await fetch(`${SB_URL}/rest/v1/material_issues?select=*&order=created_at.desc&limit=50`,{headers});
+    const r = await fetch(`${SB_URL}/rest/v1/material_issues?select=*&order=created_at.desc&limit=200`,{headers});
     if(!r.ok){
-      // Table not yet present or RLS — show friendly message
       const msg = await r.text();
       const wrap = document.getElementById('ap-tbody-wrap');
-      if(wrap) wrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">No pending approvals. (If you expected some, the <code>material_issues</code> table may need RLS policies.)</div>';
+      if(wrap) wrap.innerHTML = `<div style="padding:14px;color:var(--text-muted);font-size:13px;">No data yet, or the <code>material_issues</code> table is missing RLS policies.<br><small>${_esc(msg)}</small></div>`;
       console.warn('loadApprovals:', msg);
       return;
     }
-    const rows = await r.json();
-    const pending = rows.filter(x=>x.status==='draft');
-    const approved = rows.filter(x=>x.status==='approved');
-    const rejected = rows.filter(x=>x.status==='rejected' || x.status==='reverted');
+    _apIssuesCache = await r.json();
+    const pending = _apIssuesCache.filter(x=>x.status==='draft');
+    const approved = _apIssuesCache.filter(x=>x.status==='approved');
+    const rejected = _apIssuesCache.filter(x=>x.status==='rejected' || x.status==='reverted');
 
+    // Badge in sidebar
     const badge = document.getElementById('approvals-badge');
     if(badge){
-      if(pending.length){ badge.textContent = pending.length; badge.style.display = 'inline'; }
+      if(pending.length){ badge.textContent = pending.length; badge.style.display = 'inline-block'; }
       else badge.style.display = 'none';
     }
     const cnt = document.getElementById('ap-count');
     if(cnt) cnt.textContent = pending.length;
+
+    // Build asset name map for friendly display
+    const assets = (typeof _storeAssets !== 'undefined' ? _storeAssets : []) || [];
+    const assetMap = {};
+    assets.forEach(a => { assetMap[a.id] = a.name; });
 
     const wrap = document.getElementById('ap-tbody-wrap');
     if(wrap){
       if(!pending.length){
         wrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">No items currently pending approval.</div>';
       } else {
-        wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Issue #</th><th>Item</th><th>Qty</th><th>Value</th><th>Issued To</th><th>By</th><th>Date</th></tr></thead><tbody>' +
-          pending.map(mi => `<tr>
-            <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--gold);">${_esc(mi.issue_number||'—')}</td>
-            <td><b>${_esc(mi.item_name||'—')}</b></td>
-            <td>${(+mi.qty||0).toFixed(2)}</td>
-            <td>PKR ${fmt(+mi.total_value||0)}</td>
-            <td>${_esc(mi.issued_to||'—')}</td>
-            <td style="font-size:11px;color:var(--text-muted);">${_esc(mi.store_keeper_name||'—')}</td>
-            <td style="font-size:11px;color:var(--text-muted);">${fmtDate(mi.created_at)}</td>
-          </tr>`).join('') + '</tbody></table></div>';
+        wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Issue #</th><th>Item</th><th>Qty</th><th>Value</th><th>To (Asset)</th><th>By</th><th>Date</th><th></th></tr></thead><tbody>' +
+          pending.map(mi => {
+            const destName = assetMap[mi.issued_to] || mi.issued_to || '—';
+            return `<tr>
+              <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--gold);">${_esc(mi.issue_number||'—')}</td>
+              <td><b>${_esc(mi.item_name||'—')}</b></td>
+              <td>${(+mi.qty||0).toFixed(2)}</td>
+              <td>PKR ${fmt(+mi.total_value||0)}</td>
+              <td style="font-size:11px;">${_esc(destName)}</td>
+              <td style="font-size:11px;color:var(--text-muted);">${_esc(mi.store_keeper_name||'—')}</td>
+              <td style="font-size:11px;color:var(--text-muted);">${fmtDate(mi.created_at)}</td>
+              <td style="white-space:nowrap;text-align:right;">
+                <button class="btn btn-secondary btn-sm" onclick="printIssueReceipt('${mi.id}')" title="Print receipt">📄</button>
+                <button class="btn btn-primary btn-sm" onclick="openApproveModal('${mi.id}')" style="background:var(--green);border-color:var(--green);">Review</button>
+              </td>
+            </tr>`;
+          }).join('') + '</tbody></table></div>';
       }
     }
 
+    // Recently approved
     const approvedWrap = document.getElementById('ap-approved-wrap');
     if(approvedWrap){
-      approvedWrap.innerHTML = approved.length
-        ? `<div style="padding:10px;font-size:12px;">${approved.length} approved (most recent: ${_esc(approved[0]?.item_name||'—')} on ${fmtDate(approved[0]?.approved_at)})</div>`
-        : '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None yet.</div>';
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      const recent = approved.filter(a => a.approved_at && new Date(a.approved_at) > cutoff);
+      if(!recent.length){
+        approvedWrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None yet.</div>';
+      } else {
+        approvedWrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Issue #</th><th>Item</th><th>Value</th><th>To (Asset)</th><th>Approved By</th><th>On</th><th></th></tr></thead><tbody>' +
+          recent.slice(0, 30).map(mi => {
+            const destName = assetMap[mi.issued_to] || mi.issued_to || '—';
+            return `<tr>
+              <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--green);">${_esc(mi.issue_number||'—')}</td>
+              <td>${_esc(mi.item_name||'—')}</td>
+              <td>PKR ${fmt(+mi.total_value||0)}</td>
+              <td style="font-size:11px;">${_esc(destName)}</td>
+              <td style="font-size:11px;">${_esc(mi.finance_manager_name||'—')}</td>
+              <td style="font-size:11px;color:var(--text-muted);">${fmtDate(mi.approved_at)}</td>
+              <td><button class="btn btn-secondary btn-sm" onclick="printIssueReceipt('${mi.id}')">📄</button></td>
+            </tr>`;
+          }).join('') + '</tbody></table></div>';
+      }
     }
+
+    // Rejected / reverted
     const rejWrap = document.getElementById('ap-rejected-wrap');
     if(rejWrap){
-      rejWrap.innerHTML = rejected.length
-        ? `<div style="padding:10px;font-size:12px;">${rejected.length} rejected/reverted.</div>`
-        : '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None.</div>';
+      if(!rejected.length){
+        rejWrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None.</div>';
+      } else {
+        rejWrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Issue #</th><th>Item</th><th>Status</th><th>Reason</th><th>Date</th></tr></thead><tbody>' +
+          rejected.slice(0, 30).map(mi => `<tr>
+            <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--red);">${_esc(mi.issue_number||'—')}</td>
+            <td>${_esc(mi.item_name||'—')}</td>
+            <td><span style="background:rgba(208,64,64,.15);color:#d04040;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${_esc(mi.status||'').toUpperCase()}</span></td>
+            <td style="font-size:11px;">${_esc(mi.rejected_reason||'—')}</td>
+            <td style="font-size:11px;color:var(--text-muted);">${fmtDate(mi.updated_at)}</td>
+          </tr>`).join('') + '</tbody></table></div>';
+      }
     }
   }catch(e){
     console.error('loadApprovals:', e);
     const wrap = document.getElementById('ap-tbody-wrap');
     if(wrap) wrap.innerHTML = '<div style="padding:14px;color:var(--red);font-size:13px;">Failed to load: '+(e.message||e)+'</div>';
   }
+}
+
+function openApproveModal(issueId){
+  if(!canWrite()){ toast('Admin only','error'); return; }
+  const mi = _apIssuesCache.find(x => x.id === issueId);
+  if(!mi){ toast('Issue not found','error'); return; }
+  _apmCurrentId = issueId;
+  // Look up asset name
+  const assets = (typeof _storeAssets !== 'undefined' ? _storeAssets : []) || [];
+  const asset = assets.find(a => a.id === mi.issued_to);
+  const destName = asset ? `${asset.name} (${asset.category||'—'})` : (mi.issued_to||'—');
+
+  document.getElementById('apm-number').textContent = mi.issue_number || '—';
+  document.getElementById('apm-item').textContent   = mi.item_name || '—';
+  document.getElementById('apm-cat').textContent    = mi.category || '—';
+  document.getElementById('apm-qty').textContent    = (+mi.qty||0).toFixed(2);
+  document.getElementById('apm-uc').textContent     = 'PKR ' + fmt(+mi.unit_cost||0);
+  document.getElementById('apm-tv').textContent     = 'PKR ' + fmt(+mi.total_value||0);
+  document.getElementById('apm-to').textContent     = destName;
+  document.getElementById('apm-fa').textContent     = mi.fixed_asset_category || '—';
+  document.getElementById('apm-by').textContent     = mi.store_keeper_name || '—';
+  document.getElementById('apm-on').textContent     = mi.created_at ? new Date(mi.created_at).toLocaleString() : '—';
+  document.getElementById('apm-purpose').textContent= mi.purpose || '—';
+  document.getElementById('apm-notes').textContent  = mi.notes || '—';
+  document.getElementById('apm-reject').value = '';
+
+  document.getElementById('approve-modal').style.display = 'flex';
+}
+function closeApproveModal(){
+  document.getElementById('approve-modal').style.display = 'none';
+  _apmCurrentId = null;
+}
+
+async function approveIssue(){
+  if(!_apmCurrentId){ toast('No issue selected','error'); return; }
+  if(!isAdmin()){ toast('Finance Manager / Admin only','error'); return; }
+  const mi = _apIssuesCache.find(x => x.id === _apmCurrentId);
+  if(!mi){ toast('Issue not found','error'); return; }
+  const userName = window.currentUserEmail || 'Finance Manager';
+  try{
+    // 1) Create the corresponding inventory_issuances row (this is what Store/FA reads)
+    const issPayload = {
+      item_name: mi.item_name,
+      qty: mi.qty,
+      unit_cost: mi.unit_cost,
+      total_value: mi.total_value,
+      destination_type: 'fixed_asset',
+      fixed_asset_id: mi.issued_to,          // we stored FA UUID here
+      expense_note: null,
+      vendor_task_id: null,
+      issued_date: (mi.store_keeper_signed_at || mi.created_at || new Date().toISOString()).slice(0,10),
+      issued_by: mi.store_keeper_name,
+      notes: `Approved by ${userName} via Approvals queue (issue ${mi.issue_number||mi.id})`
+    };
+    const issR = await fetch(`${SB_URL}/rest/v1/inventory_issuances`,{
+      method:'POST', headers:{...headers,'Prefer':'return=representation'},
+      body: JSON.stringify(issPayload)
+    });
+    if(!issR.ok){
+      const err = await issR.text();
+      throw new Error('Could not create issuance: ' + err);
+    }
+
+    // 2) Mark the material_issue as approved
+    const updR = await fetch(`${SB_URL}/rest/v1/material_issues?id=eq.${mi.id}`,{
+      method:'PATCH', headers,
+      body: JSON.stringify({
+        status: 'approved',
+        finance_manager_name: userName,
+        approved_at: new Date().toISOString()
+      })
+    });
+    if(!updR.ok){
+      // Not critical — issuance is in, but we couldn't mark the draft. Warn.
+      console.warn('Could not mark material_issue approved:', await updR.text());
+    }
+    toast('✓ Approved — capitalized to Fixed Asset');
+    closeApproveModal();
+    loadApprovals();
+    if(typeof loadStore === 'function') loadStore();
+  }catch(e){
+    console.error('approveIssue:', e);
+    toast('Approve failed: '+(e.message||e),'error');
+  }
+}
+
+async function rejectIssue(){
+  if(!_apmCurrentId){ toast('No issue selected','error'); return; }
+  if(!isAdmin()){ toast('Finance Manager / Admin only','error'); return; }
+  const reason = document.getElementById('apm-reject').value.trim();
+  if(!reason){ toast('Reject reason required','error'); return; }
+  const userName = window.currentUserEmail || 'Finance Manager';
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/material_issues?id=eq.${_apmCurrentId}`,{
+      method:'PATCH', headers,
+      body: JSON.stringify({
+        status: 'rejected',
+        rejected_reason: reason,
+        finance_manager_name: userName,
+        approved_at: null
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    toast('✕ Rejected — stock not affected');
+    closeApproveModal();
+    loadApprovals();
+  }catch(e){
+    console.error('rejectIssue:', e);
+    toast('Reject failed: '+(e.message||e),'error');
+  }
+}
+
+// ── PDF receipt (Step 4) ──
+// Opens a print-friendly window with the issue details + signature line.
+function printIssueReceipt(issueId){
+  if(!issueId){ toast('No issue to print','error'); return; }
+  const mi = _apIssuesCache.find(x => x.id === issueId);
+  if(!mi){ toast('Issue not found in cache — refresh Approvals page','error'); return; }
+  const assets = (typeof _storeAssets !== 'undefined' ? _storeAssets : []) || [];
+  const asset = assets.find(a => a.id === mi.issued_to);
+  const destName = asset ? `${asset.name} (${asset.category||'—'})` : (mi.issued_to||'—');
+  const statusBadge = mi.status === 'approved'
+    ? '<span style="background:#e8f5ec;color:#2d7a4b;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">APPROVED</span>'
+    : mi.status === 'rejected' || mi.status === 'reverted'
+    ? `<span style="background:#fbeaea;color:#a43030;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">${mi.status.toUpperCase()}</span>`
+    : '<span style="background:#fff4dc;color:#946410;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:0.05em;">DRAFT — PENDING APPROVAL</span>';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Material Issue Receipt — ${_esc(mi.issue_number||'')}</title>
+<style>
+@page { size: A4; margin: 18mm; }
+* { box-sizing: border-box; }
+body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; max-width: 720px; margin: 0 auto; padding: 24px; }
+h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; margin: 0 0 4px; color: #2d4a3e; letter-spacing: 0.02em; }
+.sub { font-size: 11px; color: #777; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 24px; }
+.hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2d4a3e; padding-bottom: 14px; margin-bottom: 20px; }
+.hdr .right { text-align: right; }
+.no { font-family: ui-monospace, monospace; font-size: 14px; color: #946410; font-weight: 600; }
+.row { display: flex; padding: 6px 0; border-bottom: 1px dotted #ddd; font-size: 13px; }
+.row .lbl { flex: 0 0 180px; color: #666; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 2px; }
+.row .val { flex: 1; }
+.totals { background: #f7f5ef; border: 1px solid #e0d8c0; border-radius: 6px; padding: 14px 18px; margin: 18px 0; }
+.totals .big { font-size: 18px; font-weight: 600; color: #2d4a3e; }
+.sig-block { display: flex; gap: 40px; margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; }
+.sig { flex: 1; }
+.sig-line { border-bottom: 1px solid #1a1a1a; height: 50px; margin-bottom: 6px; }
+.sig-name { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
+.sig-val { font-size: 12px; color: #1a1a1a; margin-top: 4px; font-style: italic; }
+.footer { margin-top: 36px; font-size: 10px; color: #999; text-align: center; }
+.notes-block { background: #fafafa; border-left: 3px solid #ccc; padding: 10px 14px; margin: 10px 0; font-size: 12px; color: #444; }
+@media print { body { padding: 0; } .no-print { display: none; } }
+.toolbar { margin-bottom: 16px; padding: 10px; background: #2d4a3e; color: #fff; border-radius: 6px; text-align: center; font-size: 12px; }
+.toolbar button { background: #d4b263; color: #1a1a1a; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; margin-left: 8px; }
+</style></head><body>
+<div class="toolbar no-print">
+  Bejaan Hotel · Material Issue Receipt
+  <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+  <button onclick="window.close()">✕ Close</button>
+</div>
+
+<div class="hdr">
+  <div>
+    <h1>Material Issue Receipt</h1>
+    <div class="sub">Bejaan Hotel · Stores Department</div>
+  </div>
+  <div class="right">
+    <div class="no">${_esc(mi.issue_number||'—')}</div>
+    <div style="margin-top:6px;">${statusBadge}</div>
+  </div>
+</div>
+
+<div class="row"><div class="lbl">Item</div><div class="val"><b>${_esc(mi.item_name||'—')}</b>${mi.category?' · '+_esc(mi.category):''}</div></div>
+<div class="row"><div class="lbl">Quantity</div><div class="val">${(+mi.qty||0).toFixed(2)}</div></div>
+<div class="row"><div class="lbl">Unit cost</div><div class="val">PKR ${fmt(+mi.unit_cost||0)}</div></div>
+<div class="row"><div class="lbl">Issued to</div><div class="val">${_esc(destName)}</div></div>
+<div class="row"><div class="lbl">FA category</div><div class="val">${_esc(mi.fixed_asset_category||'—')}</div></div>
+<div class="row"><div class="lbl">Purpose</div><div class="val">${_esc(mi.purpose||'—')}</div></div>
+<div class="row"><div class="lbl">Issued on</div><div class="val">${mi.store_keeper_signed_at ? new Date(mi.store_keeper_signed_at).toLocaleString() : (mi.created_at?new Date(mi.created_at).toLocaleString():'—')}</div></div>
+
+<div class="totals">
+  <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#946410;margin-bottom:4px;">Total Issue Value</div>
+  <div class="big">PKR ${fmt(+mi.total_value||0)}</div>
+</div>
+
+${mi.notes ? `<div class="notes-block"><b>Notes:</b> ${_esc(mi.notes)}</div>` : ''}
+${mi.rejected_reason ? `<div class="notes-block" style="border-left-color:#a43030;"><b>Reject reason:</b> ${_esc(mi.rejected_reason)}</div>` : ''}
+
+<div class="sig-block">
+  <div class="sig">
+    <div class="sig-line"></div>
+    <div class="sig-name">Store Keeper</div>
+    <div class="sig-val">${_esc(mi.store_keeper_name||'_________________')}</div>
+    <div class="sig-val" style="color:#888;font-size:10px;">Signed: ${mi.store_keeper_signed_at ? new Date(mi.store_keeper_signed_at).toLocaleString() : '__________'}</div>
+  </div>
+  <div class="sig">
+    <div class="sig-line"></div>
+    <div class="sig-name">Finance Manager</div>
+    <div class="sig-val">${mi.status==='approved' ? _esc(mi.finance_manager_name||'_________________') : '_________________'}</div>
+    <div class="sig-val" style="color:#888;font-size:10px;">Approved: ${mi.approved_at ? new Date(mi.approved_at).toLocaleString() : '__________'}</div>
+  </div>
+</div>
+
+<div class="footer">
+  This receipt is auto-generated by the Bejaan Hotel Project Dashboard.<br>
+  Reference ID: ${_esc(mi.id||'')} · Generated: ${new Date().toLocaleString()}
+</div>
+
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){ toast('Pop-up blocked — allow pop-ups to print','error'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 // ── FIXED ASSET FORM ──
@@ -9201,6 +9555,7 @@ async function saveEditVendor(){
       approval: c.approval || 'Pending Approval',
       agreement_status: c.agreement_status || 'Draft',
       destination_type: c.destination_type || 'fixed_asset',
+      default_destination_type: c.destination_type || 'fixed_asset',
       fixed_asset_category: c.fixed_asset_category || 'Building',
       split_mode: c.split_mode || 'pkr',
       fa_amount: +c.fa_amount || null,
