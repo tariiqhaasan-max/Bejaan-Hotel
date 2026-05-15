@@ -153,6 +153,104 @@ tr:hover td{background:var(--green-bg);}
 }
 .ov-dark > *{position:relative;z-index:1;}
 
+/* ============================================================
+   A3 Split-view Overview &mdash; layout
+   ============================================================ */
+.ov-hero-banner{
+  background:linear-gradient(135deg,#0d0d0d 0%,#141414 100%);
+  border:1px solid var(--ov-border);border-radius:16px;
+  padding:32px 36px;margin-bottom:18px;position:relative;overflow:hidden;
+  animation:ovFadeUp .6s ease both;
+}
+.ov-hero-banner::after{
+  content:'';position:absolute;top:0;right:0;width:380px;height:260px;
+  background:radial-gradient(ellipse at top right,rgba(184,149,88,0.12),transparent 65%);
+  pointer-events:none;
+}
+.ov-hero-eyebrow{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.22em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:18px;position:relative;z-index:1;}
+.ov-hero-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;position:relative;z-index:1;}
+.ov-hero-title{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:46px;line-height:1.06;color:var(--ov-cream);letter-spacing:-.005em;}
+.ov-hero-title em{font-style:italic;color:var(--ov-gold-lt);}
+.ov-hero-stats{display:flex;gap:0;}
+.ov-hero-stat{padding:6px 22px;border-right:1px solid var(--ov-border);}
+.ov-hero-stat.last{padding-right:0;border-right:none;}
+.ov-hero-stat:first-child{padding-left:0;}
+.ov-hs-label{font-size:10px;color:var(--ov-muted);letter-spacing:.16em;text-transform:uppercase;margin-bottom:5px;}
+.ov-hs-value{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;line-height:1;}
+.ov-hs-value.gold{color:var(--ov-gold);}
+.ov-hs-value.gold-lt{color:var(--ov-gold-lt);}
+.ov-hs-value.cream{color:var(--ov-cream);}
+.ov-hs-value.orange{color:#e08a4c;}
+.ov-hero-sub{font-size:12px;color:var(--ov-muted);margin-top:14px;position:relative;z-index:1;letter-spacing:.04em;}
+
+/* Split row */
+.ov-split{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-bottom:14px;}
+@media (max-width:980px){.ov-split{grid-template-columns:1fr;}}
+
+.ov-card{
+  background:var(--ov-surface);border:1px solid var(--ov-border);border-radius:14px;
+  padding:22px 24px;animation:ovFadeUp .6s ease both;animation-delay:.1s;
+}
+.ov-card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--ov-border);}
+.ov-card-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--ov-cream);}
+.ov-card-sub{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ov-muted);}
+
+/* Zones (Schedule) */
+.ov-zones{display:flex;flex-direction:column;gap:11px;}
+.ov-zone-row{display:flex;align-items:center;gap:12px;font-size:11px;}
+.ov-zone-label{width:120px;color:var(--ov-cream);opacity:.85;font-weight:400;font-family:'Jost',sans-serif;text-transform:capitalize;}
+.ov-zone-track{flex:1;height:6px;background:var(--ov-surface2);border-radius:3px;position:relative;overflow:hidden;}
+.ov-zone-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .8s ease;}
+.ov-zone-pct{font-family:'Cormorant Garamond',serif;font-size:16px;min-width:44px;text-align:right;}
+.ov-card-foot{display:flex;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid var(--ov-border);font-size:10px;color:var(--ov-muted);letter-spacing:.18em;text-transform:uppercase;}
+
+/* Financial */
+.ov-fin{display:flex;flex-direction:column;gap:16px;}
+.ov-fin-row{display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:baseline;}
+.ov-fin-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ov-muted);}
+.ov-fin-value{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;text-align:right;}
+.ov-fin-value.gold{color:var(--ov-gold);}
+.ov-fin-value.green{color:#7dd4a8;}
+.ov-fin-value.orange{color:#e08a4c;}
+.ov-fin-value.cream{color:var(--ov-cream);}
+.ov-fin-bar{grid-column:1/-1;height:3px;background:var(--ov-surface2);border-radius:2px;overflow:hidden;}
+.ov-fin-fill{height:100%;width:0;border-radius:2px;transition:width 1s ease;}
+.ov-fin-fill.gold{background:linear-gradient(to right,var(--ov-gold),var(--ov-gold-lt));}
+.ov-fin-fill.green{background:#7dd4a8;}
+.ov-fin-fill.orange{background:#e08a4c;}
+.ov-fin-fill.cream{background:var(--ov-cream);}
+.ov-fin-note{grid-column:1/-1;font-size:10px;color:var(--ov-dim);letter-spacing:.06em;margin-top:2px;}
+
+/* Bottom row */
+.ov-bottom{display:grid;grid-template-columns:2fr 1fr;gap:14px;}
+@media (max-width:980px){.ov-bottom{grid-template-columns:1fr;}}
+
+/* Today's heat */
+.ov-heat{display:flex;flex-direction:column;gap:7px;font-size:12px;}
+.ov-heat-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-radius:4px;}
+.ov-heat-row.critical{background:rgba(224,138,76,0.08);border-left:2px solid #e08a4c;}
+.ov-heat-row.high{background:rgba(184,149,88,0.06);border-left:2px solid var(--ov-gold);}
+.ov-heat-row.medium{background:rgba(138,170,158,0.06);border-left:2px solid #8aaa9e;}
+.ov-heat-label{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:500;min-width:64px;}
+.ov-heat-row.critical .ov-heat-label{color:#e08a4c;}
+.ov-heat-row.high .ov-heat-label{color:var(--ov-gold);}
+.ov-heat-row.medium .ov-heat-label{color:#8aaa9e;}
+.ov-heat-body{flex:1;color:var(--ov-cream);}
+.ov-heat-aside{color:var(--ov-muted);font-size:11px;font-style:italic;}
+
+/* Payments */
+.ov-pay{display:flex;flex-direction:column;gap:9px;font-size:12px;}
+.ov-pay-row{display:flex;justify-content:space-between;align-items:baseline;}
+.ov-pay-left{color:var(--ov-cream);opacity:.85;}
+.ov-pay-amt{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ov-gold);}
+.ov-pay-total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--ov-border);padding-top:12px;margin-top:12px;}
+.ov-pay-total > span:first-child{color:var(--ov-cream);font-size:12px;letter-spacing:.04em;}
+.ov-pay-total > span.gold{font-family:'Cormorant Garamond',serif;font-size:20px;color:#e08a4c;}
+
+.ov-empty{padding:14px;color:var(--ov-muted);font-size:12px;font-style:italic;}
+
+/* Legacy ov-hero / ov-title hidden &mdash; new layout uses ov-hero-banner */
+
 .ov-hero{margin-bottom:40px;max-width:900px;animation:ovFadeUp .6s ease both;}
 .ov-eyebrow{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.22em;color:var(--ov-muted);text-transform:uppercase;margin-bottom:18px;}
 .ov-line{width:40px;height:1px;background:var(--ov-gold);display:inline-block;}
@@ -303,212 +401,132 @@ tr:hover td{background:var(--green-bg);}
 <!-- OVERVIEW (Dark Editorial) -->
 <div class="section active" id="section-overview">
   <div class="ov-dark">
-    <!-- Hero -->
-    <div class="ov-hero">
-      <div class="ov-eyebrow"><span class="ov-line"></span>MASTER DASHBOARD · <span id="ov-today"></span></div>
-      <h1 class="ov-title">Bejaan Resort <em>build</em>,<br>at a glance.</h1>
-      <p class="ov-subtitle">Tasks behind target, next milestones, unpaid vendors, critical bottlenecks — one screen for the whole project.</p>
-      <div class="ov-actions">
-        <button class="ov-btn ov-btn-ghost" onclick="loadOverview()">↻ Refresh</button>
+    <!-- HERO BANNER -->
+    <div class="ov-hero-banner">
+      <div class="ov-hero-eyebrow">
+        <span class="ov-line"></span>MASTER DASHBOARD &middot; <span id="ov-today"></span>
       </div>
-    </div>
-
-    <!-- Estimated Opening Date (computed via Project Plan) -->
-    <div id="ov-opening-card" style="margin:0 0 18px;padding:20px 28px;background:linear-gradient(135deg,rgba(212,178,99,.10) 0%, rgba(46,90,73,.08) 100%);border:1px solid rgba(212,178,99,.35);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
-      <div style="display:flex;align-items:center;gap:18px;flex:1;min-width:280px;">
-        <div style="font-size:34px;">🏨</div>
-        <div>
-          <div style="font-size:11px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Estimated Hotel Opening</div>
-          <div id="ov-opening-date" style="font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);font-weight:600;line-height:1.1;">—</div>
-          <div id="ov-opening-rel" style="font-size:12px;color:var(--ov-muted);margin-top:4px;">Calculating…</div>
+      <div class="ov-hero-row">
+        <div class="ov-hero-title-wrap">
+          <h1 class="ov-hero-title">Bejaan Resort <em>build</em>,<br>at a <em>glance</em>.</h1>
         </div>
-      </div>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;">
-        <div style="text-align:right;">
-          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Active</div>
-          <div id="ov-opening-active" style="font-size:18px;font-weight:600;color:var(--ov-text);">—</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Bottlenecks</div>
-          <div id="ov-opening-bottle" style="font-size:18px;font-weight:600;color:var(--ov-text);">—</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Overdue</div>
-          <div id="ov-opening-overdue" style="font-size:18px;font-weight:600;color:var(--red);">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Four hero KPI cards (requested top-priorities) -->
-    <div class="ov-kpi-grid">
-      <div class="ov-kpi ov-kpi-red">
-        <div class="ov-kpi-label">Tasks Behind Target</div>
-        <div class="ov-kpi-value" id="ov-behind">—</div>
-        <div class="ov-kpi-sub" id="ov-behind-sub">—</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-behind-bar"></div></div>
-      </div>
-      <div class="ov-kpi ov-kpi-gold">
-        <div class="ov-kpi-label">Next Milestones</div>
-        <div class="ov-kpi-value" id="ov-milestones">—</div>
-        <div class="ov-kpi-sub" id="ov-milestones-sub">due in next 14 days</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-milestones-bar"></div></div>
-      </div>
-      <div class="ov-kpi ov-kpi-amber">
-        <div class="ov-kpi-label">Unpaid to Vendors</div>
-        <div class="ov-kpi-value" id="ov-unpaid">—</div>
-        <div class="ov-kpi-sub" id="ov-unpaid-sub">—</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-unpaid-bar"></div></div>
-      </div>
-      <div class="ov-kpi ov-kpi-crit">
-        <div class="ov-kpi-label">Critical Bottlenecks</div>
-        <div class="ov-kpi-value" id="ov-crit">—</div>
-        <div class="ov-kpi-sub" id="ov-crit-sub">high + critical impact</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-crit-bar"></div></div>
-      </div>
-    </div>
-
-    <!-- Asset / Store KPI strip -->
-    <div class="ov-kpi-grid">
-      <div class="ov-kpi ov-kpi-gold">
-        <div class="ov-kpi-label">FA Capitalized</div>
-        <div class="ov-kpi-value" id="ov-fa-cap">—</div>
-        <div class="ov-kpi-sub" id="ov-fa-cap-sub">paid + issued from store</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-fa-cap-bar"></div></div>
-      </div>
-      <div class="ov-kpi">
-        <div class="ov-kpi-label">FA Committed</div>
-        <div class="ov-kpi-value" id="ov-fa-com">—</div>
-        <div class="ov-kpi-sub" id="ov-fa-com-sub">incl. unpaid task allocations</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-fa-com-bar"></div></div>
-      </div>
-      <div class="ov-kpi ov-kpi-amber">
-        <div class="ov-kpi-label">Inventory in Store</div>
-        <div class="ov-kpi-value" id="ov-store-val">—</div>
-        <div class="ov-kpi-sub" id="ov-store-val-sub">awaiting issuance</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-store-val-bar"></div></div>
-      </div>
-      <div class="ov-kpi">
-        <div class="ov-kpi-label">Total Asset Base</div>
-        <div class="ov-kpi-value" id="ov-asset-total">—</div>
-        <div class="ov-kpi-sub" id="ov-asset-total-sub">capitalized + store</div>
-        <div class="ov-kpi-spark"><div class="ov-kpi-bar" id="ov-asset-total-bar"></div></div>
-      </div>
-    </div>
-
-    <!-- Two-up: gauge + donut -->
-    <div class="ov-grid ov-grid-2">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Overall Progress</div>
-          <div class="ov-panel-hint">bcc_tasks</div>
-        </div>
-        <div class="ov-gauge-wrap">
-          <canvas id="ov-gauge"></canvas>
-          <div class="ov-gauge-center">
-            <div class="ov-gauge-value" id="ov-gauge-val">—</div>
-            <div class="ov-gauge-label">complete</div>
+        <div class="ov-hero-stats">
+          <div class="ov-hero-stat">
+            <div class="ov-hs-label">Opening</div>
+            <div class="ov-hs-value gold" id="ov-opening-short">&mdash;</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hs-label">Active</div>
+            <div class="ov-hs-value cream" id="ov-opening-active">&mdash;</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hs-label">Overdue</div>
+            <div class="ov-hs-value orange" id="ov-opening-overdue">&mdash;</div>
+          </div>
+          <div class="ov-hero-stat last">
+            <div class="ov-hs-label">Bottle</div>
+            <div class="ov-hs-value gold-lt" id="ov-opening-bottle">&mdash;</div>
           </div>
         </div>
-        <div class="ov-gauge-foot" id="ov-gauge-foot">—</div>
       </div>
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Task Status Mix</div>
-          <div class="ov-panel-hint">18 work packages</div>
+      <div class="ov-hero-sub" id="ov-opening-rel">Calculating opening date&hellip;</div>
+    </div>
+
+    <!-- SPLIT: SCHEDULE + FINANCIAL -->
+    <div class="ov-split">
+      <!-- LEFT: Schedule by Zone -->
+      <div class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Schedule</div>
+          <div class="ov-card-sub">today &rarr; opening</div>
         </div>
-        <div class="ov-donut-wrap">
-          <canvas id="ov-donut"></canvas>
+        <div id="ov-zones" class="ov-zones">
+          <div class="ov-empty">Loading zones&hellip;</div>
         </div>
-        <div class="ov-donut-legend" id="ov-donut-legend"></div>
+        <div class="ov-card-foot" id="ov-zones-foot">
+          <span>Today</span>
+          <span id="ov-zones-mid">&mdash;</span>
+          <span class="gold" id="ov-zones-end">&mdash;</span>
+        </div>
+      </div>
+
+      <!-- RIGHT: Financial Position -->
+      <div class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Financial position</div>
+        </div>
+        <div class="ov-fin">
+          <div class="ov-fin-row">
+            <div class="ov-fin-label">Capitalized</div>
+            <div class="ov-fin-value gold" id="ov-fin-cap">Rs 0</div>
+            <div class="ov-fin-bar"><div class="ov-fin-fill gold" id="ov-fin-cap-bar"></div></div>
+            <div class="ov-fin-note" id="ov-fin-cap-note">&mdash;</div>
+          </div>
+          <div class="ov-fin-row">
+            <div class="ov-fin-label">Paid to vendors</div>
+            <div class="ov-fin-value green" id="ov-fin-paid">Rs 0</div>
+            <div class="ov-fin-bar"><div class="ov-fin-fill green" id="ov-fin-paid-bar"></div></div>
+            <div class="ov-fin-note" id="ov-fin-paid-note">&mdash;</div>
+          </div>
+          <div class="ov-fin-row">
+            <div class="ov-fin-label">Outstanding</div>
+            <div class="ov-fin-value orange" id="ov-fin-out">Rs 0</div>
+            <div class="ov-fin-bar"><div class="ov-fin-fill orange" id="ov-fin-out-bar"></div></div>
+            <div class="ov-fin-note" id="ov-fin-out-note">&mdash;</div>
+          </div>
+          <div class="ov-fin-row">
+            <div class="ov-fin-label">In store</div>
+            <div class="ov-fin-value cream" id="ov-fin-store">Rs 0</div>
+            <div class="ov-fin-bar"><div class="ov-fin-fill cream" id="ov-fin-store-bar"></div></div>
+            <div class="ov-fin-note" id="ov-fin-store-note">&mdash;</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- NEW: Cashflow Momentum (gradient area + glowing particle) -->
-    <div class="ov-grid" style="grid-template-columns:1fr;margin-bottom:20px;">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Cashflow Momentum</div>
-          <div class="ov-panel-hint">payments flowing over time · last 12 weeks</div>
+    <!-- BOTTOM ROW: Today's Heat + Payments -->
+    <div class="ov-bottom">
+      <!-- Today's heat -->
+      <div class="ov-card heat">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Today's heat</div>
+          <div class="ov-card-sub">ranked by impact</div>
         </div>
-        <div id="ov-momentum-wrap" style="position:relative;height:240px;"></div>
+        <div id="ov-heat" class="ov-heat">
+          <div class="ov-empty">Loading&hellip;</div>
+        </div>
+      </div>
+      <!-- Payments this week -->
+      <div class="ov-card pay">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Payments</div>
+          <div class="ov-card-sub">this week</div>
+        </div>
+        <div id="ov-pay" class="ov-pay">
+          <div class="ov-empty">Loading&hellip;</div>
+        </div>
+        <div class="ov-pay-total">
+          <span>Total this week</span>
+          <span class="gold" id="ov-pay-total-val">Rs 0</span>
+        </div>
       </div>
     </div>
 
-    <!-- NEW: Task Activity Sparklines (heart-monitor wall) -->
-    <div class="ov-grid" style="grid-template-columns:1fr;margin-bottom:20px;">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Task Activity — Last 30 Days</div>
-          <div class="ov-panel-hint">completed · updated · overdue · heart-monitor view</div>
-        </div>
-        <div id="ov-sparkwall" style="position:relative;height:280px;"></div>
-      </div>
-    </div>
-
-    <!-- NEW: Vendor Health Radar + Activity Pulse -->
-    <div class="ov-grid ov-grid-2" style="margin-bottom:20px;">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Vendor Health Radar</div>
-          <div class="ov-panel-hint">top vendors · approved · payment · progress</div>
-        </div>
-        <div id="ov-vendor-radar" style="position:relative;height:380px;display:flex;align-items:center;justify-content:center;"></div>
-      </div>
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Activity Pulse</div>
-          <div class="ov-panel-hint">recent payments & task updates</div>
-        </div>
-        <div id="ov-activity-pulse" style="max-height:380px;overflow-y:auto;"></div>
-      </div>
-    </div>
-
-    <!-- Vendor balance + work by area -->
-    <div class="ov-grid ov-grid-2">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Vendor Race — Paid vs Balance</div>
-          <div class="ov-panel-hint">top 10 · bars race in on load</div>
-        </div>
-        <div id="ov-racing-bars" style="position:relative;min-height:340px;"></div>
-      </div>
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Progress by Work Package</div>
-          <div class="ov-panel-hint">by vendor · current vs target</div>
-        </div>
-        <div id="ov-pkg-list" class="ov-pkg-list"><div class="ov-muted" style="padding:18px;">loading…</div></div>
-      </div>
-    </div>
-
-    <!-- Attention + Upcoming -->
-    <div class="ov-grid ov-grid-2">
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Attention Required</div>
-          <div class="ov-panel-hint">bottlenecks + behind-target tasks</div>
-        </div>
-        <div id="ov-attention" class="ov-attention"><div class="ov-muted" style="padding:18px;">loading…</div></div>
-      </div>
-      <div class="ov-panel">
-        <div class="ov-panel-head">
-          <div class="ov-panel-title">Upcoming Cashflow</div>
-          <div class="ov-panel-hint">next 4 entries</div>
-        </div>
-        <div id="ov-cashflow" class="ov-cashflow"><div class="ov-muted" style="padding:18px;">loading…</div></div>
-      </div>
-    </div>
-
-    <!-- Room Progress Grid -->
-    <div class="ov-panel" style="margin-top:20px;">
-      <div class="ov-panel-head">
-        <div>
-          <div class="ov-panel-title">Room Progress</div>
-          <div class="ov-panel-hint" id="ov-rooms-hint">—</div>
-        </div>
-        <button class="ov-btn ov-btn-ghost" onclick="showSection('rooms')">View Details →</button>
-      </div>
-      <div id="ov-rooms-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;padding:8px;"><div class="ov-muted" style="padding:18px;">loading…</div></div>
+    <!-- LEGACY HIDDEN ELEMENTS &mdash; preserved so old loadOverview helper code that touches them doesn't crash -->
+    <div style="display:none;">
+      <span id="ov-opening-date"></span>
+      <span id="ov-behind"></span><span id="ov-behind-sub"></span><span id="ov-behind-bar"></span>
+      <span id="ov-milestones"></span><span id="ov-milestones-sub"></span><span id="ov-milestones-bar"></span>
+      <span id="ov-unpaid"></span><span id="ov-unpaid-sub"></span><span id="ov-unpaid-bar"></span>
+      <span id="ov-crit"></span><span id="ov-crit-sub"></span><span id="ov-crit-bar"></span>
+      <span id="ov-gauge"></span><span id="ov-gauge-val"></span><span id="ov-gauge-foot"></span>
+      <span id="ov-donut"></span><span id="ov-race"></span><span id="ov-momentum"></span>
+      <span id="ov-fa-cap"></span><span id="ov-fa-cap-sub"></span><span id="ov-fa-cap-bar"></span>
+      <span id="ov-fa-com"></span><span id="ov-fa-com-sub"></span><span id="ov-fa-com-bar"></span>
+      <span id="ov-store-val"></span><span id="ov-store-val-sub"></span><span id="ov-store-val-bar"></span>
+      <span id="ov-asset-total"></span><span id="ov-asset-total-sub"></span><span id="ov-asset-total-bar"></span>
+      <span id="ov-pkg-list"></span><span id="ov-rooms-grid"></span>
+      <span id="ov-sparkwall"></span><span id="ov-radar"></span><span id="ov-activity"></span>
     </div>
   </div>
 </div>
@@ -3238,310 +3256,217 @@ function _wfMemToDb(t){
 // OVERVIEW
 async function loadOverview(){
   try{
-    // Date in hero
+    // Today's date in hero eyebrow
     const td = document.getElementById('ov-today');
     if(td){
       const d = new Date();
       td.textContent = d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
     }
 
-    // Pull everything in parallel
-    const [vendors, budget, cashflow, punch, bccTasks, bccAreas, bccBottles, contractsR] = await Promise.all([
-      getData('vendors'),
-      getData('budget'),
-      getData('cashflow'),
-      getData('punch_list'),
-      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()).catch(()=>[]),
-      fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
-      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[]),
-      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.json()).catch(()=>[])
+    // Fetch everything in parallel
+    const [vendors, contracts, tasks, bottles, fixedAssets, receipts, issuances, contractMilestones, vendorTaskPayments] = await Promise.all([
+      getData('vendors').catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/fixed_assets?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?select=*&order=target_date.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
-    const wip = [];  // WIP feature removed — preserves downstream gauge math
-    const tasks = Array.isArray(bccTasks) ? bccTasks : [];
-    const areas = Array.isArray(bccAreas) ? bccAreas : [];
-    const bottles = Array.isArray(bccBottles) ? bccBottles : [];
-    const contracts = Array.isArray(contractsR) ? contractsR : [];
-    // Populate Estimated Opening Date hero card (reuses the Project Plan estimator)
-    try{
-      const openBottles = bottles.filter(b => b.status === 'open');
-      const est = _estimateOpeningDate(tasks, contracts, vendors, openBottles);
-      if(est.opening){
-        document.getElementById('ov-opening-date').textContent =
-          est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-        const subtxt = est.breakdown.gated
-          ? `${_fmtOpeningRel(est.daysOut)} · 🛑 gated by latest task deadline · +${est.breakdown.penalty}d bottleneck penalty`
-          : `${_fmtOpeningRel(est.daysOut)} · blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
-        document.getElementById('ov-opening-rel').textContent = subtxt;
-      } else {
-        document.getElementById('ov-opening-date').textContent = '—';
-        document.getElementById('ov-opening-rel').textContent = 'No active tasks';
-      }
-      const todayISO = new Date().toISOString().slice(0,10);
-      const activeCnt = tasks.filter(t => t.status !== 'complete' && (+t.current_pct < 100)).length;
-      const overdueCnt = tasks.filter(t => t.deadline && t.deadline < todayISO && t.status !== 'complete').length;
-      document.getElementById('ov-opening-active').textContent = activeCnt;
-      document.getElementById('ov-opening-bottle').textContent = openBottles.length;
-      document.getElementById('ov-opening-overdue').textContent = overdueCnt;
-    }catch(_){ /* opening estimate fields don't exist in older overview layout — ignore */ }
-    const areaByTask = {};
-    areas.forEach(a=>{(areaByTask[a.task_id]=areaByTask[a.task_id]||[]).push(a);});
 
-    // ---------- KPIs ----------
-    // Tasks behind target (>20% gap vs avg of area targets)
-    let behind = 0, onTrack = 0, totalGap = 0;
-    tasks.forEach(t=>{
-      const ar = areaByTask[t.id] || [];
-      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
-      const curr = +t.current_pct||0;
-      const gap = tgt - curr;
-      if(gap >= 20) behind++;
-      else onTrack++;
-      if(gap > 0) totalGap += gap;
-    });
-    _countUpText('ov-behind', behind);
-    document.getElementById('ov-behind-sub').textContent = tasks.length ? `out of ${tasks.length} tasks · ${onTrack} on track` : 'no tasks yet';
-    setTimeout(()=>{
-      const ratio = tasks.length ? (behind/tasks.length) : 0;
-      document.getElementById('ov-behind-bar').style.width = (ratio*100).toFixed(1)+'%';
-    },80);
+    const todayISO = new Date().toISOString().slice(0,10);
+    const today = new Date(); today.setHours(0,0,0,0);
 
-    // Next milestones = active tasks (proxy: in_progress count, as a forward-looking signal)
-    const activeTasks = tasks.filter(t=>t.status==='in_progress').length;
-    _countUpText('ov-milestones', activeTasks);
-    document.getElementById('ov-milestones-sub').textContent = activeTasks ? 'work packages in motion' : 'nothing in motion';
-    setTimeout(()=>{
-      const ratio = tasks.length ? (activeTasks/tasks.length) : 0;
-      document.getElementById('ov-milestones-bar').style.width = (ratio*100).toFixed(1)+'%';
-    },120);
-
-    // Unpaid to vendors (from existing vendors table)
-    const totalContract = vendors.reduce((a,b)=>a+(+b.total_contract||0),0);
-    const totalPaid     = vendors.reduce((a,b)=>a+(+b.amount_paid||0),0);
-    const unpaid        = totalContract - totalPaid;
-    _countUpPKR('ov-unpaid', unpaid);
-    const paidRatio = totalContract ? (totalPaid/totalContract) : 0;
-    document.getElementById('ov-unpaid-sub').textContent = totalContract ? `${fmtPKR(totalPaid)} paid · ${(paidRatio*100).toFixed(0)}% of ${fmtPKR(totalContract)}` : 'no contracts';
-    setTimeout(()=>{
-      document.getElementById('ov-unpaid-bar').style.width = ((1-paidRatio)*100).toFixed(1)+'%';
-    },160);
-
-    // Critical bottlenecks
-    const openBottles = bottles.filter(b=>b.status==='open' || b.status==='in_progress');
-    const critical = openBottles.filter(b=>b.impact==='critical' || b.impact==='high').length;
-    _countUpText('ov-crit', critical);
-    document.getElementById('ov-crit-sub').textContent = openBottles.length ? `${openBottles.length} total open` : 'no blockers';
-    setTimeout(()=>{
-      const ratio = openBottles.length ? (critical/openBottles.length) : 0;
-      document.getElementById('ov-crit-bar').style.width = (ratio*100).toFixed(1)+'%';
-    },200);
-
-    // ---------- Gauge: combined progress ----------
-    const bccAvg = tasks.length ? tasks.reduce((s,t)=>s+(+t.current_pct||0),0)/tasks.length : 0;
-    const wipAvg = wip.length   ? wip.reduce((s,w)=>s+(+w.percent_complete||0),0)/wip.length : 0;
-    const combined = (tasks.length && wip.length) ? (bccAvg+wipAvg)/2 : (tasks.length ? bccAvg : wipAvg);
-    renderGauge('ov-gauge', combined);
-    document.getElementById('ov-gauge-val').textContent = Math.round(combined)+'%';
-    document.getElementById('ov-gauge-foot').textContent = `bcc_tasks avg ${Math.round(bccAvg)}%`;
-
-    // ---------- Donut: task status mix ----------
-    const statusCounts = {in_progress:0,complete:0,blocked:0,not_started:0};
-    tasks.forEach(t=>{statusCounts[t.status]=(statusCounts[t.status]||0)+1;});
-    renderOvDonut(statusCounts);
-
-    // ---------- Vendor Race (top 10 by exposure) ----------
-    const sortedV = [...vendors]
-      .map(v=>({name:v.vendor_name||'—', paid:+v.amount_paid||0, bal:(+v.total_contract||0)-(+v.amount_paid||0)}))
-      .sort((a,b)=>(b.paid+b.bal)-(a.paid+a.bal))
-      .slice(0,10);
-    renderRacingBars(sortedV);
-
-    // ---------- Cashflow Momentum (gradient area + glowing particle) ----------
-    let _allPayments = [];
-    let _allVendorTasks = [];
-    let _allFixedAssets = [];
-    let _allIssuances = [];
-    let _allReceipts = [];
-    try {
-      const payRes = await fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers});
-      _allPayments = payRes.ok ? await payRes.json() : [];
-      const vtRes = await fetch(`${SB_URL}/rest/v1/vendor_tasks?select=*`,{headers});
-      _allVendorTasks = vtRes.ok ? await vtRes.json() : [];
-      const faRes = await fetch(`${SB_URL}/rest/v1/fixed_assets?select=*`,{headers});
-      _allFixedAssets = faRes.ok ? await faRes.json() : [];
-      const issRes = await fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*`,{headers});
-      _allIssuances = issRes.ok ? await issRes.json() : [];
-      const recRes = await fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*`,{headers});
-      _allReceipts = recRes.ok ? await recRes.json() : [];
-    } catch(e) {}
-    renderCashflowMomentum(_allPayments, cashflow);
-
-    // ---------- Asset KPIs (Capitalized vs Committed) ----------
-    try {
-      // Per-task paid sum
-      const paidByTask = {};
-      _allPayments.forEach(p=>{ paidByTask[p.task_id] = (paidByTask[p.task_id]||0) + (+p.amount||0); });
-      const faTasks = _allVendorTasks.filter(t=>(t.destination_type||'store')==='fixed_asset');
-      const directFA = _allFixedAssets.reduce((s,a)=>s+(+a.direct_cost||0),0);
-      const issuanceFA = _allIssuances.filter(i=>i.destination_type==='fixed_asset').reduce((s,i)=>s+(+i.total_value||0),0);
-      const paidFA = faTasks.reduce((s,t)=>s+(paidByTask[t.id]||0),0);
-      const capFA = directFA + issuanceFA + paidFA;
-      // Committed extra = unpaid portion of FA tasks
-      let unpaidFA = 0;
-      faTasks.forEach(t=>{
-        const v = vendors.find(x=>x.id===t.vendor_id);
-        const total = +v?.total_contract || 0;
-        const allocated = t.lock_mode==='pkr' ? (+t.fixed_amount||0) : ((+t.pct_of_contract||0)/100)*total;
-        const paid = paidByTask[t.id]||0;
-        unpaidFA += Math.max(0, allocated - paid);
-      });
-      const comFA = capFA + unpaidFA;
-      // Store value = remaining qty × avg unit cost per item
-      const itemMap = {};
-      _allReceipts.forEach(r=>{
-        const k = r.item_name;
-        if(!itemMap[k]) itemMap[k] = {recvQty:0, recvVal:0, issQty:0};
-        itemMap[k].recvQty += +r.qty||0;
-        itemMap[k].recvVal += (+r.qty||0)*(+r.unit_cost||0);
-      });
-      _allIssuances.forEach(i=>{
-        if(!itemMap[i.item_name]) itemMap[i.item_name] = {recvQty:0, recvVal:0, issQty:0};
-        itemMap[i.item_name].issQty += +i.qty||0;
-      });
-      const storeVal = Object.values(itemMap).reduce((s,it)=>{
-        const remain = it.recvQty - it.issQty;
-        const avg = it.recvQty ? it.recvVal/it.recvQty : 0;
-        return s + Math.max(0,remain)*avg;
-      },0);
-      const totalAssetBase = capFA + storeVal;
-
-      _countUpPKR('ov-fa-cap', capFA);
-      _countUpPKR('ov-fa-com', comFA);
-      _countUpPKR('ov-store-val', storeVal);
-      _countUpPKR('ov-asset-total', totalAssetBase);
-      // Sub-text refinements
-      document.getElementById('ov-fa-cap-sub').textContent =
-        `${fmtPKR(directFA)} direct · ${fmtPKR(paidFA)} paid · ${fmtPKR(issuanceFA)} from store`;
-      document.getElementById('ov-fa-com-sub').textContent = unpaidFA > 0
-        ? `${fmtPKR(unpaidFA)} pending capitalization`
-        : 'fully capitalized';
-      document.getElementById('ov-store-val-sub').textContent =
-        `${Object.values(itemMap).filter(it=>(it.recvQty-it.issQty)>0).length} items in store`;
-      document.getElementById('ov-asset-total-sub').textContent = `${fmtPKR(capFA)} fixed + ${fmtPKR(storeVal)} store`;
-
-      // Fill bars: ratio of capitalized vs committed (shows how "real" the FA value is)
-      const capRatio = comFA > 0 ? Math.min(1, capFA/comFA) : 0;
-      setTimeout(()=>{
-        document.getElementById('ov-fa-cap-bar').style.width = (capRatio*100).toFixed(1)+'%';
-        document.getElementById('ov-fa-com-bar').style.width = '100%';
-        const storeRatio = totalAssetBase > 0 ? Math.min(1, storeVal/totalAssetBase) : 0;
-        document.getElementById('ov-store-val-bar').style.width = (storeRatio*100).toFixed(1)+'%';
-        document.getElementById('ov-asset-total-bar').style.width = '100%';
-      }, 240);
-    } catch(e) { console.warn('Asset KPIs:', e); }
-
-    // ---------- Room progress grid ----------
-    renderOverviewRoomsGrid();
-
-    // ---------- Task Sparkline Wall (30-day heart-monitor) ----------
-    renderTaskSparkwall(_allVendorTasks, _allPayments);
-
-    // ---------- Vendor Health Radar ----------
-    renderVendorRadar(vendors, _allVendorTasks, _allPayments);
-
-    // ---------- Activity Pulse ----------
-    renderActivityPulse(_allPayments, _allVendorTasks, vendors);
-
-    // ---------- Progress by package ----------
-    const byVendor = {};
-    tasks.forEach(t=>{
-      const v = vendors.find(x=>x.id===t.vendor_id);
-      const name = v ? v.vendor_name : 'Unassigned';
-      if(!byVendor[name]) byVendor[name]={n:0,curr:0,tgt:0};
-      byVendor[name].n++;
-      byVendor[name].curr += +t.current_pct||0;
-      const ar = areaByTask[t.id]||[];
-      byVendor[name].tgt += ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
-    });
-    const pkgRows = Object.entries(byVendor)
-      .map(([name,d])=>({name, n:d.n, curr:d.curr/d.n, tgt:d.tgt/d.n}))
-      .sort((a,b)=>b.tgt-a.tgt)
-      .slice(0,8);
-    const pkgEl = document.getElementById('ov-pkg-list');
-    if(pkgRows.length === 0){
-      pkgEl.innerHTML = '<div class="ov-empty">No work packages seeded yet.</div>';
+    // ============== HERO ==============
+    const openBottles = (bottles||[]).filter(b => b.status === 'open');
+    const est = _estimateOpeningDate(tasks, contracts, vendors, openBottles);
+    if(est.opening){
+      document.getElementById('ov-opening-short').textContent =
+        est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      document.getElementById('ov-opening-date').textContent =
+        est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const subtxt = est.breakdown.gated
+        ? `${_fmtOpeningRel(est.daysOut)} \u00b7 \ud83d\uded1 gated by latest task deadline \u00b7 +${est.breakdown.penalty}d bottleneck penalty`
+        : `${_fmtOpeningRel(est.daysOut)} \u00b7 blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
+      document.getElementById('ov-opening-rel').textContent = subtxt;
     } else {
-      pkgEl.innerHTML = pkgRows.map((p,i)=>{
-        const gap = p.tgt - p.curr;
-        const cls = gap >= 30 ? 'red' : (gap >= 15 ? 'amber' : '');
-        return `
-          <div>
-            <div class="ov-pkg-head">
-              <div>
-                <div class="ov-pkg-name">${p.name}</div>
-                <div class="ov-pkg-meta">${p.n} task${p.n>1?'s':''} · target ${Math.round(p.tgt)}%${gap>5?` · ${Math.round(gap)}% gap`:' · on pace'}</div>
-              </div>
-              <div class="ov-pkg-pct ${cls}">${Math.round(p.curr)}%</div>
-            </div>
-            <div class="ov-pkg-bar"><div class="ov-pkg-fill ${cls}" style="width:0%" data-target="${Math.min(100,p.curr).toFixed(1)}"></div></div>
-          </div>`;
+      document.getElementById('ov-opening-short').textContent = '\u2014';
+      document.getElementById('ov-opening-rel').textContent = 'No active tasks';
+    }
+    const activeCnt = (tasks||[]).filter(t => t.status !== 'complete' && (+t.current_pct < 100)).length;
+    const overdueCnt = (tasks||[]).filter(t => t.deadline && t.deadline < todayISO && t.status !== 'complete').length;
+    document.getElementById('ov-opening-active').textContent = activeCnt;
+    document.getElementById('ov-opening-overdue').textContent = overdueCnt;
+    document.getElementById('ov-opening-bottle').textContent = openBottles.length;
+
+    // ============== ZONE SCHEDULE ==============
+    const zonesEl = document.getElementById('ov-zones');
+    const activeTasks = (tasks||[]).filter(t => t.status !== 'complete' && (+t.current_pct < 100));
+    if(activeTasks.length === 0){
+      zonesEl.innerHTML = '<div class="ov-empty">No active tasks. Add tasks via the Workflow tab.</div>';
+    } else {
+      const zoneAgg = {};
+      activeTasks.forEach(t => {
+        const z = t.zone || 'Unassigned';
+        if(!zoneAgg[z]) zoneAgg[z] = {totalPct:0, count:0, vendorIds:new Set(), contractTotal:0};
+        zoneAgg[z].totalPct += (+t.current_pct||0);
+        zoneAgg[z].count += 1;
+        if(t.vendor_id) zoneAgg[z].vendorIds.add(t.vendor_id);
+      });
+      // Roll contract totals into each zone (sum of contracts for vendors in that zone)
+      Object.keys(zoneAgg).forEach(z => {
+        zoneAgg[z].vendorIds.forEach(vid => {
+          (contracts||[]).forEach(c => { if(c.vendor_id === vid) zoneAgg[z].contractTotal += (+c.total_contract||0); });
+        });
+      });
+      const zoneArr = Object.entries(zoneAgg)
+        .map(([z, agg]) => ({zone:z, avgPct:agg.totalPct/agg.count, contractTotal:agg.contractTotal, count:agg.count}))
+        .sort((a,b) => b.contractTotal - a.contractTotal)
+        .slice(0,8);
+      // Color buckets: green (>=60%), gold (40-60%), orange (20-40%), red (<20%)
+      const colorFor = pct => {
+        if(pct >= 60) return '#b89558';
+        if(pct >= 40) return '#a08549';
+        if(pct >= 20) return '#e08a4c';
+        return '#c85a5a';
+      };
+      zonesEl.innerHTML = zoneArr.map(z => {
+        const w = Math.min(100, Math.max(2, z.avgPct));
+        const col = colorFor(z.avgPct);
+        return `<div class="ov-zone-row">
+          <div class="ov-zone-label">${_esc(z.zone)}</div>
+          <div class="ov-zone-track"><div class="ov-zone-fill" style="left:0;width:${w}%;background:${col};"></div></div>
+          <div class="ov-zone-pct" style="color:${col};">${Math.round(z.avgPct)}%</div>
+        </div>`;
       }).join('');
-      // Animate bars in
-      setTimeout(()=>{
-        document.querySelectorAll('.ov-pkg-fill').forEach((bar,idx)=>{
-          setTimeout(()=>{bar.style.width = bar.dataset.target+'%';}, idx*60);
-        });
-      }, 120);
+      // Foot dates
+      const mid = new Date(); mid.setDate(mid.getDate() + Math.floor((est.daysOut||60)/2));
+      document.getElementById('ov-zones-mid').textContent = mid.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      document.getElementById('ov-zones-end').textContent = est.opening
+        ? est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
+        : '\u2014';
     }
 
-    // ---------- Attention list ----------
-    const attention = [];
-    openBottles.slice(0,6).forEach(b=>{
-      attention.push({
-        type: (b.impact==='critical' || b.impact==='high') ? 'danger' : 'warning',
-        title: b.title,
-        sub: [b.reason?`Reason: ${b.reason}`:'', b.area||''].filter(Boolean).join(' · ')
-      });
+    // ============== FINANCIAL POSITION ==============
+    const totalContract = (vendors||[]).reduce((s,v) => s + (+v.total_contract||0), 0);
+    const totalPaid = (vendors||[]).reduce((s,v) => s + (+v.amount_paid||0), 0);
+    const outstanding = totalContract - totalPaid;
+    const directFA = (fixedAssets||[]).reduce((s,a) => s + (+a.direct_cost||0), 0);
+    const issuanceFA = (issuances||[]).filter(i => i.destination_type === 'fixed_asset').reduce((s,i) => s + (+i.total_value||0), 0);
+    const capFA = directFA + issuanceFA;
+    // Store value = remaining qty * unit cost
+    const storeAgg = {};
+    (receipts||[]).forEach(r => {
+      const k = r.item_name || ('item-'+r.id);
+      if(!storeAgg[k]) storeAgg[k] = {recvQty:0, recvVal:0, issQty:0};
+      storeAgg[k].recvQty += +r.qty||0;
+      storeAgg[k].recvVal += (+r.qty||0)*(+r.unit_cost||0);
     });
-    tasks.forEach(t=>{
-      const ar = areaByTask[t.id]||[];
-      const tgt = ar.length ? ar.reduce((s,a)=>s+(+a.target_pct||0),0)/ar.length : (+t.desired_target_pct||0);
-      const curr = +t.current_pct||0;
-      if(tgt > 0 && tgt - curr >= 30){
-        attention.push({
-          type:'warning',
-          title: `${t.task_code||''} ${t.title} — ${Math.round(tgt-curr)}% behind`,
-          sub: (t.notes||'').slice(0,120)
+    (issuances||[]).forEach(i => {
+      const k = i.item_name;
+      if(storeAgg[k]) storeAgg[k].issQty += +i.qty||0;
+    });
+    const storeVal = Object.values(storeAgg).reduce((s,it) => {
+      const remain = it.recvQty - it.issQty;
+      const avg = it.recvQty ? it.recvVal/it.recvQty : 0;
+      return s + Math.max(0, remain) * avg;
+    }, 0);
+    const storeItemCount = Object.values(storeAgg).filter(it => (it.recvQty - it.issQty) > 0).length;
+
+    const maxFinVal = Math.max(capFA, totalPaid, outstanding, storeVal, 1);
+    const setFin = (valueId, barId, noteId, value, noteText) => {
+      const el = document.getElementById(valueId);
+      if(el) el.textContent = fmtPKR(value);
+      const bar = document.getElementById(barId);
+      if(bar) setTimeout(() => { bar.style.width = (Math.min(100, value/maxFinVal*100))+'%'; }, 100);
+      const note = document.getElementById(noteId);
+      if(note) note.textContent = noteText;
+    };
+    setFin('ov-fin-cap', 'ov-fin-cap-bar', 'ov-fin-cap-note', capFA,
+      capFA > 0 ? `${fmtPKR(directFA)} direct + ${fmtPKR(issuanceFA)} from store` : 'No fixed assets yet \u2014 mark contract items received');
+    setFin('ov-fin-paid', 'ov-fin-paid-bar', 'ov-fin-paid-note', totalPaid,
+      totalContract ? `${(totalPaid/totalContract*100).toFixed(0)}% of ${fmtPKR(totalContract)} contracted` : 'No contracts');
+    setFin('ov-fin-out', 'ov-fin-out-bar', 'ov-fin-out-note', outstanding,
+      outstanding > 0 ? `due across ${(vendors||[]).filter(v => ((+v.total_contract||0)-(+v.amount_paid||0))>0).length} vendors` : 'all paid');
+    setFin('ov-fin-store', 'ov-fin-store-bar', 'ov-fin-store-note', storeVal,
+      storeItemCount > 0 ? `${storeItemCount} item type${storeItemCount>1?'s':''} awaiting issue` : 'Store is empty');
+
+    // ============== TODAY'S HEAT ==============
+    const heatItems = [];
+    // 1. Critical/High open bottlenecks
+    openBottles.forEach(b => {
+      if(b.impact === 'critical' || b.impact === 'high'){
+        const v = (vendors||[]).find(x => x.id === b.vendor_id);
+        heatItems.push({
+          level: b.impact,
+          text: b.title || b.reason || 'Bottleneck',
+          aside: v ? v.vendor_name : (b.balance ? fmtPKR(+b.balance) : 'open')
         });
       }
     });
-    const attEl = document.getElementById('ov-attention');
-    if(attention.length===0){
-      attEl.innerHTML = '<div class="ov-empty">All clear — no critical items right now.</div>';
+    // 2. Overdue tasks
+    (tasks||[]).forEach(t => {
+      if(t.deadline && t.deadline < todayISO && t.status !== 'complete' && (+t.current_pct < 100)){
+        const daysLate = Math.floor((today.getTime() - new Date(t.deadline+'T00:00:00').getTime())/86400000);
+        const v = (vendors||[]).find(x => x.id === t.vendor_id);
+        heatItems.push({
+          level: daysLate >= 14 ? 'critical' : (daysLate >= 7 ? 'high' : 'medium'),
+          text: `${t.title || 'Task'} \u00b7 ${daysLate}d overdue`,
+          aside: v ? v.vendor_name : (t.zone || '')
+        });
+      }
+    });
+    // Sort by level priority
+    const levelRank = {critical:0, high:1, medium:2};
+    heatItems.sort((a,b) => (levelRank[a.level]||9) - (levelRank[b.level]||9));
+    const heatEl = document.getElementById('ov-heat');
+    if(heatItems.length === 0){
+      heatEl.innerHTML = '<div class="ov-empty">No urgent issues. All zones healthy.</div>';
     } else {
-      attEl.innerHTML = attention.slice(0,10).map(a=>`
-        <div class="ov-alert ov-alert-${a.type}">
-          <span class="ov-alert-icon">${a.type==='danger'?'!':'•'}</span>
-          <div class="ov-alert-body"><strong>${a.title}</strong>${a.sub?`<small>${a.sub}</small>`:''}</div>
-        </div>`).join('');
+      heatEl.innerHTML = heatItems.slice(0,5).map(h => {
+        const labelText = h.level === 'critical' ? 'Critical' : (h.level === 'high' ? 'High' : 'Medium');
+        return `<div class="ov-heat-row ${h.level}">
+          <div class="ov-heat-label">${labelText}</div>
+          <div class="ov-heat-body">${_esc(h.text)}</div>
+          <div class="ov-heat-aside">${_esc(h.aside||'')}</div>
+        </div>`;
+      }).join('');
     }
 
-    // ---------- Upcoming cashflow ----------
-    const cashEl = document.getElementById('ov-cashflow');
-    const upcoming = [...cashflow].sort((a,b)=>(a.month||'').localeCompare(b.month||'')).slice(0,4);
-    if(upcoming.length===0){
-      cashEl.innerHTML = '<div class="ov-empty">No upcoming cashflow entries.</div>';
+    // ============== PAYMENTS THIS WEEK ==============
+    const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekEndISO = weekEnd.toISOString().slice(0,10);
+    const upcomingPays = (contractMilestones||[])
+      .filter(m => !m.paid_date && m.target_date && m.target_date <= weekEndISO)
+      .sort((a,b) => (a.target_date||'').localeCompare(b.target_date||''))
+      .slice(0,5);
+    const payEl = document.getElementById('ov-pay');
+    if(upcomingPays.length === 0){
+      payEl.innerHTML = '<div class="ov-empty">No payments scheduled this week.</div>';
+      document.getElementById('ov-pay-total-val').textContent = fmtPKR(0);
     } else {
-      cashEl.innerHTML = upcoming.map(c=>`
-        <div class="ov-cash-row">
-          <div>
-            <div class="ov-cash-desc">${c.description||'—'}</div>
-            <div class="ov-cash-meta">${c.month||'—'} · ${c.category||''}</div>
-          </div>
-          <div class="ov-cash-amt">${fmtPKR(+c.amount||0)}</div>
-        </div>`).join('');
+      let total = 0;
+      payEl.innerHTML = upcomingPays.map(m => {
+        const amt = +m.amount_due || 0;
+        total += amt;
+        const c = (contracts||[]).find(x => x.id === m.contract_id);
+        const v = c ? (vendors||[]).find(x => x.id === c.vendor_id) : null;
+        const vname = v ? (v.vendor_name||'Vendor') : 'Vendor';
+        const dateLabel = new Date(m.target_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+        return `<div class="ov-pay-row">
+          <span class="ov-pay-left">${dateLabel} \u00b7 ${_esc(vname).slice(0,18)}</span>
+          <span class="ov-pay-amt">${fmtPKR(amt)}</span>
+        </div>`;
+      }).join('');
+      document.getElementById('ov-pay-total-val').textContent = fmtPKR(total);
     }
 
-  }catch(e){console.error('loadOverview error:',e);toast('Overview error: '+(e.message||e),'error');}
+  }catch(e){
+    console.error('loadOverview error:', e);
+    toast('Overview error: '+(e.message||e),'error');
+  }
 }
 
 // PKR formatter with L / Cr
