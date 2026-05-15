@@ -3501,7 +3501,7 @@ async function loadOverview(){
       fetch(`${SB_URL}/rest/v1/fixed_assets?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/inventory_receipts?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?select=*&order=target_date.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?select=*&order=due_date.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/vendor_task_payments?select=*`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
 
@@ -3737,8 +3737,8 @@ async function loadOverview(){
     const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
     const weekEndISO = weekEnd.toISOString().slice(0,10);
     const upcomingPays = (contractMilestones||[])
-      .filter(m => !m.paid_date && m.target_date && m.target_date <= weekEndISO)
-      .sort((a,b) => (a.target_date||'').localeCompare(b.target_date||''))
+      .filter(m => !m.paid_date && m.due_date && m.due_date <= weekEndISO)
+      .sort((a,b) => (a.due_date||'').localeCompare(b.due_date||''))
       .slice(0,5);
     const payEl = document.getElementById('ov-pay');
     if(upcomingPays.length === 0){
@@ -3747,12 +3747,14 @@ async function loadOverview(){
     } else {
       let total = 0;
       payEl.innerHTML = upcomingPays.map(m => {
-        const amt = +m.amount_due || 0;
-        total += amt;
         const c = (contracts||[]).find(x => x.id === m.contract_id);
+        // Compute amount: pct of contract total (fallback to paid_amount if no pct)
+        const cTotal = c ? (+c.total_contract||0) : 0;
+        const amt = m.pct ? (cTotal * (+m.pct||0) / 100) : (+m.paid_amount||0);
+        total += amt;
         const v = c ? (vendors||[]).find(x => x.id === c.vendor_id) : null;
         const vname = v ? (v.vendor_name||'Vendor') : 'Vendor';
-        const dateLabel = new Date(m.target_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+        const dateLabel = new Date(m.due_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
         return `<div class="ov-pay-row">
           <span class="ov-pay-left">${dateLabel} \u00b7 ${_esc(vname).slice(0,18)}</span>
           <span class="ov-pay-amt">${fmtPKR(amt)}</span>
