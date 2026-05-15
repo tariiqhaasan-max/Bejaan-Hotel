@@ -273,7 +273,6 @@ tr:hover td{background:var(--green-bg);}
     <div class="sidebar-section">
       <div class="sidebar-label">Tracking</div>
       <div class="nav-item" onclick="showSection('vendors')"><span class="nav-icon">🤝</span>Vendors</div>
-      <div class="nav-item" onclick="showSection('wip')"><span class="nav-icon">🔧</span>Work in Progress</div>
       <div class="nav-item" onclick="showSection('tasks')"><span class="nav-icon">📋</span>Tasks</div>
       <div class="nav-item" onclick="showSection('bottlenecks')"><span class="nav-icon">🚧</span>Bottlenecks <span id="bottle-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
       <div class="nav-item" onclick="showSection('workflow')"><span class="nav-icon">🔀</span>Workflow</div>
@@ -374,7 +373,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="ov-panel">
         <div class="ov-panel-head">
           <div class="ov-panel-title">Overall Progress</div>
-          <div class="ov-panel-hint">bcc_tasks + work_items · combined</div>
+          <div class="ov-panel-hint">bcc_tasks</div>
         </div>
         <div class="ov-gauge-wrap">
           <canvas id="ov-gauge"></canvas>
@@ -633,27 +632,6 @@ tr:hover td{background:var(--green-bg);}
   </div>
 </div>
 
-<!-- WIP -->
-<div class="section" id="section-wip">
-  <div class="page-header"><div class="page-title">Work in Progress</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('work_items')">Export CSV</button></div>
-  <div class="card admin-only">
-    <div class="card-title">Add Work Item</div>
-    <div class="form-grid">
-      <div class="form-group"><label>Area *</label><input id="w-area" placeholder="e.g. Lobby, Floor 2…"></div>
-      <div class="form-group"><label>Task *</label><input id="w-task" placeholder="Task description"></div>
-      <div class="form-group"><label>Person Responsible</label><input id="w-resp" placeholder="Name"></div>
-      <div class="form-group"><label>Contractor</label><input id="w-contractor" placeholder="Firm / person"></div>
-      <div class="form-group"><label>% Complete</label><input id="w-pct" type="number" min="0" max="100" placeholder="0"></div>
-      <div class="form-group"><label>Start Date</label><input id="w-start" type="date"></div>
-      <div class="form-group"><label>Target Date</label><input id="w-target" type="date"></div>
-      <div class="form-group"><label>Status</label><select id="w-status"><option>On Track</option><option>Delayed</option><option>Done</option><option>Not Started</option><option>On Hold</option></select></div>
-    </div>
-    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="w-notes"></textarea></div>
-    <button class="btn btn-primary" onclick="addWip()">+ Add Item</button>
-  </div>
-  <div class="card"><div class="card-title">Work in Progress Tracker</div><div class="table-wrap"><table><thead><tr><th>Area</th><th>Task</th><th>Responsible</th><th>Contractor</th><th>Progress</th><th>Start</th><th>Target</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="wip-tbody"></tbody></table></div></div>
-</div>
-
 <!-- TASKS (from Apr–May 2026 milestone plan) -->
 <div class="section" id="section-tasks">
   <div class="page-header">
@@ -756,7 +734,6 @@ tr:hover td{background:var(--green-bg);}
   <div class="page-header">
     <div><div class="page-title">Workflow</div><div class="page-subtitle">Visual dependency flowchart — click a node to cycle status (admin only)</div></div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-secondary btn-sm admin-only" onclick="syncWipToWorkflow()">↻ Sync from WIP</button>
       <button class="btn btn-primary btn-sm admin-only" onclick="toggleAddPanel()">+ Add Task</button>
     </div>
   </div>
@@ -1723,12 +1700,11 @@ tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
-// MILESTONE PAYMENT MODAL — state + handlers
+// MILESTONE PAYMENT MODAL — Phase 1
 // Marks a single milestone as paid (full or partial). On save:
 //   1. PATCHes the milestone row (paid_amount, pay_status, paid_date, note)
-//   2. INSERTs a row into vendor_task_payments — this auto-updates the
-//      vendor's amount_paid via the existing paidAuto calc.
-let _mpIdx = -1;  // index into _evMilestones for the milestone being paid
+//   2. INSERTs a row into vendor_task_payments — auto-updates vendor.amount_paid
+let _mpIdx = -1;
 function openMilestonePayModal(idx){
   if(typeof isAdmin === 'function' && !isAdmin()){
     toast('Only admins can record payments', 'error'); return;
@@ -1736,12 +1712,10 @@ function openMilestonePayModal(idx){
   const m = _evMilestones && _evMilestones[idx];
   if(!m){ toast('Milestone not found', 'error'); return; }
   _mpIdx = idx;
-
   const total = currentVendorTotal || 0;
   const scheduledAmt = total * ((+m.pct||0) / 100);
   const prevPaid = +m.paidAmt || 0;
   const remaining = Math.max(0, scheduledAmt - prevPaid);
-
   document.getElementById('mp-context').textContent =
     `${(+m.pct||0).toFixed(1)}% · due ${fmtDate(m.date)}${m.desc?' · '+m.desc:''}`;
   document.getElementById('mp-amount').value = Math.round(remaining);
@@ -1754,22 +1728,17 @@ function openMilestonePayModal(idx){
   document.getElementById('mp-amount-hint').textContent =
     (prevPaid > 0 ? `Already paid PKR ${fmt(prevPaid)} · ` : '') +
     `Remaining: ${fmtPKR(remaining)}`;
-
-  // Recalc "after" preview live
   const amtInput = document.getElementById('mp-amount');
   amtInput.oninput = () => {
     const add = +amtInput.value || 0;
     document.getElementById('mp-after').textContent = fmtPKR(prevPaid + add);
   };
-
   document.getElementById('milestone-pay-modal').style.display = 'flex';
 }
 function closeMilestonePayModal(){
   document.getElementById('milestone-pay-modal').style.display = 'none';
   _mpIdx = -1;
 }
-
-// Patch a single milestone row in bejaan_contract_milestones by id.
 async function patchMilestone(id, fields){
   if(!id) throw new Error('milestone id required');
   const r = await fetch(`${SB_URL}/rest/v1/bejaan_contract_milestones?id=eq.${id}`, {
@@ -1780,8 +1749,6 @@ async function patchMilestone(id, fields){
   if(!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
-// Insert a vendor_task_payments row. amount may be partial.
 async function insertVendorPayment(vendorId, amount, paidDate, note){
   if(!vendorId) throw new Error('vendor_id required');
   const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`, {
@@ -1798,7 +1765,6 @@ async function insertVendorPayment(vendorId, amount, paidDate, note){
   if(!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
 async function saveMilestonePayment(){
   if(_mpIdx < 0) return;
   const m = _evMilestones[_mpIdx];
@@ -1806,20 +1772,15 @@ async function saveMilestonePayment(){
   const addAmount = +document.getElementById('mp-amount').value || 0;
   const paidDate = document.getElementById('mp-date').value;
   const note = document.getElementById('mp-note').value.trim();
-
   if(addAmount <= 0){ toast('Amount must be greater than 0', 'error'); return; }
   if(!paidDate){ toast('Payment date is required', 'error'); return; }
-
   const total = currentVendorTotal || 0;
   const scheduledAmt = total * ((+m.pct||0) / 100);
   const prevPaid = +m.paidAmt || 0;
   const newPaidAmt = prevPaid + addAmount;
-  // Round to 2 dp to avoid float comparison issues
   const isFullyPaid = (Math.round(newPaidAmt * 100) >= Math.round(scheduledAmt * 100));
   const newStatus = isFullyPaid ? 'Paid' : 'Partial';
-
   try{
-    // 1. Patch the milestone row
     if(m.id){
       await patchMilestone(m.id, {
         paid_amount: Math.round(newPaidAmt * 100) / 100,
@@ -1827,24 +1788,16 @@ async function saveMilestonePayment(){
         paid_date:   paidDate,
         payment_note: note || null
       });
-    } else {
-      // Edge case: milestone hasn't been saved to DB yet (rare). Just update memory.
-      console.warn('Milestone has no id yet; updating memory only', m);
     }
-
-    // 2. Insert vendor_task_payments row (this drives vendor.amount_paid)
     const vid = (typeof _evCurrentVendorId !== 'undefined' && _evCurrentVendorId) || currentVendorId;
     if(vid){
       await insertVendorPayment(vid, addAmount, paidDate,
         `Milestone payment: ${(+m.pct||0).toFixed(1)}%${m.desc?' — '+m.desc:''}` + (note?` (${note})`:''));
     }
-
-    // 3. Update in-memory + UI
     m.paidAmt   = newPaidAmt;
     m.payStatus = newStatus;
     m.paidDate  = paidDate;
     m.paidNote  = note;
-    // Sync the bulk cache so other parts of the dashboard see the new state
     try{
       const cKey = _evCurrentContractId ? ('c:' + _evCurrentContractId) : ('v:' + vid);
       if(_msCache[cKey] && _msCache[cKey][_mpIdx]){
@@ -1853,17 +1806,12 @@ async function saveMilestonePayment(){
         _msCache[cKey][_mpIdx].paidDate = paidDate;
         _msCache[cKey][_mpIdx].paidNote = note;
       }
-    }catch(_){ /* cache may be cold */ }
-
-    // 4. Invalidate caches and re-render
+    }catch(_){ }
     if(typeof _vtPayCache !== 'undefined' && vid){ delete _vtPayCache[vid]; }
     if(typeof cache !== 'undefined'){ delete cache['vendors']; }
-
     closeMilestonePayModal();
     renderScheduleList();
     toast(`Payment recorded: ${fmtPKR(addAmount)}${isFullyPaid?' (fully paid)':''}`);
-
-    // Refresh the vendor table in the background so amount_paid reflects
     if(typeof loadVendors === 'function') loadVendors();
     if(typeof renderEvContracts === 'function') renderEvContracts();
   }catch(e){
@@ -1871,14 +1819,11 @@ async function saveMilestonePayment(){
     toast('Error saving payment: ' + (e.message || e), 'error');
   }
 }
-
-// Clear a payment (reverses the milestone — does NOT delete payment row history).
-// Used when user pressed Pay by mistake.
 async function clearMilestonePayment(){
   if(_mpIdx < 0) return;
   const m = _evMilestones[_mpIdx];
   if(!m || !m.id) return;
-  if(!confirm('Clear payment record for this milestone? (Payment history rows in vendor_task_payments will remain — adjust those separately if needed.)')) return;
+  if(!confirm('Clear payment record for this milestone? (Payment history rows in vendor_task_payments will remain.)')) return;
   try{
     await patchMilestone(m.id, {
       paid_amount: 0,
@@ -2804,9 +2749,9 @@ async function getData(t){cache[t]=await sbGet(t);return cache[t];}
 const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
-async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,wip:loadWip,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
 async function loadAll(){
-  await Promise.all(['vendors','work_items','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
+  await Promise.all(['vendors','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
   // Also preload Supabase-backed collections that the old localStorage code
   // expected to read synchronously. Populating the cache here means the
   // thousand existing callers of getVendorSchedule() / getContractSchedule() /
@@ -2936,9 +2881,8 @@ async function loadOverview(){
     }
 
     // Pull everything in parallel
-    const [vendors, wip, budget, cashflow, punch, bccTasks, bccAreas, bccBottles] = await Promise.all([
+    const [vendors, budget, cashflow, punch, bccTasks, bccAreas, bccBottles] = await Promise.all([
       getData('vendors'),
-      getData('work_items'),
       getData('budget'),
       getData('cashflow'),
       getData('punch_list'),
@@ -2946,6 +2890,7 @@ async function loadOverview(){
       fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[])
     ]);
+    const wip = [];  // WIP feature removed — preserves downstream gauge math
     const tasks = Array.isArray(bccTasks) ? bccTasks : [];
     const areas = Array.isArray(bccAreas) ? bccAreas : [];
     const bottles = Array.isArray(bccBottles) ? bccBottles : [];
@@ -3007,7 +2952,7 @@ async function loadOverview(){
     const combined = (tasks.length && wip.length) ? (bccAvg+wipAvg)/2 : (tasks.length ? bccAvg : wipAvg);
     renderGauge('ov-gauge', combined);
     document.getElementById('ov-gauge-val').textContent = Math.round(combined)+'%';
-    document.getElementById('ov-gauge-foot').textContent = `bcc_tasks avg ${Math.round(bccAvg)}% · work_items avg ${Math.round(wipAvg)}%`;
+    document.getElementById('ov-gauge-foot').textContent = `bcc_tasks avg ${Math.round(bccAvg)}%`;
 
     // ---------- Donut: task status mix ----------
     const statusCounts = {in_progress:0,complete:0,blocked:0,not_started:0};
@@ -5283,11 +5228,10 @@ document.addEventListener('input', e => {
 // ALERTS
 async function loadAlerts(){
   try{
-    const[vendors,wip,inventory,punch]=await Promise.all([getData('vendors'),getData('work_items'),getData('inventory'),getData('punch_list')]);
+    const[vendors,inventory,punch]=await Promise.all([getData('vendors'),getData('inventory'),getData('punch_list')]);
     const today=new Date();today.setHours(0,0,0,0);
     const alerts=[];
     vendors.forEach(v=>{if(v.due_date){const d=new Date(v.due_date);const diff=Math.ceil((d-today)/(864e5));if(diff<0&&v.status!=='Completed')alerts.push({type:'danger',msg:`Overdue payment: ${v.vendor_name} — PKR ${fmt((+v.total_contract||0)-(+v.amount_paid||0))} overdue by ${Math.abs(diff)} days`});else if(diff<=7&&diff>=0&&v.status!=='Completed')alerts.push({type:'warning',msg:`Payment due in ${diff} days: ${v.vendor_name}`});}});
-    wip.forEach(w=>{if(w.status==='Delayed')alerts.push({type:'warning',msg:`Delayed: ${w.area} — ${w.task}`});});
     inventory.forEach(i=>{if(i.status==='Delayed')alerts.push({type:'warning',msg:`Delayed delivery: ${i.item_name}`});});
     punch.filter(p=>p.priority==='High'&&p.status!=='Done').forEach(p=>alerts.push({type:'danger',msg:`High priority issue: ${p.issue} — ${p.location||''}`}));
     getWorkflowTasks().filter(t=>t.status==='Blocked').forEach(t=>alerts.push({type:'danger',msg:`Blocked workflow task: ${t.name}`}));
@@ -5514,9 +5458,7 @@ function renderVendorRows(){
 
   tbody.innerHTML = filtered.map(({v, contracts, hasContracts, totalAmt, paidAmt, bal, od, ag}) => {
     grandTotal += totalAmt; grandPaid += paidAmt; grandBalance += bal;
-    // Aggregate ALL milestones for this vendor: from each contract + any legacy vendor-level ones.
-    // Previously only checked vendor-level (`v:<id>`) — missed contract milestones, so vendors
-    // with contract-scoped schedules were showing "No schedule" in the vendor table.
+    // Aggregate milestones from ALL contracts for this vendor + legacy vendor-level ones.
     let schedule = [];
     contracts.forEach(c => {
       const arr = _msCache['c:' + c.id] || [];
@@ -5661,13 +5603,6 @@ function toggleRoomAddForm(){
   }
 }
 
-// WIP
-async function loadWip(){
-  try{const data=await getData('work_items');const tbody=document.getElementById('wip-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="10">No work items yet.</td></tr>';return;}
-  tbody.innerHTML=data.map(w=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('work_items','${w.id}',loadWip)">✕</button></td>`:'<td></td>';return`<tr><td>${w.area||'—'}</td><td>${w.task||'—'}</td><td>${w.responsible||'—'}</td><td>${w.contractor||'—'}</td><td style="min-width:100px;"><div style="display:flex;align-items:center;gap:8px;">${w.percent_complete||0}%<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${w.percent_complete||0}%"></div></div></div></td><td>${fmtDate(w.start_date)}</td><td>${fmtDate(w.target_date)}</td><td>${statusBadge(w.status||'Not Started')}</td><td style="max-width:140px;font-size:12px;">${w.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load work items','error');}
-}
-async function addWip(){if(!isAdmin())return;const area=document.getElementById('w-area').value.trim(),task=document.getElementById('w-task').value.trim();if(!area||!task){toast('Area and Task required','error');return;}try{await sbInsert('work_items',{area,task,responsible:document.getElementById('w-resp').value,contractor:document.getElementById('w-contractor').value,percent_complete:+document.getElementById('w-pct').value||0,start_date:document.getElementById('w-start').value||null,target_date:document.getElementById('w-target').value||null,status:document.getElementById('w-status').value,notes:document.getElementById('w-notes').value});toast('Work item added ✓');['w-area','w-task','w-resp','w-contractor','w-pct','w-start','w-target','w-notes'].forEach(id=>document.getElementById(id).value='');delete cache['work_items'];loadWip();}catch(e){toast('Error adding item','error');}}
-
 // WORKFLOW
 // WORKFLOW (Supabase-backed via bejaan_wf_tasks, cached in _wfCache).
 // The sync getter returns the cached array so existing renderers (dashboard
@@ -5715,7 +5650,7 @@ function saveWorkflowTasks(tasks){
 function toggleAddPanel(){if(!isAdmin())return;const p=document.getElementById('wf-add-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function loadWorkflow(){refreshDependsDropdown();renderWorkflowTable();renderWorkflowChart();}
 function refreshDependsDropdown(){const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');if(sel)sel.innerHTML=tasks.map(t=>`<option value="${t.id}">${t.name}${t.area?' ('+t.area+')':''}</option>`).join('');}
-async function syncWipToWorkflow(){if(!isAdmin())return;try{const wip=await getData('work_items');const existing=getWorkflowTasks();let added=0;wip.forEach(w=>{if(!existing.find(t=>t.wipId===w.id)){existing.push({id:'wip_'+w.id,wipId:w.id,name:w.task,area:w.area,status:w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started',depends:[]});added++;}else{const t=existing.find(t=>t.wipId===w.id);t.status=w.status==='Done'?'Done':w.status==='Delayed'?'Blocked':w.status==='On Track'?'In Progress':w.status||'Not Started';}});saveWorkflowTasks(existing);toast(`Synced ${added} new task(s) ✓`);loadWorkflow();}catch(e){toast('Error syncing WIP','error');}}
+async function syncWipToWorkflow(){ /* WIP feature removed */ }
 function addWorkflowTask(){if(!isAdmin())return;const name=document.getElementById('wf-name').value.trim();if(!name){toast('Task name required','error');return;}const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');const depends=Array.from(sel.selectedOptions).map(o=>o.value);tasks.push({id:'wf_'+Date.now(),name,area:document.getElementById('wf-area').value.trim(),status:document.getElementById('wf-status').value,depends});saveWorkflowTasks(tasks);document.getElementById('wf-name').value='';document.getElementById('wf-area').value='';toggleAddPanel();toast('Task added ✓');loadWorkflow();}
 function deleteWorkflowTask(id){if(!isAdmin())return;if(!confirm('Remove this task?'))return;let tasks=getWorkflowTasks().filter(t=>t.id!==id);tasks=tasks.map(t=>({...t,depends:(t.depends||[]).filter(d=>d!==id)}));saveWorkflowTasks(tasks);loadWorkflow();toast('Removed ✓');}
 function updateWorkflowStatus(id,status){const tasks=getWorkflowTasks();const t=tasks.find(t=>t.id===id);if(t){t.status=status;saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}}
@@ -5723,7 +5658,7 @@ function cycleStatus(id){if(!isAdmin())return;const statuses=['Not Started','In 
 function computeLevels(tasks){const levels={};const idSet=new Set(tasks.map(t=>t.id));tasks.forEach(t=>{if(!levels[t.id])levels[t.id]=0;});for(let p=0;p<tasks.length;p++){tasks.forEach(t=>{(t.depends||[]).forEach(d=>{if(idSet.has(d))levels[t.id]=Math.max(levels[t.id]||0,(levels[d]||0)+1);});});}return levels;}
 function renderWorkflowChart(){
   const tasks=getWorkflowTasks();const svg=document.getElementById('workflow-svg');
-  if(!tasks.length){document.getElementById('wf-edges').innerHTML='<text x="400" y="250" text-anchor="middle" fill="#8aaa9e" font-family="DM Sans,sans-serif" font-size="14">No tasks yet — add tasks or sync from WIP</text>';document.getElementById('wf-nodes').innerHTML='';svg.setAttribute('width',900);svg.setAttribute('height',500);return;}
+  if(!tasks.length){document.getElementById('wf-edges').innerHTML='<text x="400" y="250" text-anchor="middle" fill="#8aaa9e" font-family="DM Sans,sans-serif" font-size="14">No tasks yet — add tasks above</text>';document.getElementById('wf-nodes').innerHTML='';svg.setAttribute('width',900);svg.setAttribute('height',500);return;}
   const NODE_W=180,NODE_H=58,H_GAP=90,V_GAP=20,PAD=40;
   const levels=computeLevels(tasks);const maxLevel=Math.max(...Object.values(levels));const colIdx={};const pos={};
   tasks.forEach(t=>{const l=levels[t.id]||0;if(colIdx[l]===undefined)colIdx[l]=0;pos[t.id]={x:PAD+l*(NODE_W+H_GAP),y:PAD+colIdx[l]*(NODE_H+V_GAP)};colIdx[l]++;});
