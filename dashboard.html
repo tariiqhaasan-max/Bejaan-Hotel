@@ -712,7 +712,7 @@ tr:hover td{background:var(--green-bg);}
     <div class="form-grid">
       <div class="form-group"><label>Title *</label><input id="bf-title" placeholder="What's blocking the work?"/></div>
       <div class="form-group"><label>Area</label><input id="bf-area" placeholder="e.g. Public Areas"/></div>
-      <div class="form-group"><label>Reason</label><select id="bf-reason"><option value="">—</option><option value="payment">Payment</option><option value="material">Material</option><option value="workforce">Workforce</option><option value="approval">Approval</option><option value="weather">Weather</option><option value="other">Other</option></select></div>
+      <div class="form-group"><label>Reason</label><select id="bf-reason"><option value="">—</option><option value="employee">Employee</option><option value="contractor">Contractor</option><option value="payment">Payment issue</option><option value="material">Material delay</option><option value="approval">Approval pending</option><option value="other">Other</option></select></div>
       <div class="form-group"><label>Impact</label><select id="bf-impact"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
     </div>
     <div class="form-group" style="margin-bottom:12px;"><label>Description</label><textarea id="bf-desc" rows="2" placeholder="Details, who's affected, next steps…"></textarea></div>
@@ -1296,11 +1296,84 @@ tr:hover td{background:var(--green-bg);}
       <textarea id="et-notes" rows="3"></textarea>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn btn-secondary btn-sm" onclick="closeEditTask()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="saveEditTask()">Save Changes</button>
+    <div class="modal-actions" style="justify-content:space-between;align-items:center;">
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm admin-only" onclick="openExtendDeadlineModal()" title="Push deadline forward"><span style="margin-right:3px;">⏱</span>Extend</button>
+        <button class="btn btn-warning btn-sm admin-only" onclick="openMarkBottleneckModal()" style="background:#e08a4c;color:#fff;border-color:#e08a4c;" title="Flag as bottleneck"><span style="margin-right:3px;">🚧</span>Bottleneck</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="closeEditTask()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveEditTask()">Save Changes</button>
+      </div>
     </div>
     <input type="hidden" id="et-id">
+  </div>
+</div>
+
+<!-- ============ EXTEND DEADLINE MODAL ============ -->
+<div class="modal-overlay" id="extend-deadline-modal" onclick="if(event.target===this)closeExtendDeadlineModal()">
+  <div class="modal" style="max-width:420px;">
+    <h3>Extend Deadline</h3>
+    <div class="modal-sub" id="ed-context">—</div>
+    <div class="form-group" style="margin:14px 0 10px;">
+      <label>Quick pick</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+        <button class="btn btn-secondary btn-sm" onclick="setExtendPreset(7)">+7 days</button>
+        <button class="btn btn-secondary btn-sm" onclick="setExtendPreset(14)">+14 days</button>
+        <button class="btn btn-secondary btn-sm" onclick="setExtendPreset(30)">+30 days</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>New Deadline *</label>
+      <input id="ed-date" type="date">
+    </div>
+    <div class="form-group">
+      <label>Reason (optional)</label>
+      <input id="ed-reason" placeholder="e.g. Material delay">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeExtendDeadlineModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveExtendDeadline()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MARK BOTTLENECK MODAL ============ -->
+<div class="modal-overlay" id="mark-bottleneck-modal" onclick="if(event.target===this)closeMarkBottleneckModal()">
+  <div class="modal" style="max-width:460px;">
+    <h3>Mark Task as Bottleneck</h3>
+    <div class="modal-sub" id="mb-context">—</div>
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label>Reason *</label>
+        <select id="mb-reason">
+          <option value="">Select reason…</option>
+          <option value="employee">Employee</option>
+          <option value="contractor">Contractor</option>
+          <option value="payment">Payment issue</option>
+          <option value="material">Material delay</option>
+          <option value="approval">Approval pending</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Impact</label>
+        <select id="mb-impact">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>Description</label>
+      <textarea id="mb-desc" rows="3" placeholder="Details, who's affected, next steps…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeMarkBottleneckModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveMarkBottleneck()" style="background:#e08a4c;border-color:#e08a4c;">🚧 Log Bottleneck</button>
+    </div>
   </div>
 </div>
 
@@ -2343,6 +2416,14 @@ function renderTaskRows() {
       const curr = +t.current_pct||0;
       const gap = tgt - curr;
       const barCls = gap >= 30 ? 'red' : (gap >= 15 ? 'orange' : '');
+      // OVERDUE detection: deadline (bcc) or proposed_date (vendor) is past + task not complete
+      const todayISO = new Date().toISOString().slice(0,10);
+      const dueISO = isVendorTask ? (t.proposed_date||'') : (t.deadline||'');
+      const isComplete = (t.status === 'complete') || (curr >= 100);
+      const isOverdue = dueISO && dueISO < todayISO && !isComplete;
+      const overdueBadge = isOverdue
+        ? '<span style="display:inline-block;background:rgba(208,64,64,.15);color:#d04040;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;">⚠ OVERDUE</span>'
+        : '';
       const areaChips = ars.map(a=>`<span style="display:inline-block;background:#f0f4f1;border:1px solid #dde8e2;border-radius:4px;padding:2px 6px;font-size:11px;color:#5a7066;margin:2px 3px 2px 0;">${a.area_name||a.area} ${Math.round(+a.target_pct||0)}%</span>`).join('');
       const statusOpts = [
         {value:'not_started', label:'Not Started'},
@@ -2372,7 +2453,7 @@ function renderTaskRows() {
       return `<tr>
         <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--text-muted);">${codeCell}</td>
         <td>
-          <div style="font-weight:500;">${t.title||'—'}</div>
+          <div style="font-weight:500;">${t.title||'—'}${overdueBadge}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.description||''}</div>
           ${areaChips?`<div style="margin-top:6px;">${areaChips}</div>`:''}
           ${notesCell}
@@ -2431,6 +2512,114 @@ async function openEditTask(id){
   }catch(e){ toast('Error: '+(e.message||e),'error'); }
 }
 function closeEditTask(){ document.getElementById('edit-task-modal').classList.remove('open'); }
+
+// ---------- Extend Deadline modal ----------
+function openExtendDeadlineModal(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  const id = document.getElementById('et-id').value;
+  if(!id){ toast('Save task first','error'); return; }
+  const title = document.getElementById('et-title-ro').textContent;
+  const curDeadline = document.getElementById('et-deadline').value;
+  document.getElementById('ed-context').textContent =
+    `${title} · Current deadline: ${curDeadline || '—'}`;
+  // Default new deadline to current deadline (or today if blank)
+  document.getElementById('ed-date').value = curDeadline || new Date().toISOString().slice(0,10);
+  document.getElementById('ed-reason').value = '';
+  document.getElementById('extend-deadline-modal').classList.add('open');
+}
+function closeExtendDeadlineModal(){ document.getElementById('extend-deadline-modal').classList.remove('open'); }
+function setExtendPreset(days){
+  // Base: current deadline if set, else today
+  const baseStr = document.getElementById('et-deadline').value || new Date().toISOString().slice(0,10);
+  const base = new Date(baseStr + 'T00:00:00');
+  base.setDate(base.getDate() + days);
+  document.getElementById('ed-date').value = base.toISOString().slice(0,10);
+}
+async function saveExtendDeadline(){
+  if(!isAdmin()) return;
+  const id = document.getElementById('et-id').value;
+  const newDate = document.getElementById('ed-date').value;
+  if(!newDate){ toast('Pick a date','error'); return; }
+  const reason = document.getElementById('ed-reason').value.trim();
+  try{
+    // Build PATCH: update deadline; append a line to notes mentioning the extension.
+    const curNotes = document.getElementById('et-notes').value || '';
+    const stamp = new Date().toISOString().slice(0,10);
+    const extLog = `[${stamp}] Deadline extended to ${newDate}${reason?': '+reason:''}`;
+    const newNotes = curNotes ? (curNotes + '\n' + extLog) : extLog;
+    const payload = { deadline: newDate, notes: newNotes, updated_at: new Date().toISOString() };
+    const r = await fetch(`${SB_URL}/rest/v1/bcc_tasks?id=eq.${id}`, {
+      method: 'PATCH', headers, body: JSON.stringify(payload)
+    });
+    if(!r.ok) throw new Error(await r.text());
+    // Reflect in the Edit Task form
+    document.getElementById('et-deadline').value = newDate;
+    document.getElementById('et-notes').value = newNotes;
+    closeExtendDeadlineModal();
+    toast('Deadline extended ✓');
+    loadTasks();
+  }catch(e){ toast('Extend failed: '+(e.message||e),'error'); }
+}
+
+// ---------- Mark as Bottleneck modal ----------
+function openMarkBottleneckModal(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  const id = document.getElementById('et-id').value;
+  if(!id){ toast('Save task first','error'); return; }
+  const title = document.getElementById('et-title-ro').textContent;
+  const codeSub = document.getElementById('et-code-sub').textContent;
+  document.getElementById('mb-context').textContent = `${codeSub} · ${title}`;
+  document.getElementById('mb-reason').value = '';
+  document.getElementById('mb-impact').value = 'medium';
+  document.getElementById('mb-desc').value = '';
+  document.getElementById('mark-bottleneck-modal').classList.add('open');
+}
+function closeMarkBottleneckModal(){ document.getElementById('mark-bottleneck-modal').classList.remove('open'); }
+async function saveMarkBottleneck(){
+  if(!isAdmin()) return;
+  const taskId = document.getElementById('et-id').value;
+  const reason = document.getElementById('mb-reason').value;
+  if(!reason){ toast('Pick a reason','error'); return; }
+  const impact = document.getElementById('mb-impact').value || 'medium';
+  const desc = document.getElementById('mb-desc').value.trim();
+  const title = document.getElementById('et-title-ro').textContent;
+  // Use the area chips area context if available; fall back to a generic value
+  try{
+    const payload = {
+      title: title,
+      area: null,
+      reason: reason,
+      impact: impact,
+      description: desc || null,
+      status: 'open',
+      task_id: taskId
+    };
+    await sbInsert('bcc_bottlenecks', payload);
+    toast('Bottleneck logged ✓ — see Bottlenecks tab');
+    closeMarkBottleneckModal();
+    // Don't auto-close Edit Task — admin may want to continue editing.
+    // Refresh bottleneck count badge if visible
+    if(typeof loadAlerts === 'function') loadAlerts();
+  }catch(e){
+    // Most common error: column 'task_id' missing in bcc_bottlenecks.
+    // Fall back to inserting WITHOUT task_id so the feature degrades gracefully.
+    const msg = (e.message || e + '').toLowerCase();
+    if(msg.includes("'task_id'") || msg.includes('task_id') || msg.includes('column')){
+      try{
+        const payload2 = {
+          title: title, area: null, reason: reason, impact: impact,
+          description: (desc?desc+' ':'') + `(from task ${document.getElementById('et-code-sub').textContent})`,
+          status: 'open'
+        };
+        await sbInsert('bcc_bottlenecks', payload2);
+        toast('Bottleneck logged ✓ (task_id column missing — see SQL note)','warning');
+        closeMarkBottleneckModal();
+        return;
+      }catch(e2){ toast('Save failed: '+(e2.message||e2),'error'); return; }
+    }
+    toast('Save failed: '+(e.message||e),'error');
+  }
+}
 
 async function saveEditTask(){
   if(!canWrite()) return;
@@ -2509,16 +2698,26 @@ async function loadBottlenecks(){
 
     const renderRow = (b)=>{
       const impactCls = (b.impact==='critical'||b.impact==='high')?'red':(b.impact==='medium'?'orange':'gray');
+      const fromTaskBadge = b.task_id
+        ? '<span style="display:inline-block;background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-left:6px;letter-spacing:0.04em;">FROM TASK</span>'
+        : '';
+      // Normalize legacy reason values for display
+      const reasonLabels = {
+        employee:'Employee', contractor:'Contractor', payment:'Payment issue',
+        material:'Material delay', approval:'Approval pending', other:'Other',
+        workforce:'Workforce', weather:'Weather'  // legacy values
+      };
+      const reasonText = reasonLabels[b.reason] || b.reason || '—';
       const adminBtn = isAdmin() ? `
         <td>
           <button class="btn btn-secondary btn-sm" onclick="resolveBottle('${b.id}')">${b.status==='resolved'?'Reopen':'Resolve'}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteRow('bcc_bottlenecks','${b.id}',loadBottlenecks)">✕</button>
         </td>` : '<td></td>';
       return `<tr>
-        <td><b>${b.title||'—'}</b>${b.description?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${b.description}</div>`:''}</td>
+        <td><b>${b.title||'—'}</b>${fromTaskBadge}${b.description?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${b.description}</div>`:''}</td>
         <td>${b.area||'—'}</td>
         <td><span class="badge badge-${impactCls}">${b.impact||'—'}</span></td>
-        <td>${b.reason||'—'}</td>
+        <td>${reasonText}</td>
         <td>${b.raised_date||'—'}</td>
         ${adminBtn}
       </tr>`;
