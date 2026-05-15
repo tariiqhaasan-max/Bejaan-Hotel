@@ -791,26 +791,31 @@ tr:hover td{background:var(--green-bg);}
   </div>
 </div>
 
-<!-- INVENTORY -->
+<!-- FIXED ASSETS -->
 <div class="section" id="section-inventory">
-  <div class="page-header"><div class="page-title">Fixed Assets</div><div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="One-time: sync every contract's destination to Fixed Assets/Stores">🔁 Sync from Vendors</button><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div></div>
-  <div class="card admin-only">
-    <div class="card-title">Add Inventory / Furnishing Item</div>
-    <div class="form-grid">
-      <div class="form-group"><label>Item Name *</label><input id="i-name" placeholder="e.g. King Bed Frame"></div>
-      <div class="form-group"><label>Room / Area</label><input id="i-area" placeholder="e.g. Room 101"></div>
-      <div class="form-group"><label>Supplier</label><input id="i-supplier" placeholder="Supplier name"></div>
-      <div class="form-group"><label>Person Responsible</label><input id="i-resp" placeholder="Name"></div>
-      <div class="form-group"><label>Qty Ordered</label><input id="i-ordered" type="number" placeholder="0"></div>
-      <div class="form-group"><label>Qty Received</label><input id="i-received" type="number" placeholder="0"></div>
-      <div class="form-group"><label>Unit Cost (PKR)</label><input id="i-cost" type="number" placeholder="0"></div>
-      <div class="form-group"><label>Expected Delivery</label><input id="i-delivery" type="date"></div>
-      <div class="form-group"><label>Status</label><select id="i-status"><option>Ordered</option><option>Received</option><option>Pending Order</option><option>Installed</option><option>Delayed</option></select></div>
+  <div class="page-header">
+    <div>
+      <div class="page-title">Fixed Assets</div>
+      <div class="page-subtitle">Capitalized assets — direct from vendor contracts + items issued from Stores</div>
     </div>
-    <div class="form-group" style="margin-bottom:12px;"><label>Notes</label><textarea id="i-notes"></textarea></div>
-    <button class="btn btn-primary" onclick="addInventory()">+ Add Item</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="Sync every contract's destination to Fixed Assets / Stores. Idempotent.">🔁 Sync from Vendors</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadInventory()">↻ Refresh</button>
+    </div>
   </div>
-  <div class="card"><div class="card-title">Furnishing & Inventory Register</div><div class="table-wrap"><table><thead><tr><th>Item</th><th>Area</th><th>Supplier</th><th>Responsible</th><th>Ordered</th><th>Received</th><th>Unit Cost</th><th>Total</th><th>Delivery</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody id="inventory-tbody"></tbody></table></div></div>
+
+  <!-- KPI strip -->
+  <div class="stat-grid" id="fa-stats" style="margin-bottom:18px;">
+    <div class="stat-card gold"><div class="stat-label">Total Assets</div><div class="stat-value" id="fa-count">—</div><div class="stat-sub">distinct asset records</div></div>
+    <div class="stat-card green"><div class="stat-label">Capitalized Value</div><div class="stat-value" id="fa-total">—</div><div class="stat-sub">direct cost across all assets</div></div>
+    <div class="stat-card blue"><div class="stat-label">Auto-Synced</div><div class="stat-value" id="fa-auto">—</div><div class="stat-sub">from vendor contracts</div></div>
+    <div class="stat-card amber"><div class="stat-label">Manual</div><div class="stat-value" id="fa-manual">—</div><div class="stat-sub">added directly</div></div>
+  </div>
+
+  <!-- Group by category -->
+  <div id="fa-by-category" style="display:flex;flex-direction:column;gap:14px;">
+    <div class="loading" style="padding:40px;text-align:center;"><div class="spinner"></div> Loading Fixed Assets…</div>
+  </div>
 </div>
 
 <!-- STORE & FIXED ASSETS -->
@@ -7183,35 +7188,77 @@ async function syncOneContractById(contractId){
 async function syncAllContracts(){
   if(!isAdmin()){ toast('Admin only','error'); return; }
   if(!confirm('Sync ALL existing contracts to Fixed Assets / Stores based on their destination_type? This is idempotent — safe to re-run.')) return;
+  // Persistent visible status banner so the user can see progress even if toast fades
+  let banner = document.getElementById('sync-banner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = 'sync-banner';
+    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1a3a2c;color:#fff;padding:14px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:420px;line-height:1.5;';
+    document.body.appendChild(banner);
+  }
+  banner.style.background = '#1a3a2c';
+  banner.textContent = '⏳ Sync starting…';
   try{
-    toast('Syncing… this may take a moment');
     const [cR, vR] = await Promise.all([
-      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.json()),
-      fetch(`${SB_URL}/rest/v1/vendors?select=*`,{headers}).then(r=>r.json())
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}),
+      fetch(`${SB_URL}/rest/v1/vendors?select=*`,{headers})
     ]);
-    const contracts = Array.isArray(cR) ? cR : [];
-    const vendors = Array.isArray(vR) ? vR : [];
+    if(!cR.ok){
+      const errTxt = await cR.text();
+      banner.style.background = '#7a1f1f';
+      banner.innerHTML = `<b>✕ Sync failed</b><br><small>Could not load contracts: ${_esc(errTxt).slice(0,200)}</small>`;
+      console.error('contract fetch failed', errTxt);
+      return;
+    }
+    const contracts = await cR.json();
+    const vendors = vR.ok ? (await vR.json()) : [];
+    if(!Array.isArray(contracts)){
+      banner.style.background = '#7a1f1f';
+      banner.innerHTML = `<b>✕ Sync failed</b><br><small>Contracts response wasn't a list: ${_esc(JSON.stringify(contracts)).slice(0,200)}</small>`;
+      return;
+    }
+    if(!contracts.length){
+      banner.style.background = '#946410';
+      banner.innerHTML = '<b>⚠ Nothing to sync</b><br><small>No contracts found in vendor_contracts table. Add contracts to vendors first.</small>';
+      setTimeout(()=>banner && banner.remove(), 6000);
+      return;
+    }
     const vMap = {}; vendors.forEach(v => vMap[v.id] = v);
     let created = 0, updated = 0, noop = 0, skipped = 0, failed = 0;
-    for(const c of contracts){
+    const failures = [];
+    for(let i = 0; i < contracts.length; i++){
+      const c = contracts[i];
+      banner.textContent = `⏳ Syncing ${i+1} of ${contracts.length}: ${(vMap[c.vendor_id]?.vendor_name||'Vendor')}`;
       try{
         const result = await syncContractToDestination(c, vMap[c.vendor_id]);
         if(result.action === 'created') created++;
         else if(result.action === 'updated') updated++;
         else if(result.action === 'noop') noop++;
-        else skipped++;
+        else { skipped++; if(result.message) failures.push(`${vMap[c.vendor_id]?.vendor_name||'?'}: ${result.message}`); }
       }catch(e){
-        console.warn('Sync failed for contract', c.id, e);
+        console.error('Sync failed for contract', c.id, e);
         failed++;
+        failures.push(`${vMap[c.vendor_id]?.vendor_name||'?'}: ${(e.message||e).toString().slice(0,150)}`);
       }
     }
-    toast(`Sync done · ${created} created · ${updated} updated · ${noop} unchanged · ${skipped} skipped${failed?' · '+failed+' failed':''}`);
-    // Refresh the visible tab
-    if(typeof loadStore === 'function') loadStore();
-    if(typeof loadInventory === 'function') loadInventory();
+    const allOk = (failed === 0);
+    banner.style.background = allOk ? '#1a3a2c' : '#7a1f1f';
+    let html = `<b>${allOk?'✓':'⚠'} Sync done</b><br>`;
+    html += `${created} created · ${updated} updated · ${noop} unchanged · ${skipped} skipped`;
+    if(failed > 0) html += ` · <span style="color:#ffb3b3;">${failed} failed</span>`;
+    if(failures.length){
+      html += '<br><br><b style="font-size:11px;">First few failures:</b><br>';
+      html += failures.slice(0,3).map(f=>`<small style="opacity:.8;">• ${_esc(f)}</small>`).join('<br>');
+    }
+    html += '<br><br><a href="#" onclick="document.getElementById(\'sync-banner\').remove();return false;" style="color:#ccc;font-size:11px;">Dismiss</a>';
+    banner.innerHTML = html;
+    // Auto-refresh tabs
+    if(typeof loadStore === 'function') try{ loadStore(); }catch(_){}
+    if(typeof loadInventory === 'function') try{ loadInventory(); }catch(_){}
   }catch(e){
     console.error('syncAllContracts:', e);
-    toast('Sync failed: '+(e.message||e),'error');
+    banner.style.background = '#7a1f1f';
+    banner.innerHTML = `<b>✕ Sync failed</b><br><small>${_esc((e.message||e).toString())}</small><br><a href="#" onclick="document.getElementById('sync-banner').remove();return false;" style="color:#ccc;font-size:11px;">Dismiss</a>`;
   }
 }
 
@@ -7771,7 +7818,93 @@ async function deleteFixedAsset(){
 // END STORE & FIXED ASSETS MODULE
 // ============================================================
 
-async function loadInventory(){try{const data=await getData('inventory');const tbody=document.getElementById('inventory-tbody');if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="12">No inventory items yet.</td></tr>';return;}tbody.innerHTML=data.map(i=>{const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteRow('inventory','${i.id}',loadInventory)">✕</button></td>`:'<td></td>';return`<tr><td>${i.item_name||'—'}</td><td>${i.room_area||'—'}</td><td>${i.supplier||'—'}</td><td>${i.responsible||'—'}</td><td>${i.qty_ordered||0}</td><td>${i.qty_received||0}</td><td>PKR ${fmt(i.unit_cost)}</td><td>PKR ${fmt((+i.qty_ordered||0)*(+i.unit_cost||0))}</td><td>${fmtDate(i.expected_delivery)}</td><td>${statusBadge(i.status||'Pending Order')}</td><td style="max-width:130px;font-size:12px;">${i.notes||''}</td>${adminBtn}</tr>`;}).join('');}catch(e){toast('Failed to load inventory','error');}}
+async function loadInventory(){
+  const cont = document.getElementById('fa-by-category');
+  if(cont) cont.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><div class="spinner"></div> Loading Fixed Assets…</div>';
+  try{
+    // Fetch every fixed_asset + related issuances (so we can show "items issued to this asset")
+    const [faR, issR, vendorsArr] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/fixed_assets?select=*&order=category.asc,name.asc`,{headers}).then(r=>r.ok?r.json():[]),
+      fetch(`${SB_URL}/rest/v1/inventory_issuances?select=*&destination_type=eq.fixed_asset`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      getData('vendors').catch(()=>[])
+    ]);
+    const assets = Array.isArray(faR) ? faR : [];
+    const issuances = Array.isArray(issR) ? issR : [];
+    // Aggregate issuances per asset
+    const issByAsset = {};
+    issuances.forEach(i => {
+      const k = i.fixed_asset_id;
+      if(!k) return;
+      issByAsset[k] = (issByAsset[k] || 0) + (+i.total_value || 0);
+    });
+    // KPIs
+    const total = assets.reduce((s,a)=>s + (+a.direct_cost||0) + (issByAsset[a.id]||0), 0);
+    const autoCount = assets.filter(a => a.source_contract_id).length;
+    const manualCount = assets.length - autoCount;
+    _countUpText('fa-count', assets.length);
+    _countUpPKR('fa-total', total);
+    _countUpText('fa-auto', autoCount);
+    _countUpText('fa-manual', manualCount);
+
+    if(!cont) return;
+    if(!assets.length){
+      cont.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--text-muted);">No Fixed Assets yet. Click <b>🔁 Sync from Vendors</b> to import from your existing contracts, or use the Stores tab to issue items.</div>';
+      return;
+    }
+    // Group by category
+    const byCat = {};
+    assets.forEach(a => {
+      const cat = a.category || 'Uncategorized';
+      (byCat[cat] = byCat[cat] || []).push(a);
+    });
+    const sortedCats = Object.keys(byCat).sort();
+    cont.innerHTML = sortedCats.map(cat => {
+      const list = byCat[cat];
+      const catTotal = list.reduce((s,a)=>s + (+a.direct_cost||0) + (issByAsset[a.id]||0), 0);
+      const rows = list.map(a => {
+        const direct = +a.direct_cost || 0;
+        const issued = +issByAsset[a.id] || 0;
+        const grand = direct + issued;
+        const isAuto = !!a.source_contract_id;
+        const sourceBadge = isAuto
+          ? '<span style="display:inline-block;background:rgba(76,175,125,.15);color:#4caf7d;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.04em;margin-left:6px;">AUTO</span>'
+          : '<span style="display:inline-block;background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.04em;margin-left:6px;">MANUAL</span>';
+        const statusCol = a.status === 'In Service' ? '#4caf7d' : a.status === 'Commissioned' ? '#3a86c8' : '#e08a4c';
+        return `<tr>
+          <td>
+            <div style="font-weight:500;font-size:13px;">${_esc(a.name||'—')}${sourceBadge}</div>
+            ${a.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(a.notes)}</div>` : ''}
+          </td>
+          <td style="font-size:11px;"><span style="color:${statusCol};">●</span> ${_esc(a.status||'Under Construction')}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;">PKR ${fmt(direct)}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;color:${issued>0?'#4caf7d':'var(--text-muted)'};">${issued>0?'PKR '+fmt(issued):'—'}</td>
+          <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold);">PKR ${fmt(grand)}</td>
+          <td style="text-align:right;">${canWrite() ? `<button class="btn-icon" onclick="openFaDetail('${a.id}')" title="View detail">→</button>` : ''}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border);">
+          <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:600;">${_esc(cat)}</div>
+          <div style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text-muted);">
+            <span>${list.length} asset${list.length>1?'s':''}</span>
+            <span style="font-weight:600;color:var(--gold);">PKR ${fmt(catTotal)}</span>
+          </div>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Asset</th><th>Status</th><th style="text-align:right;">Direct Cost</th><th style="text-align:right;">Issued from Store</th><th style="text-align:right;">Total Capitalized</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error('loadInventory:', e);
+    const cont2 = document.getElementById('fa-by-category');
+    if(cont2) cont2.innerHTML = '<div style="padding:20px;color:var(--red);text-align:center;">Failed to load: '+(e.message||e)+'</div>';
+  }
+}
+
+// Legacy fallback (in case other code paths call addInventory etc.)
+function addInventory(){ toast('The old inventory form has been replaced. Use Sync from Vendors or issue from Stores.','info'); }
 async function addInventory(){if(!isAdmin())return;const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}}
 
 // ROOMS
