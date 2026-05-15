@@ -799,7 +799,6 @@ tr:hover td{background:var(--green-bg);}
       <div class="page-subtitle">Capitalized assets — direct from vendor contracts + items issued from Stores</div>
     </div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="Sync every contract's destination to Fixed Assets / Stores. Idempotent.">🔁 Sync from Vendors</button>
       <button class="btn btn-secondary btn-sm" onclick="loadInventory()">↻ Refresh</button>
     </div>
   </div>
@@ -825,7 +824,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="page-title">Stores</div>
       <div class="page-subtitle">Receive goods → store holds them → store keeper issues out → becomes a Fixed Asset</div>
     </div>
-    <div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="One-time: sync every contract's destination to Fixed Assets/Stores">🔁 Sync from Vendors</button><button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button></div>
+    <div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button></div>
   </div>
 
   <!-- KPI strip -->
@@ -1597,45 +1596,11 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <div class="form-group" style="margin-bottom:16px;"><label>Notes <span style="color:var(--text-muted);font-size:10px;">(this contract)</span></label><textarea id="ev-notes" style="resize:vertical;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:100%;"></textarea></div>
 
-    <!-- DESTINATION — Fixed Asset / Store / Both -->
-    <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:8px;">
-      <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Where does this contract's value go?</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button type="button" id="ev-dest-fa"    class="btn btn-secondary btn-sm" onclick="setVendorDestination('fixed_asset')">📐 Fixed Asset</button>
-        <button type="button" id="ev-dest-store" class="btn btn-secondary btn-sm" onclick="setVendorDestination('store')">📦 Store</button>
-        <button type="button" id="ev-dest-both"  class="btn btn-secondary btn-sm" onclick="setVendorDestination('both')">🔀 Both</button>
-      </div>
-      <input type="hidden" id="ev-destination">
-
-      <!-- FA category (visible if fixed_asset or both) -->
-      <div class="form-group" id="ev-fa-cat-wrap" style="display:none;margin-bottom:10px;">
-        <label>Fixed Asset Category *</label>
-        <select id="ev-fa-cat">
-          <option>Building</option>
-          <option>Furniture & Fixtures</option>
-          <option>Equipment</option>
-          <option>Vehicle</option>
-          <option>HVAC</option>
-          <option>Electrical Infrastructure</option>
-          <option>IT & Software</option>
-          <option>Other</option>
-        </select>
-      </div>
-
-      <!-- Split inputs (visible if both) -->
-      <div id="ev-split-wrap" style="display:none;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;">
-        <div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="ev-split-mode" value="pkr" id="ev-split-mode-pkr" checked onchange="updateVendorSplitPreview()"> Enter as PKR</label>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="ev-split-mode" value="pct" id="ev-split-mode-pct" onchange="updateVendorSplitPreview()"> Enter as %</label>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div class="form-group"><label>To Fixed Asset</label><input id="ev-split-fa" type="number" placeholder="0" oninput="updateVendorSplitPreview()"></div>
-          <div class="form-group"><label>To Store</label><input id="ev-split-store" type="number" placeholder="0" oninput="updateVendorSplitPreview()"></div>
-        </div>
-        <div id="ev-split-preview" style="font-size:11px;color:var(--text-muted);margin-top:8px;">—</div>
-      </div>
-      <div id="ev-dest-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Pick where this vendor's value flows. Fixed Asset capitalizes directly. Store holds until issued.</div>
-    </div>
+    <!-- Legacy hidden inputs preserved so other code that references them doesn't break -->
+    <input type="hidden" id="ev-destination" value="">
+    <input type="hidden" id="ev-fa-cat" value="Building">
+    <input type="hidden" id="ev-split-fa" value="0">
+    <input type="hidden" id="ev-split-store" value="0">
 
     <!-- CONTRACT ITEMS — line items with receive tracking -->
     <div style="border-top:1px solid var(--border);padding-top:18px;margin-top:18px;">
@@ -4865,30 +4830,13 @@ function setAgreementStatus(s){
 
 // ── DESTINATION ──
 function setVendorDestination(type){
-  document.getElementById('ev-destination').value = type;
-  updateVendorDestinationUI();
-  updateVendorSplitPreview();
+  // DEPRECATED — destination buttons were removed. Function kept as no-op for backward compat.
+  const el = document.getElementById('ev-destination');
+  if(el) el.value = type;
 }
 function updateVendorDestinationUI(){
-  const dest = document.getElementById('ev-destination').value || '';
-  const faBtn = document.getElementById('ev-dest-fa');
-  const stBtn = document.getElementById('ev-dest-store');
-  const bothBtn = document.getElementById('ev-dest-both');
-  const faCatWrap = document.getElementById('ev-fa-cat-wrap');
-  const splitWrap = document.getElementById('ev-split-wrap');
-  const hint = document.getElementById('ev-dest-hint');
-
-  faBtn.className = dest==='fixed_asset' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  stBtn.className = dest==='store' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  bothBtn.className = dest==='both' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-
-  faCatWrap.style.display = (dest==='fixed_asset' || dest==='both') ? 'block' : 'none';
-  splitWrap.style.display = dest==='both' ? 'block' : 'none';
-
-  if(dest==='fixed_asset') hint.textContent = 'Full contract value capitalized to Fixed Asset in the picked category.';
-  else if(dest==='store') hint.textContent = 'Full contract value goes to Store. Storeman issues items out later.';
-  else if(dest==='both') hint.textContent = 'Split contract value between Fixed Asset and Store. Enter amounts below.';
-  else hint.textContent = 'Pick where this vendor\'s value flows. Fixed Asset capitalizes directly. Store holds until issued.';
+  // DEPRECATED — no-op since destination UI was removed.
+  return;
 }
 function updateVendorSplitPreview(){
   const total = +document.getElementById('ev-total').value || 0;
@@ -7839,7 +7787,7 @@ async function loadInventory(){
     });
     // KPIs
     const total = assets.reduce((s,a)=>s + (+a.direct_cost||0) + (issByAsset[a.id]||0), 0);
-    const autoCount = assets.filter(a => a.source_contract_id).length;
+    const autoCount = assets.filter(a => a.source_contract_id || a.contract_item_id).length;
     const manualCount = assets.length - autoCount;
     _countUpText('fa-count', assets.length);
     _countUpPKR('fa-total', total);
@@ -7848,7 +7796,7 @@ async function loadInventory(){
 
     if(!cont) return;
     if(!assets.length){
-      cont.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--text-muted);">No Fixed Assets yet. Click <b>🔁 Sync from Vendors</b> to import from your existing contracts, or use the Stores tab to issue items.</div>';
+      cont.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--text-muted);">No Fixed Assets yet. Open a vendor, add contract items, mark them <b>✓ Received</b> with destination = Fixed Asset, and they\'ll appear here.</div>';
       return;
     }
     // Group by category
@@ -7865,7 +7813,7 @@ async function loadInventory(){
         const direct = +a.direct_cost || 0;
         const issued = +issByAsset[a.id] || 0;
         const grand = direct + issued;
-        const isAuto = !!a.source_contract_id;
+        const isAuto = !!(a.source_contract_id || a.contract_item_id);
         const sourceBadge = isAuto
           ? '<span style="display:inline-block;background:rgba(76,175,125,.15);color:#4caf7d;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.04em;margin-left:6px;">AUTO</span>'
           : '<span style="display:inline-block;background:rgba(74,158,255,.15);color:#4a9eff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.04em;margin-left:6px;">MANUAL</span>';
@@ -7873,9 +7821,8 @@ async function loadInventory(){
         return `<tr>
           <td>
             <div style="font-weight:500;font-size:13px;">${_esc(a.name||'—')}${sourceBadge}</div>
-            ${a.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(a.notes)}</div>` : ''}
+            ${(a.notes && !/^Auto-(synced|created)/i.test(a.notes)) ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(a.notes)}</div>` : ''}
           </td>
-          <td style="font-size:11px;"><span style="color:${statusCol};">●</span> ${_esc(a.status||'Under Construction')}</td>
           <td style="text-align:right;font-variant-numeric:tabular-nums;">PKR ${fmt(direct)}</td>
           <td style="text-align:right;font-variant-numeric:tabular-nums;color:${issued>0?'#4caf7d':'var(--text-muted)'};">${issued>0?'PKR '+fmt(issued):'—'}</td>
           <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold);">PKR ${fmt(grand)}</td>
@@ -7891,7 +7838,7 @@ async function loadInventory(){
           </div>
         </div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Asset</th><th>Status</th><th style="text-align:right;">Direct Cost</th><th style="text-align:right;">Issued from Store</th><th style="text-align:right;">Total Capitalized</th><th></th></tr></thead>
+          <thead><tr><th>Asset</th><th style="text-align:right;">Direct Cost</th><th style="text-align:right;">Issued from Store</th><th style="text-align:right;">Total Capitalized</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
       </div>`;
@@ -7904,7 +7851,7 @@ async function loadInventory(){
 }
 
 // Legacy fallback (in case other code paths call addInventory etc.)
-function addInventory(){ toast('The old inventory form has been replaced. Use Sync from Vendors or issue from Stores.','info'); }
+function addInventory(){ toast('The old inventory form has been replaced. Add contract items to vendors and mark them received.','info'); }
 async function addInventory(){if(!isAdmin())return;const name=document.getElementById('i-name').value.trim();if(!name){toast('Item name required','error');return;}try{await sbInsert('inventory',{item_name:name,room_area:document.getElementById('i-area').value,supplier:document.getElementById('i-supplier').value,responsible:document.getElementById('i-resp').value,qty_ordered:+document.getElementById('i-ordered').value||null,qty_received:+document.getElementById('i-received').value||null,unit_cost:+document.getElementById('i-cost').value||null,expected_delivery:document.getElementById('i-delivery').value||null,status:document.getElementById('i-status').value,notes:document.getElementById('i-notes').value});toast('Item added ✓');['i-name','i-area','i-supplier','i-resp','i-ordered','i-received','i-cost','i-delivery','i-notes'].forEach(id=>document.getElementById(id).value='');delete cache['inventory'];loadInventory();}catch(e){toast('Error','error');}}
 
 // ROOMS
@@ -10051,25 +9998,6 @@ async function saveEditVendor(){
       } else { throw new Error(err); }
     }
     toast('Vendor updated ✓');
-
-    // Sync each contract to Fixed Assets / Stores based on its destination_type.
-    // Idempotent — safe to run on every save. Updates existing entries if values
-    // changed, deletes orphans if destination_type was changed.
-    try{
-      const vendorObj = { id, vendor_name: name };
-      let syncCreated = 0, syncUpdated = 0;
-      for(const c of _evContracts){
-        if(!c.id) continue;
-        try{
-          const result = await syncContractToDestination(c, vendorObj);
-          if(result.action === 'created') syncCreated++;
-          else if(result.action === 'updated') syncUpdated++;
-        }catch(e){ console.warn('Sync failed for contract', c.id, e); }
-      }
-      if(syncCreated || syncUpdated){
-        toast(`Synced to ${syncCreated?syncCreated+' new':''}${syncCreated&&syncUpdated?' / ':''}${syncUpdated?syncUpdated+' updated':''} FA/Store entry`);
-      }
-    }catch(e){ console.warn('Contract sync block failed:', e); }
 
     // Auto-push each approved contract's schedule to cashflow.
     // Fetch milestones DIRECTLY from Supabase (not from _msCache) — the cache
