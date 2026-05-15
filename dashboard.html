@@ -793,7 +793,7 @@ tr:hover td{background:var(--green-bg);}
 
 <!-- INVENTORY -->
 <div class="section" id="section-inventory">
-  <div class="page-header"><div class="page-title">Fixed Assets</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div>
+  <div class="page-header"><div class="page-title">Fixed Assets</div><div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="One-time: sync every contract's destination to Fixed Assets/Stores">🔁 Sync from Vendors</button><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div></div>
   <div class="card admin-only">
     <div class="card-title">Add Inventory / Furnishing Item</div>
     <div class="form-grid">
@@ -820,7 +820,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="page-title">Stores</div>
       <div class="page-subtitle">Receive goods → store holds them → store keeper issues out → becomes a Fixed Asset</div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button>
+    <div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm admin-only" onclick="syncAllContracts()" title="One-time: sync every contract's destination to Fixed Assets/Stores">🔁 Sync from Vendors</button><button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button></div>
   </div>
 
   <!-- KPI strip -->
@@ -2562,7 +2562,7 @@ function renderTaskRows() {
         : (t.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic;">"${t.notes}"</div>` : '');
       const codeCell = isVendorTask
         ? `<span style="font-size:10px;padding:2px 5px;background:rgba(224,138,76,.15);color:#b8741f;border-radius:3px;font-weight:600;letter-spacing:0.05em;">VEND</span>`
-        : (t.task_code||'—');
+        : '—';
       const durCell = isVendorTask
         ? (t.proposed_date ? `Due ${new Date(t.proposed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}` : '—')
         : (t.duration_days ? t.duration_days+' days' : '—');
@@ -2609,7 +2609,7 @@ async function openEditTask(id){
     if(!t){ toast('Task not found','error'); return; }
 
     document.getElementById('et-id').value       = t.id;
-    document.getElementById('et-code-sub').textContent = `Task ${t.task_code||'—'}`;
+    document.getElementById('et-code-sub').textContent = t.title || 'Task';
     document.getElementById('et-title-ro').textContent = t.title||'—';
     document.getElementById('et-desc-ro').textContent  = t.description||'—';
     document.getElementById('et-pct').value       = (t.current_pct ?? '');
@@ -3298,8 +3298,10 @@ async function loadOverview(){
       if(est.opening){
         document.getElementById('ov-opening-date').textContent =
           est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-        document.getElementById('ov-opening-rel').textContent =
-          `${_fmtOpeningRel(est.daysOut)} · blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
+        const subtxt = est.breakdown.gated
+          ? `${_fmtOpeningRel(est.daysOut)} · 🛑 gated by latest task deadline · +${est.breakdown.penalty}d bottleneck penalty`
+          : `${_fmtOpeningRel(est.daysOut)} · blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
+        document.getElementById('ov-opening-rel').textContent = subtxt;
       } else {
         document.getElementById('ov-opening-date').textContent = '—';
         document.getElementById('ov-opening-rel').textContent = 'No active tasks';
@@ -6143,21 +6145,20 @@ async function autoAssignZones(){
 // Three independent estimates of remaining-days-to-completion, blended.
 function _estimateOpeningDate(tasks, contracts, vendors, bottlenecks){
   const today = new Date(); today.setHours(0,0,0,0);
-  const taskEstimates = tasks
-    .filter(t => (t.status !== 'complete') && (+t.current_pct < 100))
-    .map(t => {
-      const dur = Math.max(1, +t.duration_days || 30);
-      const pct = Math.max(0, Math.min(100, +t.current_pct || 0));
-      const remainingDays = dur * ((100 - pct) / 100);
-      let cVal = 0;
-      const vid = t.vendor_id;
-      if(vid && Array.isArray(contracts)){
-        contracts.forEach(c => { if(c.vendor_id === vid) cVal += (+c.total_contract||0); });
-      }
-      return { days: remainingDays, dur, cVal };
-    });
+  const activeTasks = (tasks||[]).filter(t => (t.status !== 'complete') && (+t.current_pct < 100));
+  const taskEstimates = activeTasks.map(t => {
+    const dur = Math.max(1, +t.duration_days || 30);
+    const pct = Math.max(0, Math.min(100, +t.current_pct || 0));
+    const remainingDays = dur * ((100 - pct) / 100);
+    let cVal = 0;
+    const vid = t.vendor_id;
+    if(vid && Array.isArray(contracts)){
+      contracts.forEach(c => { if(c.vendor_id === vid) cVal += (+c.total_contract||0); });
+    }
+    return { days: remainingDays, dur, cVal };
+  });
   if(!taskEstimates.length){
-    return { opening: null, daysOut: 0, breakdown: { dur:0, eq:0, val:0, penalty:0 } };
+    return { opening: null, daysOut: 0, breakdown: { dur:0, eq:0, val:0, penalty:0, floor:0, gated:false } };
   }
   const wAvg = (items, weightFn) => {
     const totalW = items.reduce((s,x)=>s+weightFn(x), 0);
@@ -6173,12 +6174,36 @@ function _estimateOpeningDate(tasks, contracts, vendors, bottlenecks){
     const map = { critical:14, high:7, medium:3, low:1 };
     penalty += map[b.impact] || 3;
   });
-  const blended = (durDays + eqDays + valDays) / 3 + penalty;
-  const openingMs = today.getTime() + blended * 86400000;
+  const blendedDays = (durDays + eqDays + valDays) / 3 + penalty;
+  // ── FLOOR ── opening cannot be earlier than the latest deadline of any active task
+  // (and not earlier than today + remaining work for any one task either)
+  let floorDays = 0;
+  activeTasks.forEach(t => {
+    if(t.deadline){
+      const dl = new Date(t.deadline + 'T00:00:00');
+      const daysToDl = (dl.getTime() - today.getTime()) / 86400000;
+      if(daysToDl > floorDays) floorDays = daysToDl;
+    }
+  });
+  // Also floor by individual remaining work: if any one task needs 200 days,
+  // opening cannot be in 50 days even if the average suggests it.
+  taskEstimates.forEach(te => {
+    if(te.days > floorDays) floorDays = te.days;
+  });
+  const gatedByFloor = floorDays > blendedDays;
+  const finalDays = Math.max(blendedDays, floorDays);
+  const openingMs = today.getTime() + finalDays * 86400000;
   return {
     opening: new Date(openingMs),
-    daysOut: Math.round(blended),
-    breakdown: { dur: Math.round(durDays), eq: Math.round(eqDays), val: Math.round(valDays), penalty }
+    daysOut: Math.round(finalDays),
+    breakdown: {
+      dur: Math.round(durDays),
+      eq: Math.round(eqDays),
+      val: Math.round(valDays),
+      penalty,
+      floor: Math.round(floorDays),
+      gated: gatedByFloor
+    }
   };
 }
 
@@ -6210,8 +6235,12 @@ async function loadWorkflow(){
     if(est.opening){
       document.getElementById('wf-opening-date').textContent =
         est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const b = est.breakdown;
+      const gatedTxt = b.gated
+        ? ` · 🛑 gated by latest deadline (${b.floor}d)`
+        : '';
       document.getElementById('wf-opening-rel').textContent =
-        `${_fmtOpeningRel(est.daysOut)} · dur ${est.breakdown.dur}d · eq ${est.breakdown.eq}d · val ${est.breakdown.val}d · +${est.breakdown.penalty}d bottlenecks`;
+        `${_fmtOpeningRel(est.daysOut)} · dur ${b.dur}d · eq ${b.eq}d · val ${b.val}d · +${b.penalty}d bottlenecks${gatedTxt}`;
     } else {
       document.getElementById('wf-opening-date').textContent = '—';
       document.getElementById('wf-opening-rel').textContent = 'No active tasks';
@@ -6299,7 +6328,7 @@ function renderZoneCard(zone, zoneTasks, vMap, contractsByVendor){
     const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Complete'}[t.status]||t.status||'—';
     const statusCol = t.status==='complete' ? '#4caf7d' : t.status==='blocked' ? '#d04040' : t.status==='in_progress' ? '#3a86c8' : '#8aaa9e';
     return `<tr>
-      <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted);">${t.task_code||'—'}</td>
+      <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted);">—</td>
       <td>
         <div style="font-weight:500;font-size:13px;">${t.title||'—'}${overdue?' <span style="color:#d04040;font-size:10px;font-weight:600;">⚠</span>':''}</div>
         <div style="font-size:11px;color:var(--text-muted);">${vName}</div>
@@ -6949,6 +6978,255 @@ async function quickCreateAsset(){
     document.getElementById('iss-fa-quick').value = '';
   }catch(e){ console.error(e); toast('Error creating asset','error'); }
 }
+
+// ============================================================
+// CONTRACT → FIXED ASSET / STORE SYNC
+// Source of truth: vendor_contracts.destination_type
+//   - 'fixed_asset' → create fixed_assets row
+//   - 'store'       → create inventory_receipts row
+//   - 'both'        → split based on fa_amount / store_amount (or 50/50 if blank)
+// Idempotent: source_contract_id is the natural key. Re-running the sync
+// for a contract that already has a row is a no-op (we PATCH instead of POST
+// when we find an existing row, so amount changes propagate).
+// ============================================================
+
+// Find an existing fixed_asset row created from this contract (if any)
+async function _findFaForContract(contractId){
+  if(!contractId) return null;
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/fixed_assets?source_contract_id=eq.${contractId}&select=*&limit=1`,{headers});
+    if(!r.ok) return null;
+    const arr = await r.json();
+    return Array.isArray(arr) && arr.length ? arr[0] : null;
+  }catch(_){ return null; }
+}
+async function _findReceiptForContract(contractId){
+  if(!contractId) return null;
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/inventory_receipts?source_contract_id=eq.${contractId}&select=*&limit=1`,{headers});
+    if(!r.ok) return null;
+    const arr = await r.json();
+    return Array.isArray(arr) && arr.length ? arr[0] : null;
+  }catch(_){ return null; }
+}
+
+// Returns { ok, action: 'created'|'updated'|'skipped'|'noop', dest, message }
+async function syncContractToDestination(contract, vendor){
+  if(!contract || !contract.id) return { ok:false, message:'No contract' };
+  const dest = contract.destination_type || contract.default_destination_type || vendor?.destination_type || 'fixed_asset';
+  const total = +contract.total_contract || 0;
+  if(total <= 0) return { ok:false, action:'skipped', message:'Zero total — skipped' };
+  const vendorName = vendor?.vendor_name || 'Unknown Vendor';
+  const contractLabel = contract.contract_name || `Contract ${contract.contract_number||''}`.trim();
+  const displayName = `${vendorName} · ${contractLabel}`;
+  const category = contract.fixed_asset_category || 'Building';
+
+  // Always look up any existing rows from THIS contract so we can update vs duplicate.
+  const existingFa = await _findFaForContract(contract.id);
+  const existingRecv = await _findReceiptForContract(contract.id);
+
+  if(dest === 'fixed_asset'){
+    // Full value → fixed asset. Clean up any orphaned store row.
+    if(existingRecv){
+      await fetch(`${SB_URL}/rest/v1/inventory_receipts?id=eq.${existingRecv.id}`,{method:'DELETE',headers});
+    }
+    if(existingFa){
+      // Update the cost / category / name if changed
+      const needsUpdate =
+        (+existingFa.direct_cost !== total) ||
+        (existingFa.category !== category) ||
+        (existingFa.name !== displayName);
+      if(!needsUpdate) return { ok:true, action:'noop', dest, message:'Already in sync' };
+      const r = await fetch(`${SB_URL}/rest/v1/fixed_assets?id=eq.${existingFa.id}`,{
+        method:'PATCH', headers,
+        body: JSON.stringify({
+          name: displayName, category, direct_cost: total,
+          notes: `Auto-synced from contract ${contract.id}`
+        })
+      });
+      if(!r.ok) throw new Error(await r.text());
+      return { ok:true, action:'updated', dest, message:'Updated existing FA' };
+    }
+    // Create
+    const r = await fetch(`${SB_URL}/rest/v1/fixed_assets`,{
+      method:'POST', headers:{...headers,'Prefer':'return=representation'},
+      body: JSON.stringify({
+        name: displayName, category, status:'Under Construction',
+        direct_cost: total, source_contract_id: contract.id,
+        notes: `Auto-synced from contract ${contract.id}`
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    return { ok:true, action:'created', dest, message:'Created FA' };
+  }
+
+  if(dest === 'store'){
+    // Full value → inventory_receipts. Clean up any orphaned FA row.
+    if(existingFa){
+      await fetch(`${SB_URL}/rest/v1/fixed_assets?id=eq.${existingFa.id}`,{method:'DELETE',headers});
+    }
+    if(existingRecv){
+      const needsUpdate =
+        ((+existingRecv.qty)*(+existingRecv.unit_cost) !== total) ||
+        (existingRecv.item_name !== displayName);
+      if(!needsUpdate) return { ok:true, action:'noop', dest, message:'Already in sync' };
+      const r = await fetch(`${SB_URL}/rest/v1/inventory_receipts?id=eq.${existingRecv.id}`,{
+        method:'PATCH', headers,
+        body: JSON.stringify({
+          item_name: displayName, qty: 1, unit_cost: total,
+          category: category, notes: `Auto-synced from contract ${contract.id}`
+        })
+      });
+      if(!r.ok) throw new Error(await r.text());
+      return { ok:true, action:'updated', dest, message:'Updated existing store entry' };
+    }
+    const r = await fetch(`${SB_URL}/rest/v1/inventory_receipts`,{
+      method:'POST', headers:{...headers,'Prefer':'return=representation'},
+      body: JSON.stringify({
+        item_name: displayName,
+        unit: 'lot',
+        qty: 1, unit_cost: total,
+        vendor_id: contract.vendor_id || null,
+        category: category,
+        received_date: new Date().toISOString().slice(0,10),
+        storeman_name: 'Auto-synced',
+        notes: `Auto-synced from contract ${contract.id}`,
+        source_contract_id: contract.id
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    return { ok:true, action:'created', dest, message:'Created store entry' };
+  }
+
+  if(dest === 'both'){
+    // Split: prefer explicit fa_amount/store_amount, else 50/50
+    let faAmt = +contract.fa_amount || 0;
+    let stAmt = +contract.store_amount || 0;
+    if(faAmt + stAmt <= 0 || Math.abs((faAmt + stAmt) - total) > 1){
+      faAmt = total / 2; stAmt = total / 2;
+    }
+    // ── FA leg ──
+    if(faAmt > 0){
+      if(existingFa){
+        await fetch(`${SB_URL}/rest/v1/fixed_assets?id=eq.${existingFa.id}`,{
+          method:'PATCH', headers,
+          body: JSON.stringify({
+            name: displayName + ' (FA share)', category, direct_cost: faAmt,
+            notes: `Auto-synced (FA leg) from contract ${contract.id}`
+          })
+        });
+      } else {
+        await fetch(`${SB_URL}/rest/v1/fixed_assets`,{
+          method:'POST', headers,
+          body: JSON.stringify({
+            name: displayName + ' (FA share)', category, status:'Under Construction',
+            direct_cost: faAmt, source_contract_id: contract.id,
+            notes: `Auto-synced (FA leg) from contract ${contract.id}`
+          })
+        });
+      }
+    } else if(existingFa){
+      await fetch(`${SB_URL}/rest/v1/fixed_assets?id=eq.${existingFa.id}`,{method:'DELETE',headers});
+    }
+    // ── Store leg ──
+    if(stAmt > 0){
+      if(existingRecv){
+        await fetch(`${SB_URL}/rest/v1/inventory_receipts?id=eq.${existingRecv.id}`,{
+          method:'PATCH', headers,
+          body: JSON.stringify({
+            item_name: displayName + ' (Store share)', qty: 1, unit_cost: stAmt,
+            category, notes: `Auto-synced (Store leg) from contract ${contract.id}`
+          })
+        });
+      } else {
+        await fetch(`${SB_URL}/rest/v1/inventory_receipts`,{
+          method:'POST', headers,
+          body: JSON.stringify({
+            item_name: displayName + ' (Store share)',
+            unit: 'lot', qty: 1, unit_cost: stAmt,
+            vendor_id: contract.vendor_id || null,
+            category,
+            received_date: new Date().toISOString().slice(0,10),
+            storeman_name: 'Auto-synced',
+            notes: `Auto-synced (Store leg) from contract ${contract.id}`,
+            source_contract_id: contract.id
+          })
+        });
+      }
+    } else if(existingRecv){
+      await fetch(`${SB_URL}/rest/v1/inventory_receipts?id=eq.${existingRecv.id}`,{method:'DELETE',headers});
+    }
+    return { ok:true, action:'updated', dest, message:'Split FA/Store synced' };
+  }
+
+  return { ok:false, action:'skipped', message:'Unknown destination: '+dest };
+}
+
+// Sync a single contract by ID (used after a contract is saved/edited).
+// Fetches the contract + vendor, then runs syncContractToDestination.
+async function syncOneContractById(contractId){
+  if(!contractId) return;
+  try{
+    const cR = await fetch(`${SB_URL}/rest/v1/vendor_contracts?id=eq.${contractId}&select=*`,{headers});
+    if(!cR.ok) return;
+    const carr = await cR.json();
+    const c = Array.isArray(carr) ? carr[0] : carr;
+    if(!c) return;
+    const vR = await fetch(`${SB_URL}/rest/v1/vendors?id=eq.${c.vendor_id}&select=*`,{headers});
+    const varr = vR.ok ? await vR.json() : [];
+    const v = Array.isArray(varr) ? varr[0] : null;
+    await syncContractToDestination(c, v);
+  }catch(e){ console.warn('syncOneContractById error:', e); }
+}
+
+// Bulk: walk every contract in DB and sync. Used by the "Sync all" button.
+async function syncAllContracts(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  if(!confirm('Sync ALL existing contracts to Fixed Assets / Stores based on their destination_type? This is idempotent — safe to re-run.')) return;
+  try{
+    toast('Syncing… this may take a moment');
+    const [cR, vR] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/vendors?select=*`,{headers}).then(r=>r.json())
+    ]);
+    const contracts = Array.isArray(cR) ? cR : [];
+    const vendors = Array.isArray(vR) ? vR : [];
+    const vMap = {}; vendors.forEach(v => vMap[v.id] = v);
+    let created = 0, updated = 0, noop = 0, skipped = 0, failed = 0;
+    for(const c of contracts){
+      try{
+        const result = await syncContractToDestination(c, vMap[c.vendor_id]);
+        if(result.action === 'created') created++;
+        else if(result.action === 'updated') updated++;
+        else if(result.action === 'noop') noop++;
+        else skipped++;
+      }catch(e){
+        console.warn('Sync failed for contract', c.id, e);
+        failed++;
+      }
+    }
+    toast(`Sync done · ${created} created · ${updated} updated · ${noop} unchanged · ${skipped} skipped${failed?' · '+failed+' failed':''}`);
+    // Refresh the visible tab
+    if(typeof loadStore === 'function') loadStore();
+    if(typeof loadInventory === 'function') loadInventory();
+  }catch(e){
+    console.error('syncAllContracts:', e);
+    toast('Sync failed: '+(e.message||e),'error');
+  }
+}
+
+// Detect destination change on a contract during edit. Called from save flow
+// BEFORE the contract is patched. Returns true if the user wants to proceed.
+async function _confirmDestinationChange(oldContract, newDest){
+  if(!oldContract || !oldContract.id) return true;
+  const prev = oldContract.destination_type || 'fixed_asset';
+  if(prev === newDest) return true; // no change
+  const msg = `You're changing this contract's destination from "${prev}" to "${newDest}". ` +
+              `Any existing Fixed Asset / Store entry for this contract will be moved to the new destination ` +
+              `(value preserved). Proceed?`;
+  return confirm(msg);
+}
+
 async function saveIssuance(){
   if(!canWrite())return;
   const q = +document.getElementById('iss-qty').value||0;
@@ -9640,6 +9918,25 @@ async function saveEditVendor(){
       } else { throw new Error(err); }
     }
     toast('Vendor updated ✓');
+
+    // Sync each contract to Fixed Assets / Stores based on its destination_type.
+    // Idempotent — safe to run on every save. Updates existing entries if values
+    // changed, deletes orphans if destination_type was changed.
+    try{
+      const vendorObj = { id, vendor_name: name };
+      let syncCreated = 0, syncUpdated = 0;
+      for(const c of _evContracts){
+        if(!c.id) continue;
+        try{
+          const result = await syncContractToDestination(c, vendorObj);
+          if(result.action === 'created') syncCreated++;
+          else if(result.action === 'updated') syncUpdated++;
+        }catch(e){ console.warn('Sync failed for contract', c.id, e); }
+      }
+      if(syncCreated || syncUpdated){
+        toast(`Synced to ${syncCreated?syncCreated+' new':''}${syncCreated&&syncUpdated?' / ':''}${syncUpdated?syncUpdated+' updated':''} FA/Store entry`);
+      }
+    }catch(e){ console.warn('Contract sync block failed:', e); }
 
     // Auto-push each approved contract's schedule to cashflow.
     // Fetch milestones DIRECTLY from Supabase (not from _msCache) — the cache
