@@ -1768,7 +1768,7 @@ tr:hover td{background:var(--green-bg);}
     <div class="form-grid">
       <div class="form-group" style="grid-column:1 / -1;"><label>Contract Name / Description</label><input id="ev-contract-name" placeholder="e.g. Foundation work, Phase 2 plumbing, Bulk supply agreement"></div>
       <div class="form-group"><label>Total Contract (PKR) *</label><input id="ev-total" type="number" oninput="updateVendorSplitPreview()"></div>
-      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number"><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Manual entry — updates as you log cashflow payments</div></div>
+      <div class="form-group"><label>Amount Paid (PKR)</label><input id="ev-paid" type="number" readonly style="background:#F5F7F4;cursor:not-allowed;color:#5A7060;font-weight:600;"><div style="font-size:10px;color:#5A7060;margin-top:3px;">🔒 Auto-updated from Payment Schedule below</div></div>
       <div class="form-group"><label>Payment Due Date</label><input id="ev-due" type="date"></div>
       <div class="form-group"><label>Status</label><select id="ev-status"><option>In Progress</option><option>Completed</option><option>Pending</option><option>On Hold</option></select></div>
       <div class="form-group"><label>Approval</label><select id="ev-approval"><option>Approved</option><option>Pending Approval</option><option>Rejected</option></select></div>
@@ -2110,21 +2110,53 @@ async function patchMilestone(id, fields){
   if(!r.ok) throw new Error(await r.text());
   return r.json();
 }
-async function insertVendorPayment(vendorId, amount, paidDate, note){
+async function insertVendorPayment(vendorId, amount, paidDate, note, contractId){
   if(!vendorId) throw new Error('vendor_id required');
+  const body = {
+    vendor_id: vendorId,
+    task_id:   null,
+    amount:    Math.round(amount),
+    paid_date: paidDate || new Date().toISOString().slice(0,10),
+    note:      note || null
+  };
+  if(contractId) body.contract_id = contractId;
   const r = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`, {
     method: 'POST',
     headers: {...headers, Prefer: 'return=representation'},
-    body: JSON.stringify({
-      vendor_id: vendorId,
-      task_id:   null,
-      amount:    Math.round(amount),
-      paid_date: paidDate || new Date().toISOString().slice(0,10),
-      note:      note || null
-    })
+    body: JSON.stringify(body)
   });
-  if(!r.ok) throw new Error(await r.text());
+  if(!r.ok){
+    // Maybe contract_id column doesn't exist — retry without it
+    if(contractId){
+      delete body.contract_id;
+      const r2 = await fetch(`${SB_URL}/rest/v1/vendor_task_payments`, {
+        method: 'POST',
+        headers: {...headers, Prefer: 'return=representation'},
+        body: JSON.stringify(body)
+      });
+      if(!r2.ok) throw new Error(await r2.text());
+      return r2.json();
+    }
+    throw new Error(await r.text());
+  }
   return r.json();
+}
+
+// Refresh the contract-level AMOUNT PAID display by fetching from DB (trigger updates it)
+async function refreshContractPaidDisplay(){
+  const cid = (typeof _evCurrentContractId !== 'undefined' && _evCurrentContractId);
+  if(!cid) return;
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/vendor_contracts?id=eq.${cid}&select=amount_paid`, {headers});
+    if(!r.ok) return;
+    const rows = await r.json();
+    if(rows && rows.length){
+      const paidEl = document.getElementById('ev-paid');
+      if(paidEl) paidEl.value = +rows[0].amount_paid || 0;
+      // Update the contract summary header too
+      if(typeof renderEvContractSummary === 'function') renderEvContractSummary();
+    }
+  }catch(e){ console.warn('refreshContractPaidDisplay:', e); }
 }
 async function saveMilestonePayment(){
   if(_mpIdx < 0) return;
@@ -2135,7 +2167,10 @@ async function saveMilestonePayment(){
   const note = document.getElementById('mp-note').value.trim();
   if(addAmount <= 0){ toast('Amount must be greater than 0', 'error'); return; }
   if(!paidDate){ toast('Payment date is required', 'error'); return; }
-  const total = currentVendorTotal || 0;
+  // Read total from active contract (ev-total) first, fall back to currentVendorTotal
+  const evTotalEl = document.getElementById('ev-total');
+  const evTotal = evTotalEl ? (+evTotalEl.value || 0) : 0;
+  const total = evTotal || currentVendorTotal || 0;
   const scheduledAmt = total * ((+m.pct||0) / 100);
   const prevPaid = +m.paidAmt || 0;
   const newPaidAmt = prevPaid + addAmount;
@@ -2152,8 +2187,11 @@ async function saveMilestonePayment(){
     }
     const vid = (typeof _evCurrentVendorId !== 'undefined' && _evCurrentVendorId) || currentVendorId;
     if(vid){
+      // Include contract_id so trigger can also update vendor_contracts.amount_paid
+      const cid = (typeof _evCurrentContractId !== 'undefined' && _evCurrentContractId) || null;
       await insertVendorPayment(vid, addAmount, paidDate,
-        `Milestone payment: ${(+m.pct||0).toFixed(1)}%${m.desc?' — '+m.desc:''}` + (note?` (${note})`:''));
+        `Milestone payment: ${(+m.pct||0).toFixed(1)}%${m.desc?' \u2014 '+m.desc:''}` + (note?` (${note})`:''),
+        cid);
     }
     m.paidAmt   = newPaidAmt;
     m.payStatus = newStatus;
@@ -2171,7 +2209,14 @@ async function saveMilestonePayment(){
     if(typeof _vtPayCache !== 'undefined' && vid){ delete _vtPayCache[vid]; }
     if(typeof cache !== 'undefined'){ delete cache['vendors']; }
     closeMilestonePayModal();
-    renderScheduleList();
+    // Refresh the inline schedule list (in Edit Vendor modal)
+    if(typeof renderEvMilestonesList === 'function') renderEvMilestonesList();
+    // Refresh the legacy schedule modal if it's open
+    if(typeof renderScheduleList === 'function') {
+      try { renderScheduleList(); } catch(_) {}
+    }
+    // Also refresh the contract AMOUNT PAID display on the form
+    if(typeof refreshContractPaidDisplay === 'function') refreshContractPaidDisplay();
     toast(`Payment recorded: ${fmtPKR(addAmount)}${isFullyPaid?' (fully paid)':''}`);
     if(typeof loadVendors === 'function') loadVendors();
     if(typeof renderEvContracts === 'function') renderEvContracts();
@@ -4685,7 +4730,9 @@ function syncFormToCurrentContract(){
   if(!c) return;
   c.contract_name = document.getElementById('ev-contract-name').value;
   c.total_contract = +document.getElementById('ev-total').value || 0;
-  c.amount_paid = +document.getElementById('ev-paid').value || 0;
+  // NOTE: amount_paid is NOT captured from the form — it's auto-managed by the
+  // recalc_vendor_amount_paid trigger when payments are inserted into vendor_task_payments.
+  // Keeping the existing value avoids accidentally resetting it on save.
   c.due_date = document.getElementById('ev-due').value || null;
   c.status = document.getElementById('ev-status').value;
   c.approval = document.getElementById('ev-approval').value;
@@ -10084,7 +10131,7 @@ async function saveEditVendor(){
       contract_number: c.contract_number,
       contract_name: c.contract_name || null,
       total_contract: +c.total_contract || null,
-      amount_paid: +c.amount_paid || null,
+      // amount_paid omitted — managed by Postgres trigger on vendor_task_payments
       paid_manual_override: !!c.paid_manual_override,
       due_date: c.due_date || null,
       status: c.status || 'Pending',
