@@ -276,8 +276,9 @@ tr:hover td{background:var(--green-bg);}
       <div class="nav-item" onclick="showSection('tasks')"><span class="nav-icon">📋</span>Tasks</div>
       <div class="nav-item" onclick="showSection('bottlenecks')"><span class="nav-icon">🚧</span>Bottlenecks <span id="bottle-badge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
       <div class="nav-item" onclick="showSection('workflow')"><span class="nav-icon">🔀</span>Workflow</div>
-      <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🛋️</span>Inventory</div>
-      <div class="nav-item" onclick="showSection('store')"><span class="nav-icon">📦</span>Store & Assets</div>
+      <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🏛️</span>Fixed Assets</div>
+      <div class="nav-item" onclick="showSection('store')"><span class="nav-icon">📦</span>Stores</div>
+      <div class="nav-item" onclick="showSection('approvals')"><span class="nav-icon">✅</span>Approvals <span id="approvals-badge" style="margin-left:auto;background:var(--gold);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
       <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
       <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
       <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
@@ -792,7 +793,7 @@ tr:hover td{background:var(--green-bg);}
 
 <!-- INVENTORY -->
 <div class="section" id="section-inventory">
-  <div class="page-header"><div class="page-title">Inventory & Furnishings</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div>
+  <div class="page-header"><div class="page-title">Fixed Assets</div><button class="btn btn-secondary btn-sm" onclick="exportCSV('inventory')">Export CSV</button></div>
   <div class="card admin-only">
     <div class="card-title">Add Inventory / Furnishing Item</div>
     <div class="form-grid">
@@ -816,8 +817,8 @@ tr:hover td{background:var(--green-bg);}
 <div class="section" id="section-store">
   <div class="page-header">
     <div>
-      <div class="page-title">Store & Fixed Assets</div>
-      <div class="page-subtitle">Receive goods → store holds them → storeman issues out → becomes a Fixed Asset</div>
+      <div class="page-title">Stores</div>
+      <div class="page-subtitle">Receive goods → store holds them → store keeper issues out → becomes a Fixed Asset</div>
     </div>
     <button class="btn btn-secondary btn-sm" onclick="loadStore()">↻ Refresh</button>
   </div>
@@ -984,6 +985,26 @@ tr:hover td{background:var(--green-bg);}
     <div id="fad-issuances"><div style="color:var(--text-muted);font-size:12px;padding:8px;">No items issued yet.</div></div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
       <button class="btn btn-danger btn-sm" onclick="deleteFixedAsset()">✕ Delete Asset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APPROVALS ============ -->
+<div class="section" id="section-approvals">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Approvals</div>
+      <div class="page-subtitle">Material issues pending Finance Manager approval (Store → Fixed Asset)</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="loadApprovals()">↻ Refresh</button>
+  </div>
+
+  <div class="card">
+    <div style="padding:14px;color:var(--text-muted);font-size:13px;">
+      <b style="color:var(--gold);">Coming next iteration</b><br>
+      The full Store → Draft → Approve → Fixed Asset workflow with PDF receipts and Finance Manager approval is being built in a follow-up. The database tables (<code>material_issues</code>) are already in place — only the UI layer remains.
+      <br><br>
+      For now, the existing <b>Stores</b> tab (sidebar) lets store keepers receive goods and issue them out immediately. The "+ Receive" and "📤 Issue" buttons there work as before.
     </div>
   </div>
 </div>
@@ -3085,7 +3106,7 @@ async function getData(t){cache[t]=await sbGet(t);return cache[t];}
 const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
-async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,approvals:loadApprovals,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
 async function loadAll(){
   await Promise.all(['vendors','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
   // Also preload Supabase-backed collections that the old localStorage code
@@ -6918,6 +6939,70 @@ async function saveIssuance(){
     closeIssueModal();
     loadStore();
   }catch(e){ console.error(e); toast('Error logging issuance','error'); }
+}
+
+// ── APPROVALS (Material Issue → Fixed Asset) ──
+// Placeholder for tomorrow: query material_issues, render queue,
+// approve/reject buttons, PDF receipt generation.
+async function loadApprovals(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/material_issues?select=*&order=created_at.desc&limit=50`,{headers});
+    if(!r.ok){
+      // Table not yet present or RLS — show friendly message
+      const msg = await r.text();
+      const wrap = document.getElementById('ap-tbody-wrap');
+      if(wrap) wrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">No pending approvals. (If you expected some, the <code>material_issues</code> table may need RLS policies.)</div>';
+      console.warn('loadApprovals:', msg);
+      return;
+    }
+    const rows = await r.json();
+    const pending = rows.filter(x=>x.status==='draft');
+    const approved = rows.filter(x=>x.status==='approved');
+    const rejected = rows.filter(x=>x.status==='rejected' || x.status==='reverted');
+
+    const badge = document.getElementById('approvals-badge');
+    if(badge){
+      if(pending.length){ badge.textContent = pending.length; badge.style.display = 'inline'; }
+      else badge.style.display = 'none';
+    }
+    const cnt = document.getElementById('ap-count');
+    if(cnt) cnt.textContent = pending.length;
+
+    const wrap = document.getElementById('ap-tbody-wrap');
+    if(wrap){
+      if(!pending.length){
+        wrap.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;">No items currently pending approval.</div>';
+      } else {
+        wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Issue #</th><th>Item</th><th>Qty</th><th>Value</th><th>Issued To</th><th>By</th><th>Date</th></tr></thead><tbody>' +
+          pending.map(mi => `<tr>
+            <td style="font-family:ui-monospace,monospace;font-size:11.5px;color:var(--gold);">${_esc(mi.issue_number||'—')}</td>
+            <td><b>${_esc(mi.item_name||'—')}</b></td>
+            <td>${(+mi.qty||0).toFixed(2)}</td>
+            <td>PKR ${fmt(+mi.total_value||0)}</td>
+            <td>${_esc(mi.issued_to||'—')}</td>
+            <td style="font-size:11px;color:var(--text-muted);">${_esc(mi.store_keeper_name||'—')}</td>
+            <td style="font-size:11px;color:var(--text-muted);">${fmtDate(mi.created_at)}</td>
+          </tr>`).join('') + '</tbody></table></div>';
+      }
+    }
+
+    const approvedWrap = document.getElementById('ap-approved-wrap');
+    if(approvedWrap){
+      approvedWrap.innerHTML = approved.length
+        ? `<div style="padding:10px;font-size:12px;">${approved.length} approved (most recent: ${_esc(approved[0]?.item_name||'—')} on ${fmtDate(approved[0]?.approved_at)})</div>`
+        : '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None yet.</div>';
+    }
+    const rejWrap = document.getElementById('ap-rejected-wrap');
+    if(rejWrap){
+      rejWrap.innerHTML = rejected.length
+        ? `<div style="padding:10px;font-size:12px;">${rejected.length} rejected/reverted.</div>`
+        : '<div style="padding:14px;color:var(--text-muted);font-size:13px;">None.</div>';
+    }
+  }catch(e){
+    console.error('loadApprovals:', e);
+    const wrap = document.getElementById('ap-tbody-wrap');
+    if(wrap) wrap.innerHTML = '<div style="padding:14px;color:var(--red);font-size:13px;">Failed to load: '+(e.message||e)+'</div>';
+  }
 }
 
 // ── FIXED ASSET FORM ──
