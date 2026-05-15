@@ -312,6 +312,32 @@ tr:hover td{background:var(--green-bg);}
       </div>
     </div>
 
+    <!-- Estimated Opening Date (computed via Project Plan) -->
+    <div id="ov-opening-card" style="margin:0 0 18px;padding:20px 28px;background:linear-gradient(135deg,rgba(212,178,99,.10) 0%, rgba(46,90,73,.08) 100%);border:1px solid rgba(212,178,99,.35);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:18px;flex:1;min-width:280px;">
+        <div style="font-size:34px;">🏨</div>
+        <div>
+          <div style="font-size:11px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Estimated Hotel Opening</div>
+          <div id="ov-opening-date" style="font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);font-weight:600;line-height:1.1;">—</div>
+          <div id="ov-opening-rel" style="font-size:12px;color:var(--ov-muted);margin-top:4px;">Calculating…</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;">
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Active</div>
+          <div id="ov-opening-active" style="font-size:18px;font-weight:600;color:var(--ov-text);">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Bottlenecks</div>
+          <div id="ov-opening-bottle" style="font-size:18px;font-weight:600;color:var(--ov-text);">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--ov-muted);text-transform:uppercase;letter-spacing:0.08em;">Overdue</div>
+          <div id="ov-opening-overdue" style="font-size:18px;font-weight:600;color:var(--red);">—</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Four hero KPI cards (requested top-priorities) -->
     <div class="ov-kpi-grid">
       <div class="ov-kpi ov-kpi-red">
@@ -719,40 +745,49 @@ tr:hover td{background:var(--green-bg);}
 <!-- WORKFLOW -->
 <div class="section" id="section-workflow">
   <div class="page-header">
-    <div><div class="page-title">Workflow</div><div class="page-subtitle">Visual dependency flowchart — click a node to cycle status (admin only)</div></div>
+    <div>
+      <div class="page-title">Project Plan</div>
+      <div class="page-subtitle">Zones · Tasks · Vendors · Money</div>
+    </div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary btn-sm admin-only" onclick="toggleAddPanel()">+ Add Task</button>
+      <button class="btn btn-secondary btn-sm admin-only" onclick="autoAssignZones()" title="Re-run smart zone detection on Unassigned tasks">↻ Auto-assign Zones</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadWorkflow()">↻ Refresh</button>
     </div>
   </div>
-  <div class="card admin-only" id="wf-add-panel" style="display:none;">
-    <div class="card-title">Add Workflow Task</div>
-    <div class="form-grid">
-      <div class="form-group"><label>Task Name *</label><input id="wf-name" placeholder="e.g. Paint Walls"></div>
-      <div class="form-group"><label>Area / Category</label><input id="wf-area" placeholder="e.g. Lobby"></div>
-      <div class="form-group"><label>Status</label><select id="wf-status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="Done">Done</option><option value="Blocked">Blocked</option><option value="On Hold">On Hold</option></select></div>
-      <div class="form-group"><label>Depends On</label><select id="wf-depends" multiple style="min-height:80px;"></select></div>
+
+  <!-- HERO: Estimated Hotel Opening Date -->
+  <div class="card" id="wf-opening-hero" style="background:linear-gradient(135deg,rgba(212,178,99,.08) 0%, rgba(46,90,73,.08) 100%);border:1px solid rgba(212,178,99,.3);">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:18px;padding:6px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Estimated Opening</div>
+        <div id="wf-opening-date" style="font-family:'Playfair Display',serif;font-size:26px;color:var(--gold);font-weight:600;">—</div>
+        <div id="wf-opening-rel" style="font-size:11px;color:var(--text-muted);margin-top:2px;">—</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Active Tasks</div>
+        <div id="wf-active-count" style="font-family:'Playfair Display',serif;font-size:26px;color:var(--text);font-weight:600;">—</div>
+        <div id="wf-overdue-count" style="font-size:11px;color:var(--red);margin-top:2px;">—</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Open Bottlenecks</div>
+        <div id="wf-bottle-count" style="font-family:'Playfair Display',serif;font-size:26px;color:var(--text);font-weight:600;">—</div>
+        <div id="wf-bottle-impact" style="font-size:11px;color:var(--text-muted);margin-top:2px;">—</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Total Contract Value</div>
+        <div id="wf-total-value" style="font-family:'Playfair Display',serif;font-size:26px;color:var(--text);font-weight:600;">—</div>
+        <div id="wf-paid-pct" style="font-size:11px;color:var(--text-muted);margin-top:2px;">—</div>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;"><button class="btn btn-primary" onclick="addWorkflowTask()">+ Add</button><button class="btn btn-secondary" onclick="toggleAddPanel()">Cancel</button></div>
-  </div>
-  <div class="wf-legend">
-    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#4caf7d;"></div>Done</div>
-    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#3a86c8;"></div>In Progress</div>
-    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e08a4c;"></div>Not Started</div>
-    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#e05c5c;"></div>Blocked</div>
-    <div class="wf-legend-item"><div class="wf-legend-dot" style="background:#8aaa9e;"></div>On Hold</div>
-  </div>
-  <div class="card" style="padding:12px;">
-    <div class="wf-canvas-wrap" id="wf-canvas-wrap">
-      <svg id="workflow-svg" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#8aaa9e"/></marker>
-          <marker id="arr-blocked" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#e05c5c"/></marker>
-        </defs>
-        <g id="wf-edges"></g><g id="wf-nodes"></g>
-      </svg>
+    <div style="border-top:1px solid rgba(212,178,99,.2);margin-top:14px;padding-top:10px;font-size:11px;color:var(--text-muted);font-style:italic;">
+      <span id="wf-formula-note">Opening date is a blended estimate using task duration, count, and contract value, then adjusted by open bottlenecks. Recalculates whenever tasks, contracts, or bottlenecks change.</span>
     </div>
   </div>
-  <div class="card"><div class="card-title">Task List</div><div class="table-wrap"><table><thead><tr><th>Task</th><th>Area</th><th>Status</th><th>Depends On</th><th>Blocking</th><th></th></tr></thead><tbody id="wf-tbody"></tbody></table></div></div>
+
+  <!-- ZONES -->
+  <div id="wf-zones-container" style="display:flex;flex-direction:column;gap:14px;margin-top:14px;">
+    <div class="loading" style="padding:40px;text-align:center;"><div class="spinner"></div> Building project plan…</div>
+  </div>
 </div>
 
 <!-- INVENTORY -->
@@ -1259,6 +1294,40 @@ tr:hover td{background:var(--green-bg);}
           <option value="in_progress">In Progress</option>
           <option value="blocked">Blocked</option>
           <option value="complete">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Zone</label>
+        <select id="et-zone">
+          <option value="">— (auto-detect)</option>
+          <option value="Building A — Rooms">Building A — Rooms</option>
+          <option value="Building A — MEP">Building A — MEP</option>
+          <option value="Building A — Finishes">Building A — Finishes</option>
+          <option value="Building B — Rooms">Building B — Rooms</option>
+          <option value="Building B — MEP">Building B — MEP</option>
+          <option value="Building B — Finishes">Building B — Finishes</option>
+          <option value="Exterior — Swimming Pool">Exterior — Swimming Pool</option>
+          <option value="Exterior — Parking">Exterior — Parking</option>
+          <option value="Exterior — Landscaping">Exterior — Landscaping</option>
+          <option value="Exterior — Main Gate">Exterior — Main Gate</option>
+          <option value="Exterior — Facade">Exterior — Facade</option>
+          <option value="Utilities — Generator">Utilities — Generator</option>
+          <option value="Utilities — HVAC">Utilities — HVAC</option>
+          <option value="Utilities — Fire Suppression">Utilities — Fire Suppression</option>
+          <option value="Utilities — Electrical">Utilities — Electrical</option>
+          <option value="Utilities — Plumbing">Utilities — Plumbing</option>
+          <option value="Utilities — Elevators">Utilities — Elevators</option>
+          <option value="Utilities — IT & Telecom">Utilities — IT & Telecom</option>
+          <option value="Common — Lobby & Reception">Common — Lobby & Reception</option>
+          <option value="Common — Restaurant & F&B">Common — Restaurant & F&B</option>
+          <option value="Common — Banquet & Ballroom">Common — Banquet & Ballroom</option>
+          <option value="Common — Spa & Wellness">Common — Spa & Wellness</option>
+          <option value="Common — Back of House">Common — Back of House</option>
+          <option value="Guest Rooms">Guest Rooms</option>
+          <option value="Furniture & Fixtures">Furniture & Fixtures</option>
+          <option value="Interior Finishes">Interior Finishes</option>
+          <option value="Structural & Civil">Structural & Civil</option>
+          <option value="Unassigned">Unassigned</option>
         </select>
       </div>
       <div class="form-group">
@@ -2486,6 +2555,7 @@ async function openEditTask(id){
     document.getElementById('et-desc-ro').textContent  = t.description||'—';
     document.getElementById('et-pct').value       = (t.current_pct ?? '');
     document.getElementById('et-status').value    = t.status || 'not_started';
+    document.getElementById('et-zone').value      = t.zone || '';
     document.getElementById('et-duration').value  = t.duration_days ?? '';
     document.getElementById('et-start').value     = t.start_date || '';
     document.getElementById('et-deadline').value  = t.deadline   || '';
@@ -2565,44 +2635,120 @@ function openMarkBottleneckModal(){
   document.getElementById('mark-bottleneck-modal').classList.add('open');
 }
 function closeMarkBottleneckModal(){ document.getElementById('mark-bottleneck-modal').classList.remove('open'); }
+// Helper: gather overdue (past-due + not fully paid) milestones for a vendor.
+// Walks each of the vendor's contracts and inspects the cached milestones.
+// Returns { lines: [string], totalOverdue: number, vendorName: string }.
+function _gatherOverduePayments(vendorId){
+  const result = { lines: [], totalOverdue: 0, vendorName: '' };
+  if(!vendorId) return result;
+  const vendors = (typeof cache !== 'undefined' && cache['vendors']) || [];
+  const vendor = vendors.find(v => v.id === vendorId);
+  if(vendor) result.vendorName = vendor.vendor_name || '—';
+  // Get the vendor's contracts. Prefer _vendorCache if available, else hit cache.
+  let contracts = [];
+  try{
+    if(typeof _vendorCache !== 'undefined' && _vendorCache && _vendorCache.allContracts){
+      contracts = _vendorCache.allContracts.filter(c => c.vendor_id === vendorId);
+    }
+  }catch(_){ }
+  const todayISO = new Date().toISOString().slice(0,10);
+  contracts.forEach(c => {
+    const ms = (typeof _msCache !== 'undefined' && _msCache['c:' + c.id]) || [];
+    const contractTotal = +c.total_contract || 0;
+    ms.forEach(m => {
+      const due = m.date || '';
+      const isPaid = (m.payStatus === 'Paid');
+      const milestoneAmt = contractTotal * ((+m.pct||0)/100);
+      const paidAmt = +m.paidAmt || 0;
+      const remaining = Math.max(0, milestoneAmt - paidAmt);
+      if(due && due < todayISO && !isPaid && remaining > 0){
+        const cLabel = c.contract_number ? `Contract ${c.contract_number}` : 'Contract';
+        result.lines.push(
+          `• ${cLabel} · ${(+m.pct||0).toFixed(1)}% milestone (due ${due}) — PKR ${fmt(remaining)} unpaid` +
+          (m.desc ? ` [${m.desc}]` : '')
+        );
+        result.totalOverdue += remaining;
+      }
+    });
+  });
+  // Also gather legacy vendor-level milestones (rare, but support).
+  try{
+    const legacy = (typeof _msCache !== 'undefined' && _msCache['v:' + vendorId]) || [];
+    const vTotal = +(vendor && vendor.total_contract) || 0;
+    legacy.forEach(m => {
+      const due = m.date || '';
+      if(due && due < todayISO && m.payStatus !== 'Paid'){
+        const amt = vTotal * ((+m.pct||0)/100);
+        const remaining = Math.max(0, amt - (+m.paidAmt||0));
+        if(remaining > 0){
+          result.lines.push(
+            `• Vendor-level ${(+m.pct||0).toFixed(1)}% (due ${due}) — PKR ${fmt(remaining)} unpaid`
+          );
+          result.totalOverdue += remaining;
+        }
+      }
+    });
+  }catch(_){ }
+  return result;
+}
+
 async function saveMarkBottleneck(){
   if(!isAdmin()) return;
   const taskId = document.getElementById('et-id').value;
   const reason = document.getElementById('mb-reason').value;
   if(!reason){ toast('Pick a reason','error'); return; }
   const impact = document.getElementById('mb-impact').value || 'medium';
-  const desc = document.getElementById('mb-desc').value.trim();
+  const userDesc = document.getElementById('mb-desc').value.trim();
   const title = document.getElementById('et-title-ro').textContent;
-  // Use the area chips area context if available; fall back to a generic value
+  const vendorId = document.getElementById('et-vendor').value || null;
+
+  // For payment issues, snapshot overdue milestones for the vendor.
+  let description = userDesc || '';
+  let balance = null;
+  if(reason === 'payment' && vendorId){
+    const od = _gatherOverduePayments(vendorId);
+    if(od.totalOverdue > 0){
+      const header = `Overdue payments owed to ${od.vendorName || 'vendor'} — PKR ${fmt(od.totalOverdue)} total:`;
+      const list = od.lines.join('\n');
+      description = (userDesc ? userDesc + '\n\n' : '') + header + '\n' + list;
+      balance = Math.round(od.totalOverdue * 100) / 100;
+    } else if(od.vendorName) {
+      // No overdue found — still note it for clarity
+      description = (userDesc ? userDesc + '\n\n' : '') +
+        `No overdue scheduled payments found for ${od.vendorName} (review milestones if you expect any).`;
+    }
+  }
+
   try{
     const payload = {
       title: title,
       area: null,
       reason: reason,
       impact: impact,
-      description: desc || null,
+      description: description || null,
       status: 'open',
-      task_id: taskId
+      task_id: taskId,
+      vendor_id: vendorId,
+      balance: balance
     };
     await sbInsert('bcc_bottlenecks', payload);
-    toast('Bottleneck logged ✓ — see Bottlenecks tab');
+    toast(reason === 'payment' && balance
+      ? `Bottleneck logged ✓ · PKR ${fmt(balance)} overdue captured`
+      : 'Bottleneck logged ✓ — see Bottlenecks tab');
     closeMarkBottleneckModal();
-    // Don't auto-close Edit Task — admin may want to continue editing.
-    // Refresh bottleneck count badge if visible
     if(typeof loadAlerts === 'function') loadAlerts();
   }catch(e){
-    // Most common error: column 'task_id' missing in bcc_bottlenecks.
-    // Fall back to inserting WITHOUT task_id so the feature degrades gracefully.
+    // Graceful fallback: if a column is missing, retry without the optional ones.
     const msg = (e.message || e + '').toLowerCase();
-    if(msg.includes("'task_id'") || msg.includes('task_id') || msg.includes('column')){
+    if(msg.includes('column') || msg.includes("'vendor_id'") || msg.includes("'balance'") || msg.includes("'task_id'")){
       try{
-        const payload2 = {
+        const fallback = {
           title: title, area: null, reason: reason, impact: impact,
-          description: (desc?desc+' ':'') + `(from task ${document.getElementById('et-code-sub').textContent})`,
+          description: (description || '') + `\n(from task ${document.getElementById('et-code-sub').textContent})`,
           status: 'open'
         };
-        await sbInsert('bcc_bottlenecks', payload2);
-        toast('Bottleneck logged ✓ (task_id column missing — see SQL note)','warning');
+        await sbInsert('bcc_bottlenecks', fallback);
+        toast('Bottleneck logged ✓ (run SQL to add vendor_id/balance/task_id columns)','warning');
         closeMarkBottleneckModal();
         return;
       }catch(e2){ toast('Save failed: '+(e2.message||e2),'error'); return; }
@@ -2624,6 +2770,7 @@ async function saveEditTask(){
     start_date   : document.getElementById('et-start').value || null,
     deadline     : document.getElementById('et-deadline').value || null,
     notes        : document.getElementById('et-notes').value || null,
+    zone         : document.getElementById('et-zone').value || null,
     updated_at   : new Date().toISOString()
   };
   try{
@@ -3070,19 +3217,41 @@ async function loadOverview(){
     }
 
     // Pull everything in parallel
-    const [vendors, budget, cashflow, punch, bccTasks, bccAreas, bccBottles] = await Promise.all([
+    const [vendors, budget, cashflow, punch, bccTasks, bccAreas, bccBottles, contractsR] = await Promise.all([
       getData('vendors'),
       getData('budget'),
       getData('cashflow'),
       getData('punch_list'),
       fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()).catch(()=>[]),
       fetch(`${SB_URL}/rest/v1/bcc_task_areas?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
-      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[])
+      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&order=raised_date.desc`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.json()).catch(()=>[])
     ]);
     const wip = [];  // WIP feature removed — preserves downstream gauge math
     const tasks = Array.isArray(bccTasks) ? bccTasks : [];
     const areas = Array.isArray(bccAreas) ? bccAreas : [];
     const bottles = Array.isArray(bccBottles) ? bccBottles : [];
+    const contracts = Array.isArray(contractsR) ? contractsR : [];
+    // Populate Estimated Opening Date hero card (reuses the Project Plan estimator)
+    try{
+      const openBottles = bottles.filter(b => b.status === 'open');
+      const est = _estimateOpeningDate(tasks, contracts, vendors, openBottles);
+      if(est.opening){
+        document.getElementById('ov-opening-date').textContent =
+          est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+        document.getElementById('ov-opening-rel').textContent =
+          `${_fmtOpeningRel(est.daysOut)} · blended estimate, +${est.breakdown.penalty}d bottleneck penalty`;
+      } else {
+        document.getElementById('ov-opening-date').textContent = '—';
+        document.getElementById('ov-opening-rel').textContent = 'No active tasks';
+      }
+      const todayISO = new Date().toISOString().slice(0,10);
+      const activeCnt = tasks.filter(t => t.status !== 'complete' && (+t.current_pct < 100)).length;
+      const overdueCnt = tasks.filter(t => t.deadline && t.deadline < todayISO && t.status !== 'complete').length;
+      document.getElementById('ov-opening-active').textContent = activeCnt;
+      document.getElementById('ov-opening-bottle').textContent = openBottles.length;
+      document.getElementById('ov-opening-overdue').textContent = overdueCnt;
+    }catch(_){ /* opening estimate fields don't exist in older overview layout — ignore */ }
     const areaByTask = {};
     areas.forEach(a=>{(areaByTask[a.task_id]=areaByTask[a.task_id]||[]).push(a);});
 
@@ -5836,42 +6005,318 @@ function saveWorkflowTasks(tasks){
   _wfCache = tasks.slice();
   saveWorkflowTasksAsync(tasks);
 }
-function toggleAddPanel(){if(!isAdmin())return;const p=document.getElementById('wf-add-panel');p.style.display=p.style.display==='none'?'block':'none';}
-function loadWorkflow(){refreshDependsDropdown();renderWorkflowTable();renderWorkflowChart();}
-function refreshDependsDropdown(){const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');if(sel)sel.innerHTML=tasks.map(t=>`<option value="${t.id}">${t.name}${t.area?' ('+t.area+')':''}</option>`).join('');}
-async function syncWipToWorkflow(){ /* WIP feature removed */ }
-function addWorkflowTask(){if(!isAdmin())return;const name=document.getElementById('wf-name').value.trim();if(!name){toast('Task name required','error');return;}const tasks=getWorkflowTasks();const sel=document.getElementById('wf-depends');const depends=Array.from(sel.selectedOptions).map(o=>o.value);tasks.push({id:'wf_'+Date.now(),name,area:document.getElementById('wf-area').value.trim(),status:document.getElementById('wf-status').value,depends});saveWorkflowTasks(tasks);document.getElementById('wf-name').value='';document.getElementById('wf-area').value='';toggleAddPanel();toast('Task added ✓');loadWorkflow();}
-function deleteWorkflowTask(id){if(!isAdmin())return;if(!confirm('Remove this task?'))return;let tasks=getWorkflowTasks().filter(t=>t.id!==id);tasks=tasks.map(t=>({...t,depends:(t.depends||[]).filter(d=>d!==id)}));saveWorkflowTasks(tasks);loadWorkflow();toast('Removed ✓');}
-function updateWorkflowStatus(id,status){const tasks=getWorkflowTasks();const t=tasks.find(t=>t.id===id);if(t){t.status=status;saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}}
-function cycleStatus(id){if(!isAdmin())return;const statuses=['Not Started','In Progress','Done','Blocked','On Hold'];const tasks=getWorkflowTasks();const t=tasks.find(t=>t.id===id);if(!t)return;t.status=statuses[(statuses.indexOf(t.status)+1)%statuses.length];saveWorkflowTasks(tasks);renderWorkflowChart();renderWorkflowTable();}
-function computeLevels(tasks){const levels={};const idSet=new Set(tasks.map(t=>t.id));tasks.forEach(t=>{if(!levels[t.id])levels[t.id]=0;});for(let p=0;p<tasks.length;p++){tasks.forEach(t=>{(t.depends||[]).forEach(d=>{if(idSet.has(d))levels[t.id]=Math.max(levels[t.id]||0,(levels[d]||0)+1);});});}return levels;}
-function renderWorkflowChart(){
-  const tasks=getWorkflowTasks();const svg=document.getElementById('workflow-svg');
-  if(!tasks.length){document.getElementById('wf-edges').innerHTML='<text x="400" y="250" text-anchor="middle" fill="#8aaa9e" font-family="DM Sans,sans-serif" font-size="14">No tasks yet — add tasks above</text>';document.getElementById('wf-nodes').innerHTML='';svg.setAttribute('width',900);svg.setAttribute('height',500);return;}
-  const NODE_W=180,NODE_H=58,H_GAP=90,V_GAP=20,PAD=40;
-  const levels=computeLevels(tasks);const maxLevel=Math.max(...Object.values(levels));const colIdx={};const pos={};
-  tasks.forEach(t=>{const l=levels[t.id]||0;if(colIdx[l]===undefined)colIdx[l]=0;pos[t.id]={x:PAD+l*(NODE_W+H_GAP),y:PAD+colIdx[l]*(NODE_H+V_GAP)};colIdx[l]++;});
-  const colCounts={};tasks.forEach(t=>{const l=levels[t.id]||0;colCounts[l]=(colCounts[l]||0)+1;});
-  const svgW=Math.max(PAD*2+(maxLevel+1)*(NODE_W+H_GAP),900);const svgH=Math.max(PAD*2+Math.max(...Object.values(colCounts))*(NODE_H+V_GAP),500);
-  svg.setAttribute('width',svgW);svg.setAttribute('height',svgH);
-  const cMap={'Done':'#4caf7d','In Progress':'#3a86c8','Not Started':'#e08a4c','Blocked':'#e05c5c','On Hold':'#8aaa9e'};
-  let edges='';tasks.forEach(t=>{(t.depends||[]).forEach(depId=>{const from=pos[depId],to=pos[t.id];if(!from||!to)return;const isBlocked=t.status==='Blocked';const x1=from.x+NODE_W,y1=from.y+NODE_H/2,x2=to.x,y2=to.y+NODE_H/2;const cx=(x1+x2)/2;edges+=`<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" fill="none" stroke="${isBlocked?'#e05c5c':'#8aaa9e'}" stroke-width="${isBlocked?2:1.5}" stroke-dasharray="${isBlocked?'6,3':''}" marker-end="url(#${isBlocked?'arr-blocked':'arr'})"/>`;});});
-  document.getElementById('wf-edges').innerHTML=edges;
-  let nodes='';tasks.forEach(t=>{const p=pos[t.id];const color=cMap[t.status]||'#e08a4c';const label=t.name.length>22?t.name.slice(0,21)+'…':t.name;const sub=t.area?(t.area.length>24?t.area.slice(0,23)+'…':t.area):t.status;nodes+=`<g class="wf-node" onclick="cycleStatus('${t.id}')" title="Click to cycle status"><rect x="${p.x}" y="${p.y}" width="${NODE_W}" height="${NODE_H}" fill="${color}" rx="10" ry="10" opacity="0.9"/><text x="${p.x+NODE_W/2}" y="${p.y+22}" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" font-family="DM Sans,sans-serif">${label}</text><text x="${p.x+NODE_W/2}" y="${p.y+40}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="10" font-family="DM Sans,sans-serif">${sub}</text></g>`;});
-  document.getElementById('wf-nodes').innerHTML=nodes;
+// ============================================================
+// PROJECT PLAN / ZONES
+// Replaces the old dependency-graph workflow with a zoned breakdown
+// of tasks + vendors + contracts. Includes an Estimated Opening
+// Date computed as a blended weighted average.
+// ============================================================
+
+// Smart zone detection from task title/description text.
+// Order matters — more specific patterns checked first.
+const ZONE_RULES = [
+  { zone: 'Exterior — Swimming Pool', test: /\b(swim+ing\s*pool|pool\s*deck|jacuzzi|spa\s*pool)\b/i },
+  { zone: 'Exterior — Parking',      test: /\b(park(ing)?\s*lot|park(ing)?\s*structure|car\s*park|valet)\b/i },
+  { zone: 'Exterior — Landscaping',  test: /\b(landscap|garden|lawn|plant(s|ing)?|hardscape|outdoor\s*lighting)\b/i },
+  { zone: 'Exterior — Main Gate',    test: /\b(main\s*gate|entrance\s*gate|boundary\s*wall|perimeter|driveway)\b/i },
+  { zone: 'Exterior — Facade',       test: /\b(facade|fa\xe7ade|external\s*paint|exterior\s*paint|cladding|signage)\b/i },
+  { zone: 'Building A — Rooms',       test: /\bbuilding\s*a\b.*(room|guest|suite)|\b(room|guest|suite)\b.*\bbuilding\s*a\b/i },
+  { zone: 'Building A — MEP',         test: /\bbuilding\s*a\b.*(mep|hvac|plumb|electric)|\b(mep|hvac|plumb|electric)\b.*\bbuilding\s*a\b/i },
+  { zone: 'Building A — Finishes',    test: /\bbuilding\s*a\b/i },
+  { zone: 'Building B — Rooms',       test: /\bbuilding\s*b\b.*(room|guest|suite)|\b(room|guest|suite)\b.*\bbuilding\s*b\b/i },
+  { zone: 'Building B — MEP',         test: /\bbuilding\s*b\b.*(mep|hvac|plumb|electric)|\b(mep|hvac|plumb|electric)\b.*\bbuilding\s*b\b/i },
+  { zone: 'Building B — Finishes',    test: /\bbuilding\s*b\b/i },
+  { zone: 'Utilities — Generator',          test: /\bgenerator|gen\s*set|backup\s*power|ups\b/i },
+  { zone: 'Utilities — HVAC',               test: /\bhvac|chiller|cooling\s*tower|air[\-\s]*condition|ventilation|duct/i },
+  { zone: 'Utilities — Fire Suppression',   test: /\bfire\s*(suppress|sprinkler|alarm|hose|hydrant|extinguish)|fss|fire\s*pump/i },
+  { zone: 'Utilities — Electrical',         test: /\belectric|wiring|distribution\s*board|switchgear|transformer|cabling\b/i },
+  { zone: 'Utilities — Plumbing',           test: /\bplumb|water\s*supply|drainage|sewerage|sewage|stp|wtp|pump\s*room/i },
+  { zone: 'Utilities — Elevators',          test: /\belevator|lift\b|escalator/i },
+  { zone: 'Utilities — IT & Telecom',       test: /\bit\s*infra|telecom|network|cabling|wifi|cctv|access\s*control|iptv/i },
+  { zone: 'Common — Lobby & Reception',     test: /\blobby|reception|front\s*desk|porte[\s\-]*cochere/i },
+  { zone: 'Common — Restaurant & F&B',      test: /\brestaurant|kitchen|f\s*&\s*b|cafe|bar(?!ed)|dining|banquet\s*kitchen/i },
+  { zone: 'Common — Banquet & Ballroom',    test: /\bbanquet|ballroom|conference|meeting\s*room|event\s*hall/i },
+  { zone: 'Common — Spa & Wellness',        test: /\bspa\b|gym|fitness|sauna|steam\s*room|wellness/i },
+  { zone: 'Common — Back of House',         test: /\bboh|back\s*of\s*house|staff\s*area|storage|housekeep|laundry/i },
+  { zone: 'Guest Rooms',                    test: /\b(room|guest|suite|presidential)\b/i },
+  { zone: 'Furniture & Fixtures',           test: /\b(furniture|fitout|fit[\-\s]*out|joinery|millwork|fixture|fixt|fab[\-\s]*ric|upholstery)\b/i },
+  { zone: 'Interior Finishes',              test: /\b(paint|polish|tile|marble|stone|wallpaper|ceiling|gypsum|flooring|carpet)\b/i },
+  { zone: 'Structural & Civil',             test: /\b(structur|civil|concrete|masonry|brick|column|beam|slab|wall)\b/i },
+];
+
+function _guessZone(task){
+  const text = `${task.title||''} ${task.description||''} ${task.notes||''}`.trim();
+  if(!text) return 'Unassigned';
+  for(const rule of ZONE_RULES){
+    if(rule.test.test(text)) return rule.zone;
+  }
+  return 'Unassigned';
 }
-function renderWorkflowTable(){
-  const tasks=getWorkflowTasks();const tbody=document.getElementById('wf-tbody');
-  if(!tasks.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">No workflow tasks yet.</td></tr>';return;}
-  const nameMap={};tasks.forEach(t=>nameMap[t.id]=t.name);
-  tbody.innerHTML=tasks.map(t=>{
-    const deps=(t.depends||[]).map(d=>nameMap[d]||d).join(', ')||'—';
-    const blocking=tasks.filter(x=>(x.depends||[]).includes(t.id)).map(x=>x.name).join(', ')||'—';
-    const statusEl=isAdmin()?`<select onchange="updateWorkflowStatus('${t.id}',this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:12px;color:var(--text);">${['Not Started','In Progress','Done','Blocked','On Hold'].map(s=>`<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select>`:statusBadge(t.status);
-    const adminBtn=isAdmin()?`<td><button class="btn btn-danger btn-sm" onclick="deleteWorkflowTask('${t.id}')">✕</button></td>`:'<td></td>';
-    return`<tr><td><b>${t.name}</b></td><td style="font-size:12px;color:var(--text-muted);">${t.area||'—'}</td><td>${statusEl}</td><td style="font-size:12px;">${deps}</td><td style="font-size:12px;">${blocking}</td>${adminBtn}</tr>`;
+
+async function autoAssignZones(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/bcc_tasks?select=id,title,description,notes,zone`,{headers});
+    if(!r.ok) throw new Error(await r.text());
+    const tasks = await r.json();
+    const updates = [];
+    tasks.forEach(t => {
+      if(t.zone && t.zone.trim()) return;
+      updates.push({ id: t.id, zone: _guessZone(t) });
+    });
+    if(!updates.length){ toast('All tasks already assigned'); return; }
+    let ok = 0, fail = 0;
+    for(const u of updates){
+      try{
+        const pr = await fetch(`${SB_URL}/rest/v1/bcc_tasks?id=eq.${u.id}`,{
+          method:'PATCH', headers, body: JSON.stringify({ zone: u.zone })
+        });
+        if(pr.ok) ok++; else fail++;
+      }catch(_){ fail++; }
+    }
+    toast(`Auto-assigned ${ok} task${ok===1?'':'s'}${fail?' · '+fail+' failed':''}`);
+    loadWorkflow();
+  }catch(e){
+    toast('Auto-assign failed: '+(e.message||e),'error');
+  }
+}
+
+// Three independent estimates of remaining-days-to-completion, blended.
+function _estimateOpeningDate(tasks, contracts, vendors, bottlenecks){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const taskEstimates = tasks
+    .filter(t => (t.status !== 'complete') && (+t.current_pct < 100))
+    .map(t => {
+      const dur = Math.max(1, +t.duration_days || 30);
+      const pct = Math.max(0, Math.min(100, +t.current_pct || 0));
+      const remainingDays = dur * ((100 - pct) / 100);
+      let cVal = 0;
+      const vid = t.vendor_id;
+      if(vid && Array.isArray(contracts)){
+        contracts.forEach(c => { if(c.vendor_id === vid) cVal += (+c.total_contract||0); });
+      }
+      return { days: remainingDays, dur, cVal };
+    });
+  if(!taskEstimates.length){
+    return { opening: null, daysOut: 0, breakdown: { dur:0, eq:0, val:0, penalty:0 } };
+  }
+  const wAvg = (items, weightFn) => {
+    const totalW = items.reduce((s,x)=>s+weightFn(x), 0);
+    if(totalW <= 0) return items.reduce((s,x)=>s+x.days,0) / items.length;
+    return items.reduce((s,x)=>s+x.days*weightFn(x), 0) / totalW;
+  };
+  const durDays = wAvg(taskEstimates, x => x.dur);
+  const eqDays  = wAvg(taskEstimates, () => 1);
+  const valDays = wAvg(taskEstimates, x => Math.max(1, x.cVal));
+  let penalty = 0;
+  (bottlenecks||[]).forEach(b => {
+    if(b.status !== 'open') return;
+    const map = { critical:14, high:7, medium:3, low:1 };
+    penalty += map[b.impact] || 3;
+  });
+  const blended = (durDays + eqDays + valDays) / 3 + penalty;
+  const openingMs = today.getTime() + blended * 86400000;
+  return {
+    opening: new Date(openingMs),
+    daysOut: Math.round(blended),
+    breakdown: { dur: Math.round(durDays), eq: Math.round(eqDays), val: Math.round(valDays), penalty }
+  };
+}
+
+function _fmtOpeningRel(daysOut){
+  if(daysOut <= 0) return 'past target';
+  const months = Math.floor(daysOut / 30);
+  const days = daysOut % 30;
+  if(months > 0) return `~${months} month${months>1?'s':''}${days?' '+days+'d':''} out`;
+  return `~${daysOut} day${daysOut>1?'s':''} out`;
+}
+
+let _wfLastEstimate = null;
+
+async function loadWorkflow(){
+  const container = document.getElementById('wf-zones-container');
+  if(container) container.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><div class="spinner"></div> Building project plan…</div>';
+  try{
+    const [tasksR, vendors, contractsR, bottlesR] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/bcc_tasks?select=*&order=task_code.asc`,{headers}).then(r=>r.json()).catch(()=>[]),
+      getData('vendors'),
+      fetch(`${SB_URL}/rest/v1/vendor_contracts?select=*`,{headers}).then(r=>r.json()).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/bcc_bottlenecks?select=*&status=eq.open`,{headers}).then(r=>r.json()).catch(()=>[])
+    ]);
+    const tasks = Array.isArray(tasksR) ? tasksR : [];
+    const contracts = Array.isArray(contractsR) ? contractsR : [];
+    const bottles = Array.isArray(bottlesR) ? bottlesR : [];
+    const est = _estimateOpeningDate(tasks, contracts, vendors, bottles);
+    _wfLastEstimate = est;
+    if(est.opening){
+      document.getElementById('wf-opening-date').textContent =
+        est.opening.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      document.getElementById('wf-opening-rel').textContent =
+        `${_fmtOpeningRel(est.daysOut)} · dur ${est.breakdown.dur}d · eq ${est.breakdown.eq}d · val ${est.breakdown.val}d · +${est.breakdown.penalty}d bottlenecks`;
+    } else {
+      document.getElementById('wf-opening-date').textContent = '—';
+      document.getElementById('wf-opening-rel').textContent = 'No active tasks';
+    }
+    const activeTasks = tasks.filter(t => t.status !== 'complete' && (+t.current_pct < 100));
+    const todayISO = new Date().toISOString().slice(0,10);
+    const overdueTasks = activeTasks.filter(t => t.deadline && t.deadline < todayISO);
+    document.getElementById('wf-active-count').textContent = activeTasks.length;
+    document.getElementById('wf-overdue-count').textContent = overdueTasks.length
+      ? `${overdueTasks.length} overdue` : 'on track';
+    document.getElementById('wf-bottle-count').textContent = bottles.length;
+    const impactBreakdown = bottles.reduce((acc,b)=>{ acc[b.impact||'medium'] = (acc[b.impact||'medium']||0)+1; return acc; },{});
+    document.getElementById('wf-bottle-impact').textContent =
+      Object.keys(impactBreakdown).length
+        ? Object.entries(impactBreakdown).map(([k,v])=>`${v} ${k}`).join(' · ')
+        : 'none open';
+    const totalContractValue = contracts.reduce((s,c)=>s+(+c.total_contract||0), 0);
+    const totalPaid = vendors.reduce((s,v)=>s+(+v.amount_paid||0), 0);
+    document.getElementById('wf-total-value').textContent = totalContractValue > 0
+      ? `PKR ${fmt(Math.round(totalContractValue))}` : '—';
+    document.getElementById('wf-paid-pct').textContent = totalContractValue > 0
+      ? `${Math.round(totalPaid/totalContractValue*100)}% paid · PKR ${fmt(Math.round(totalContractValue-totalPaid))} remaining`
+      : '—';
+    renderZones(tasks, vendors, contracts);
+  }catch(e){
+    console.error('loadWorkflow:', e);
+    if(container) container.innerHTML = '<div style="padding:20px;color:var(--red);text-align:center;">Failed to load project plan: '+(e.message||e)+'</div>';
+  }
+}
+
+function renderZones(tasks, vendors, contracts){
+  const container = document.getElementById('wf-zones-container');
+  if(!container) return;
+  const zoneMap = {};
+  tasks.forEach(t => {
+    const z = (t.zone && t.zone.trim()) || _guessZone(t);
+    (zoneMap[z] = zoneMap[z] || []).push(t);
+  });
+  const sortRank = (z) => {
+    if(z.startsWith('Building A')) return 1;
+    if(z.startsWith('Building B')) return 2;
+    if(z.startsWith('Exterior'))   return 3;
+    if(z.startsWith('Utilities'))  return 4;
+    if(z.startsWith('Common'))     return 5;
+    if(z === 'Unassigned')         return 99;
+    return 6;
+  };
+  const sortedZones = Object.keys(zoneMap).sort((a,b)=>{
+    const ra = sortRank(a), rb = sortRank(b);
+    return ra !== rb ? ra - rb : a.localeCompare(b);
+  });
+  if(!sortedZones.length){
+    container.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--text-muted);">No tasks yet. Add tasks in the Tasks tab — they\'ll be auto-grouped here.</div>';
+    return;
+  }
+  const vMap = {}; vendors.forEach(v => vMap[v.id] = v);
+  const contractsByVendor = {};
+  contracts.forEach(c => { (contractsByVendor[c.vendor_id] = contractsByVendor[c.vendor_id] || []).push(c); });
+  container.innerHTML = sortedZones.map(zone => renderZoneCard(zone, zoneMap[zone], vMap, contractsByVendor)).join('');
+}
+
+function renderZoneCard(zone, zoneTasks, vMap, contractsByVendor){
+  const todayISO = new Date().toISOString().slice(0,10);
+  const totalPct = zoneTasks.length
+    ? zoneTasks.reduce((s,t)=>s+(+t.current_pct||0),0) / zoneTasks.length : 0;
+  const overdueCnt = zoneTasks.filter(t => t.deadline && t.deadline < todayISO && t.status !== 'complete').length;
+  const completedCnt = zoneTasks.filter(t => t.status === 'complete' || +t.current_pct >= 100).length;
+  const vendorIds = [...new Set(zoneTasks.map(t => t.vendor_id).filter(Boolean))];
+  let zoneTotal = 0, zonePaid = 0;
+  vendorIds.forEach(vid => {
+    const cs = contractsByVendor[vid] || [];
+    cs.forEach(c => { zoneTotal += +c.total_contract || 0; });
+    const v = vMap[vid];
+    if(v) zonePaid += +v.amount_paid || 0;
+  });
+  const barCol = totalPct >= 75 ? '#4caf7d' : totalPct >= 40 ? '#3a86c8' : totalPct >= 1 ? '#e08a4c' : '#8aaa9e';
+  const overdueBadge = overdueCnt > 0
+    ? `<span style="background:rgba(208,64,64,.15);color:#d04040;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.04em;">⚠ ${overdueCnt} OVERDUE</span>`
+    : '';
+  const taskRows = zoneTasks.map(t => {
+    const v = vMap[t.vendor_id];
+    const vName = v ? (v.vendor_name||'—') : '—';
+    const pct = +t.current_pct || 0;
+    const overdue = t.deadline && t.deadline < todayISO && t.status !== 'complete';
+    const statusLabel = {not_started:'Not Started',in_progress:'In Progress',blocked:'Blocked',complete:'Complete'}[t.status]||t.status||'—';
+    const statusCol = t.status==='complete' ? '#4caf7d' : t.status==='blocked' ? '#d04040' : t.status==='in_progress' ? '#3a86c8' : '#8aaa9e';
+    return `<tr>
+      <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted);">${t.task_code||'—'}</td>
+      <td>
+        <div style="font-weight:500;font-size:13px;">${t.title||'—'}${overdue?' <span style="color:#d04040;font-size:10px;font-weight:600;">⚠</span>':''}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${vName}</div>
+      </td>
+      <td style="min-width:140px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="progress-bar" style="flex:1;height:6px;"><div class="progress-fill" style="width:${Math.min(100,pct)}%;background:${statusCol};"></div></div>
+          <span style="font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums;">${Math.round(pct)}%</span>
+        </div>
+      </td>
+      <td style="font-size:11px;"><span style="color:${statusCol};">●</span> ${statusLabel}</td>
+      <td style="font-size:11px;color:var(--text-muted);text-align:right;">${t.deadline ? fmtDate(t.deadline) : '—'}</td>
+      <td style="text-align:right;">${canWrite() ? `<button class="btn-icon" onclick="openEditTask('${t.id}')" title="Edit">✎</button>` : ''}</td>
+    </tr>`;
   }).join('');
+  const vendorChips = vendorIds.slice(0, 8).map(vid => {
+    const v = vMap[vid];
+    if(!v) return '';
+    return `<span style="display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--text);margin:2px 4px 2px 0;">${v.vendor_name||'—'}</span>`;
+  }).join('');
+  const moreVendors = vendorIds.length > 8 ? `<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">+${vendorIds.length-8} more</span>` : '';
+  const zoneId = 'zone_' + zone.replace(/[^a-z0-9]+/gi,'_').toLowerCase();
+  return `<div class="card" style="padding:0;overflow:hidden;">
+    <div onclick="toggleZone('${zoneId}')" style="padding:14px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--surface2);">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:600;color:var(--text);">${zone}</div>
+        ${overdueBadge}
+        <span style="font-size:11px;color:var(--text-muted);">${zoneTasks.length} task${zoneTasks.length>1?'s':''} · ${vendorIds.length} vendor${vendorIds.length===1?'':'s'} · ${completedCnt}/${zoneTasks.length} done</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;flex-shrink:0;">
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Progress</div>
+          <div style="font-size:14px;font-weight:600;color:${barCol};">${Math.round(totalPct)}%</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Contract</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">${zoneTotal > 0 ? 'PKR '+fmt(Math.round(zoneTotal)) : '—'}</div>
+        </div>
+        <div style="font-size:18px;color:var(--text-muted);" id="${zoneId}_caret">▾</div>
+      </div>
+    </div>
+    <div id="${zoneId}_body" style="display:none;padding:14px 18px;">
+      ${zoneTotal > 0 ? `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:6px;">
+        <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Total Value</div><div style="font-weight:600;">PKR ${fmt(Math.round(zoneTotal))}</div></div>
+        <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Paid</div><div style="font-weight:600;color:#4caf7d;">PKR ${fmt(Math.round(zonePaid))}</div></div>
+        <div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Outstanding</div><div style="font-weight:600;color:#e08a4c;">PKR ${fmt(Math.round(zoneTotal - zonePaid))}</div></div>
+      </div>` : ''}
+      ${vendorChips ? `<div style="margin-bottom:12px;"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Vendors</div>${vendorChips}${moreVendors}</div>` : ''}
+      <div class="table-wrap"><table>
+        <thead><tr><th style="width:60px;">#</th><th>Task / Vendor</th><th>Progress</th><th>Status</th><th style="text-align:right;">Deadline</th><th></th></tr></thead>
+        <tbody>${taskRows}</tbody>
+      </table></div>
+    </div>
+  </div>`;
 }
+
+function toggleZone(zoneId){
+  const body = document.getElementById(zoneId+'_body');
+  const caret = document.getElementById(zoneId+'_caret');
+  if(!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if(caret) caret.textContent = open ? '▾' : '▴';
+}
+
+// Backward-compat stubs for legacy code paths.
+function toggleAddPanel(){ toast('Use the Tasks tab to add tasks','info'); }
+function refreshDependsDropdown(){ /* legacy stub */ }
+function addWorkflowTask(){ toast('Use the Tasks tab to add tasks','info'); }
+function deleteWorkflowTask(){ /* legacy stub */ }
+function updateWorkflowStatus(){ /* legacy stub */ }
+function cycleStatus(){ /* legacy stub */ }
+function computeLevels(){ return {}; }
+function renderWorkflowChart(){ /* legacy stub */ }
+function renderWorkflowTable(){ /* legacy stub */ }
 
 // INVENTORY
 // ============================================================
