@@ -1886,8 +1886,9 @@ tr:hover td{background:var(--green-bg);}
         <button type="button" class="btn btn-primary btn-sm" onclick="toggleEvMilestoneForm()">+ Payment</button>
       </div>
       <div id="ev-milestone-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-          <div class="form-group"><label>% of Total *</label><input id="ev-m-pct" type="number" min="1" max="100" placeholder="e.g. 30" oninput="updateEvMilestonePreview()"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="form-group"><label>% of Total *</label><input id="ev-m-pct" type="number" min="0" max="100" step="0.01" placeholder="e.g. 30" oninput="syncEvMilestonePctAmt('pct')"></div>
+          <div class="form-group"><label>Amount (PKR) *</label><input id="ev-m-amt" type="number" min="0" step="1" placeholder="e.g. 150000" oninput="syncEvMilestonePctAmt('amt')"></div>
           <div class="form-group"><label>Due Date *</label><input id="ev-m-date" type="date"></div>
           <div class="form-group"><label>Priority</label><select id="ev-m-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
         </div>
@@ -5100,7 +5101,35 @@ function toggleEvMilestoneForm(forceClose){
     return;
   }
   f.style.display = 'block';
-  ['ev-m-pct','ev-m-date','ev-m-desc'].forEach(id=>document.getElementById(id).value='');
+  ['ev-m-pct','ev-m-amt','ev-m-date','ev-m-desc'].forEach(id=>document.getElementById(id).value='');
+  updateEvMilestonePreview();
+}
+// Two-way sync between % of Total and Amount (PKR). Either field can be the
+// source of truth — the other is recomputed from the vendor's total contract
+// value (ev-total). The canonical stored value remains `pct` so existing
+// schedule logic, cashflow projections, and renderEvMilestonesList all keep
+// working unchanged.
+function syncEvMilestonePctAmt(source){
+  const total = +document.getElementById('ev-total').value || 0;
+  const pctEl = document.getElementById('ev-m-pct');
+  const amtEl = document.getElementById('ev-m-amt');
+  if(source === 'pct'){
+    const pct = +pctEl.value || 0;
+    if(total > 0 && pctEl.value !== ''){
+      // 2dp avoids long floats in the amount box while keeping rupee precision
+      amtEl.value = (total * (pct/100)).toFixed(2);
+    } else if(pctEl.value === ''){
+      amtEl.value = '';
+    }
+  } else if(source === 'amt'){
+    const amt = +amtEl.value || 0;
+    if(total > 0 && amtEl.value !== ''){
+      // 4dp on % so big contracts (e.g. PKR 5 Cr) can still resolve precisely
+      pctEl.value = ((amt/total) * 100).toFixed(4);
+    } else if(amtEl.value === ''){
+      pctEl.value = '';
+    }
+  }
   updateEvMilestonePreview();
 }
 function updateEvMilestonePreview(){
@@ -5110,11 +5139,29 @@ function updateEvMilestonePreview(){
   document.getElementById('ev-m-preview').textContent = amt > 0 ? `Value at this payment: ${fmtPKR(amt)}` : '—';
 }
 function addEvMilestone(){
-  const pct = +document.getElementById('ev-m-pct').value || 0;
+  // Read both fields. The sync handler keeps them in lock-step, but in case the
+  // user pasted into one and never blurred, accept either as the source of truth.
+  //
+  // Precision note: the sync handler writes pct to the DOM with 4dp rounding,
+  // which on large contracts can drift the stored milestone amount by a few
+  // rupees vs what the user typed in the Amount field. To avoid that, when an
+  // Amount value is present we recompute pct from the raw amt/total ratio at
+  // full JS-float precision and use that as the stored pct. This guarantees
+  // that contractTotal × (storedPct/100) round-trips exactly to the typed
+  // amount (within float epsilon). When only % was typed, we use it as-is.
+  const total = +document.getElementById('ev-total').value || 0;
+  let pct = +document.getElementById('ev-m-pct').value || 0;
+  const amt = +document.getElementById('ev-m-amt').value || 0;
+  if(amt && total > 0){
+    // Amount was filled (either user-typed or sync-derived) — use amt as the
+    // source of truth for storage so the vendor table shows EXACTLY the amount
+    // the user expects.
+    pct = (amt / total) * 100;
+  }
   const date = document.getElementById('ev-m-date').value;
   const desc = document.getElementById('ev-m-desc').value.trim();
   const priority = document.getElementById('ev-m-priority').value;
-  if(!pct || !date){ toast('% and date required','error'); return; }
+  if(!pct || !date){ toast('% or amount, and date, required','error'); return; }
   const scheduled = _evMilestones.reduce((s,m)=>s+(+m.pct||0),0);
   if(scheduled + pct > 100.01){
     if(!confirm(`This would make the schedule total ${(scheduled+pct).toFixed(1)}%. Save anyway?`)) return;
