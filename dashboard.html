@@ -8522,6 +8522,9 @@ async function loadRooms(){
     renderTypeBreakdown();
     renderRoomsTable();
     renderRoomCards();
+    // Now that room data is loaded, refresh the premise tab bar so the
+    // Rooms tab shows its overall % (it's blank until rooms load).
+    if(typeof renderPremiseTabs === 'function' && _premLoaded) renderPremiseTabs();
   }catch(e){ console.error('loadRooms:', e); toast('Failed to load rooms','error'); }
 }
 
@@ -9066,6 +9069,8 @@ async function cycleChecklistItem(itemId){
     _rcRooms = rooms;
     renderRoomCards();
     if(_roomModalId) renderRoomModal();
+    // Keep the Building & premises Rooms-tab % in sync
+    if(typeof renderPremiseTabs === 'function' && typeof _premLoaded !== 'undefined' && _premLoaded) renderPremiseTabs();
     // Refresh overview if visible
     if(document.getElementById('section-overview')?.classList.contains('active')){
       renderOverviewRoomsGrid();
@@ -9465,11 +9470,38 @@ async function loadPremises(){
 }
 
 // Render the sub-tab bar (Rooms + each premise with its live %)
+// Overall weighted completion across ALL rooms (for the Rooms sub-tab label).
+// Aggregates every room_checklist item the same way individual rooms do.
+// Returns null if room data hasn't loaded yet (tab then shows no %).
+function computeAllRoomsPct(){
+  if(typeof _rcItems === 'undefined' || !Array.isArray(_rcItems) || !_rcItems.length){
+    // Fall back to cached percent_complete averages if items aren't loaded
+    if(typeof _rcRooms !== 'undefined' && Array.isArray(_rcRooms) && _rcRooms.length){
+      const vals = _rcRooms.map(r => +r.percent_complete || 0);
+      return vals.reduce((a,b)=>a+b,0) / vals.length;
+    }
+    return null;
+  }
+  let totalW = 0, earnedW = 0;
+  _rcItems.forEach(i => {
+    const w = +i.weight || 1;
+    totalW += w;
+    if(i.status === 'done') earnedW += w;
+    else if(i.status === 'in_progress') earnedW += w * 0.5;
+  });
+  return totalW ? (earnedW / totalW) * 100 : 0;
+}
+
 function renderPremiseTabs(){
   const bar = document.getElementById('prem-tabbar');
   if(!bar) return;
-  // Rooms tab first
-  let html = `<button class="prem-tab ${_premActiveTab==='rooms'?'active':''}" data-tab="rooms" onclick="switchPremiseTab('rooms')">🏨 Rooms</button>`;
+  // Rooms tab first — show overall weighted % across all rooms (matches premise tabs)
+  const roomsPct = computeAllRoomsPct();
+  const rPctTxt = roomsPct==null ? '' : (() => {
+    const c = roomsPct>=99.5 ? '#4caf7d' : roomsPct>=50 ? '#b89558' : roomsPct>0 ? '#e08a4c' : '#8a8a8a';
+    return `<span class="prem-tab-pct" style="color:${c};">${Math.round(roomsPct)}%</span>`;
+  })();
+  let html = `<button class="prem-tab ${_premActiveTab==='rooms'?'active':''}" data-tab="rooms" onclick="switchPremiseTab('rooms')">🏨 Rooms ${rPctTxt}</button>`;
   // Premise tabs in defined order, but only those that exist in DB
   const present = {};
   _premCache.forEach(p => present[p.area_key] = p);
