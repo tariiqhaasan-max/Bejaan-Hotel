@@ -778,8 +778,34 @@ tr:hover td{background:var(--green-bg);}
     </div>
   </div>
 
+  <!-- ── VENDOR GRAPHS ─────────────────────────────────────── -->
+  <div class="card" id="vendor-charts-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div class="card-title" style="margin-bottom:0;">Vendor Analytics</div>
+      <button class="btn btn-secondary btn-sm" id="vendor-charts-toggle" onclick="toggleVendorCharts()">Hide charts</button>
+    </div>
+    <div id="vendor-charts-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;text-align:center;">Paid vs Outstanding</div>
+          <div style="position:relative;height:200px;"><canvas id="vchart-paid-donut"></canvas></div>
+          <div id="vchart-paid-legend" style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:11px;flex-wrap:wrap;"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;text-align:center;">Approved vs Draft Contract Value</div>
+          <div style="position:relative;height:200px;"><canvas id="vchart-agreement-donut"></canvas></div>
+          <div id="vchart-agreement-legend" style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:11px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Top 15 Vendors — Paid vs Balance</div>
+        <div style="position:relative;height:420px;"><canvas id="vchart-topvendors"></canvas></div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
-    <div class="card-title">All Vendors & Payments</div>
+    <div class="card-title">All Vendors &amp; Payments</div>
 
     <!-- ── FILTER BAR ───────────────────────────────────────── -->
     <div id="vendor-filters" style="margin-bottom:14px">
@@ -834,7 +860,12 @@ tr:hover td{background:var(--green-bg);}
       </div>
     </div>
 
-    <div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Agreement</th><th>Total</th><th>Paid</th><th>Balance</th><th>Tasks</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
+    <!-- Collapsible vendor table — collapsed by default; expands on click or when searching/filtering -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <button class="btn btn-secondary btn-sm" id="vendor-list-toggle" onclick="toggleVendorList()">▾ Show all vendors</button>
+      <span id="vendor-list-hint" style="font-size:11px;color:var(--text-muted);">Use the search or filters above to find a specific vendor, or show the full list.</span>
+    </div>
+    <div id="vendor-table-wrap" class="table-wrap" style="display:none;"><table><thead><tr><th>Vendor</th><th>Category</th><th>Responsible</th><th>Agreement</th><th>Total</th><th>Paid</th><th>Balance</th><th>Tasks</th><th>Schedule</th><th>Due</th><th>Status</th><th>Approval</th><th>Notes</th><th></th></tr></thead><tbody id="vendors-tbody"></tbody></table></div>
   </div>
 </div>
 
@@ -1752,6 +1783,16 @@ tr:hover td{background:var(--green-bg);}
     </div>
     <input type="hidden" id="ev-id">
     <input type="hidden" id="ev-current-contract-id">
+
+    <!-- AT-A-GLANCE SUMMARY (plain English) + mini chart -->
+    <div id="ev-summary-block" style="display:flex;gap:16px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:240px;">
+        <div id="ev-summary-text" style="font-size:13px;line-height:1.6;color:var(--text);">—</div>
+      </div>
+      <div style="width:120px;height:120px;flex-shrink:0;position:relative;">
+        <canvas id="ev-summary-chart"></canvas>
+      </div>
+    </div>
 
     <!-- CONTRACTS PANEL -->
     <div id="ev-contracts-panel" style="background:linear-gradient(135deg, rgba(184,149,88,0.08), rgba(184,149,88,0.02));border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
@@ -4706,6 +4747,7 @@ function renderContractSwitcher(){
     <span>· Balance: <b style="color:#c0392b;">PKR ${fmt(tBal)}</b></span>`;
 
   if(delBtn) delBtn.style.display = _evContracts.length > 1 ? 'inline-block' : 'none';
+  if(typeof renderVendorSummary === 'function') renderVendorSummary();
 }
 
 async function switchContract(contractId){
@@ -5061,7 +5103,9 @@ async function openEditVendor(id){
   renderEvMilestonesList();
   renderContractSwitcher();
 
+  _evSummaryVendorId = v.id;
   document.getElementById('edit-vendor-modal').style.display = 'flex';
+  renderVendorSummary();
 
   // Fetch tasks for this vendor (scoped to current contract if table supports it)
   _evTasks = await fetchVendorTasks(v.id, _evCurrentContractId);
@@ -5980,6 +6024,202 @@ function applyVendorPreset(preset) {
   renderVendorRows();
 }
 
+// ── Vendor list collapse/expand ──────────────────────────────
+let _vendorListExpanded = false;
+function setVendorListExpanded(on){
+  _vendorListExpanded = !!on;
+  const wrap = document.getElementById('vendor-table-wrap');
+  const btn  = document.getElementById('vendor-list-toggle');
+  const hint = document.getElementById('vendor-list-hint');
+  if(wrap) wrap.style.display = on ? 'block' : 'none';
+  if(btn)  btn.textContent = on ? '▴ Hide vendor list' : '▾ Show all vendors';
+  if(hint) hint.style.display = on ? 'none' : 'inline';
+}
+function toggleVendorList(){ setVendorListExpanded(!_vendorListExpanded); }
+
+// ── Vendor charts collapse/expand ────────────────────────────
+let _vendorChartsHidden = false;
+function toggleVendorCharts(){
+  _vendorChartsHidden = !_vendorChartsHidden;
+  const body = document.getElementById('vendor-charts-body');
+  const btn  = document.getElementById('vendor-charts-toggle');
+  if(body) body.style.display = _vendorChartsHidden ? 'none' : 'block';
+  if(btn)  btn.textContent = _vendorChartsHidden ? 'Show charts' : 'Hide charts';
+  if(!_vendorChartsHidden) renderVendorCharts();
+}
+
+// Compute per-vendor {total, paid, balance} from the cache (contracts preferred)
+function _vendorTotals(){
+  if(!_vendorCache) return [];
+  const {data, allPays, allContracts} = _vendorCache;
+  const contractsByVendor = {};
+  (allContracts||[]).forEach(c => { (contractsByVendor[c.vendor_id]=contractsByVendor[c.vendor_id]||[]).push(c); });
+  const paidByVendor = {};
+  (allPays||[]).forEach(p => { paidByVendor[p.vendor_id]=(paidByVendor[p.vendor_id]||0)+(+p.amount||0); });
+  return (data||[]).map(v => {
+    const contracts = contractsByVendor[v.id] || [];
+    let total, paid;
+    if(contracts.length){
+      total = contracts.reduce((s,c)=>s+(+c.total_contract||0),0);
+      paid  = contracts.reduce((s,c)=>s+(+c.amount_paid||0),0);
+      const auto = paidByVendor[v.id]||0; if(auto>paid) paid=auto;
+    } else {
+      total = +v.total_contract||0;
+      const auto = paidByVendor[v.id]||0;
+      paid = v.paid_manual_override ? (+v.amount_paid||0) : (auto>0?auto:(+v.amount_paid||0));
+    }
+    // agreement state
+    let ag = v.agreement_status || 'Draft';
+    if(contracts.length){
+      const ap = contracts.filter(isContractApproved).length;
+      ag = ap===contracts.length ? 'Approved' : (ap>0 ? 'Mixed' : 'Draft');
+    }
+    return { name:v.vendor_name||'—', total, paid, balance: Math.max(0,total-paid), ag };
+  });
+}
+
+let _vchartPaid=null, _vchartAgr=null, _vchartTop=null;
+function renderVendorCharts(){
+  if(_vendorChartsHidden) return;
+  if(typeof Chart === 'undefined') return;
+  const rows = _vendorTotals();
+  if(!rows.length) return;
+
+  // 1) Paid vs Outstanding donut
+  const totalPaid = rows.reduce((s,r)=>s+r.paid,0);
+  const totalBal  = rows.reduce((s,r)=>s+r.balance,0);
+  const pd = document.getElementById('vchart-paid-donut');
+  if(pd){
+    if(_vchartPaid) _vchartPaid.destroy();
+    _vchartPaid = new Chart(pd, {
+      type:'doughnut',
+      data:{ labels:['Paid','Outstanding'], datasets:[{ data:[totalPaid,totalBal],
+        backgroundColor:['#4caf7d','#e08a4c'], borderColor:'#fff', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>`${c.label}: ${fmtPKR(c.raw)}` } } } }
+    });
+    const grand = totalPaid+totalBal;
+    document.getElementById('vchart-paid-legend').innerHTML =
+      `<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4caf7d;margin-right:5px;"></span>Paid <b>${fmtPKR(totalPaid)}</b> (${grand?Math.round(totalPaid/grand*100):0}%)</div>`+
+      `<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e08a4c;margin-right:5px;"></span>Outstanding <b>${fmtPKR(totalBal)}</b></div>`;
+  }
+
+  // 2) Approved vs Draft contract value donut (Mixed counts proportionally as Approved here for simplicity → treat Approved+Mixed as "committed", Draft as "draft")
+  const approvedVal = rows.filter(r=>r.ag==='Approved').reduce((s,r)=>s+r.total,0);
+  const mixedVal    = rows.filter(r=>r.ag==='Mixed').reduce((s,r)=>s+r.total,0);
+  const draftVal    = rows.filter(r=>r.ag==='Draft').reduce((s,r)=>s+r.total,0);
+  const ad = document.getElementById('vchart-agreement-donut');
+  if(ad){
+    if(_vchartAgr) _vchartAgr.destroy();
+    _vchartAgr = new Chart(ad, {
+      type:'doughnut',
+      data:{ labels:['Approved','Mixed','Draft'], datasets:[{ data:[approvedVal,mixedVal,draftVal],
+        backgroundColor:['#4caf7d','#b89558','#e08a4c'], borderColor:'#fff', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>`${c.label}: ${fmtPKR(c.raw)}` } } } }
+    });
+    document.getElementById('vchart-agreement-legend').innerHTML =
+      `<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4caf7d;margin-right:5px;"></span>Approved <b>${fmtPKR(approvedVal)}</b></div>`+
+      (mixedVal>0?`<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#b89558;margin-right:5px;"></span>Mixed <b>${fmtPKR(mixedVal)}</b></div>`:'')+
+      `<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e08a4c;margin-right:5px;"></span>Draft <b>${fmtPKR(draftVal)}</b></div>`;
+  }
+
+  // 3) Top 15 vendors by contract value — stacked paid/balance horizontal bar
+  const top = [...rows].sort((a,b)=>b.total-a.total).slice(0,15);
+  const tv = document.getElementById('vchart-topvendors');
+  if(tv){
+    if(_vchartTop) _vchartTop.destroy();
+    _vchartTop = new Chart(tv, {
+      type:'bar',
+      data:{ labels: top.map(r=>r.name.length>22?r.name.slice(0,21)+'…':r.name),
+        datasets:[
+          { label:'Paid', data: top.map(r=>r.paid), backgroundColor:'#4caf7d', stack:'s', minBarLength:2 },
+          { label:'Balance', data: top.map(r=>r.balance), backgroundColor:'#e08a4c', stack:'s', minBarLength:2, borderRadius:{topRight:3,bottomRight:3} }
+        ] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{position:'top', labels:{boxWidth:12,font:{size:11}}},
+          tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${fmtPKR(c.raw)}` } } },
+        scales:{
+          x:{ stacked:true, ticks:{ callback:v=> v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v>=1e3?Math.round(v/1e3)+'K':v, font:{size:10}, color:'#5a7066' }, grid:{color:'#dde8e2'} },
+          y:{ stacked:true, ticks:{font:{size:11}, color:'#111c17'}, grid:{display:false} }
+        } }
+    });
+  }
+}
+
+
+// ── Per-vendor at-a-glance summary (plain English) + mini donut ──
+let _evSummaryVendorId = null;
+let _evSummaryChart = null;
+function _fmtNiceDate(d){
+  if(!d) return null;
+  const dt = new Date(d + (d.length<=10?'T00:00:00':''));
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+function renderVendorSummary(){
+  const txtEl = document.getElementById('ev-summary-text');
+  if(!txtEl) return;
+  const name = (document.getElementById('ev-name')?.value || 'This vendor').trim();
+  const contracts = Array.isArray(_evContracts) ? _evContracts : [];
+
+  const total = contracts.reduce((s,c)=>s+(+c.total_contract||0),0);
+  const paid  = contracts.reduce((s,c)=>s+(+c.amount_paid||0),0);
+  const balance = Math.max(0, total - paid);
+  const pctPaid = total>0 ? Math.round(paid/total*100) : 0;
+
+  // Nearest upcoming due date (or most relevant)
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dated = contracts.filter(c=>c.due_date).map(c=>({d:new Date(c.due_date+'T00:00:00'), raw:c.due_date}));
+  let dueStr = null, overdue = false;
+  if(dated.length){
+    const upcoming = dated.filter(x=>x.d>=today).sort((a,b)=>a.d-b.d)[0];
+    const latest = dated.sort((a,b)=>b.d-a.d)[0];
+    const pick = upcoming || latest;
+    dueStr = _fmtNiceDate(pick.raw);
+    overdue = pick.d < today && balance > 0;
+  }
+
+  const nC = contracts.filter(c=>c.id!==null).length || contracts.length;
+  let p = `<b>${_esc(name)}</b> has `;
+  p += nC>1 ? `${nC} contracts ` : `a contract `;
+  p += `worth <b>${fmtPKR(total)}</b> in total. `;
+  if(total>0){
+    p += `So far <b style="color:#2e8b57;">${fmtPKR(paid)}</b> has been paid (${pctPaid}%), `;
+    if(balance>0){
+      p += `leaving a balance of <b style="color:#c0392b;">${fmtPKR(balance)}</b>`;
+    } else {
+      p += `and the contract is <b style="color:#2e8b57;">fully paid</b>`;
+    }
+    if(dueStr){
+      p += overdue
+        ? `. The nearest payment was due <b style="color:#c0392b;">${dueStr}</b> and is overdue.`
+        : `, with the next payment due <b>${dueStr}</b>.`;
+    } else {
+      p += `. No payment due date is set.`;
+    }
+  } else {
+    p += `No contract value has been entered yet.`;
+  }
+  txtEl.innerHTML = p;
+
+  // Mini donut: paid vs remaining
+  const cv = document.getElementById('ev-summary-chart');
+  if(cv && typeof Chart !== 'undefined'){
+    if(_evSummaryChart){ _evSummaryChart.destroy(); _evSummaryChart=null; }
+    if(total>0){
+      _evSummaryChart = new Chart(cv, {
+        type:'doughnut',
+        data:{ labels:['Paid','Remaining'], datasets:[{ data:[paid,balance],
+          backgroundColor:['#4caf7d','#e0e0e0'], borderColor:'#fff', borderWidth:2 }] },
+        options:{ responsive:true, maintainAspectRatio:false, cutout:'68%',
+          plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>`${c.label}: ${fmtPKR(c.raw)}` } } } }
+      });
+    }
+  }
+}
+
+
 async function loadVendors(){
   try{
     const data=await getData('vendors');
@@ -6014,6 +6254,7 @@ async function loadVendors(){
       if (allBtn) allBtn.classList.add('active');
     }
     renderVendorRows();
+    if(typeof renderVendorCharts === 'function') renderVendorCharts();
   }catch(e){console.error(e);toast('Failed to load vendors','error');}
 }
 
@@ -6028,6 +6269,12 @@ function renderVendorRows(){
   const fApproval = document.getElementById('vf-approval')?.value || '';
   const fAgreement = document.getElementById('vf-agreement')?.value || '';
   const fDue = document.getElementById('vf-due')?.value || '';
+
+  // If the user is searching/filtering (or picked a non-"all" preset), auto-expand
+  // the collapsed list so results are visible without an extra click.
+  const anyFilterActive = !!(fSearch || fStatus || fApproval || fAgreement || fDue) ||
+    (_vendorActivePreset && _vendorActivePreset !== 'all');
+  if(anyFilterActive) setVendorListExpanded(true);
 
   const today = new Date(); today.setHours(0,0,0,0);
   const todayISO = today.toISOString().slice(0,10);
