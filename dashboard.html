@@ -496,7 +496,7 @@ tr:hover td{background:var(--green-bg);}
       <div class="nav-item" onclick="showSection('inventory')"><span class="nav-icon">🏛️</span>Fixed Assets</div>
       <div class="nav-item" onclick="showSection('store')"><span class="nav-icon">📦</span>Stores</div>
       <div class="nav-item" onclick="showSection('approvals')"><span class="nav-icon">✅</span>Approvals <span id="approvals-badge" style="margin-left:auto;background:var(--gold);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;display:none;"></span></div>
-      <div class="nav-item" onclick="showSection('rooms')"><span class="nav-icon">🏨</span>Rooms</div>
+      <div class="nav-item" onclick="showSection('premises')"><span class="nav-icon">🏗️</span>Building &amp; premises</div>
       <div class="nav-item" onclick="showSection('budget')"><span class="nav-icon">💰</span>Budget</div>
       <div class="nav-item" onclick="showSection('cashflow')"><span class="nav-icon">📅</span>Cashflow</div>
       <div class="nav-item" onclick="showSection('draft_liability')"><span class="nav-icon">📝</span>Draft Liability</div>
@@ -1108,6 +1108,13 @@ tr:hover td{background:var(--green-bg);}
 
 <style>
 .store-tab { background:transparent; border:none; padding:10px 16px; font-size:13px; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; font-family:inherit; transition: all 0.2s; }
+/* Building & Premises sub-tabs */
+.prem-tab { background:transparent; border:none; padding:9px 14px; font-size:13px; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; font-family:inherit; transition:all .15s; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+.prem-tab:hover { color:var(--text); }
+.prem-tab.active { color:var(--gold); border-bottom-color:var(--gold); font-weight:500; }
+.prem-tab .prem-tab-pct { font-size:11px; font-weight:700; }
+.prem-pane { display:none; }
+.prem-pane.active { display:block; }
 .store-tab:hover { color:var(--text); }
 .store-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
 </style>
@@ -1230,10 +1237,25 @@ tr:hover td{background:var(--green-bg);}
   </div>
 </div>
 
-<!-- ROOMS -->
-<div class="section" id="section-rooms">
+<!-- ============ BUILDING & PREMISES (parent section) ============ -->
+<div class="section" id="section-premises">
   <div class="page-header">
-    <div class="page-title">Rooms</div>
+    <div>
+      <div class="page-title">Building &amp; Premises</div>
+      <div class="page-subtitle">Completion tracking across rooms and all premise areas</div>
+    </div>
+    <button class="btn btn-primary btn-sm admin-only" onclick="bulkCreatePremises()" title="Creates all premise areas and loads their task checklists">⚡ Bulk Create Premises</button>
+  </div>
+
+  <!-- Sub-tab nav: Rooms first, then each premise area -->
+  <div id="prem-tabbar" style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);overflow-x:auto;padding-bottom:0;">
+    <!-- filled by renderPremiseTabs() -->
+  </div>
+
+  <!-- SUB-PANE: ROOMS (existing rooms UI, unchanged) -->
+  <div class="prem-pane" id="prem-pane-rooms">
+  <div class="page-header" style="margin-top:4px;">
+    <div class="page-title" style="font-size:18px;">Rooms</div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-primary btn-sm admin-only" onclick="bulkCreateBejaanRooms()" title="Creates all 77 Bejaan rooms with proper naming">⚡ Bulk Create Bejaan Rooms</button>
       <button class="btn btn-secondary btn-sm admin-only" onclick="syncRoomTemplates()" title="Adds any missing template items to existing rooms. Preserves your ticked items.">↻ Sync Templates</button>
@@ -1313,7 +1335,15 @@ tr:hover td{background:var(--green-bg);}
       <div id="room-modal-body" style="flex:1;overflow-y:auto;padding:18px 22px;background:rgba(0,0,0,0.015);"></div>
     </div>
   </div>
+  </div>
+  <!-- /SUB-PANE: ROOMS -->
+
+  <!-- SUB-PANES: one per premise area, filled by renderPremisePane() -->
+  <div id="prem-panes-container">
+    <!-- each premise renders into #prem-pane-<area_key> on demand -->
+  </div>
 </div>
+<!-- /BUILDING & PREMISES -->
 
 <!-- BUDGET -->
 <div class="section" id="section-budget">
@@ -2361,32 +2391,31 @@ function applyRoleUI(){
       </div>`;
   }
 
-  // ── Special role: 'rooms_only' — restrict UI to ONLY the Rooms section ──
-  // Hide every sidebar nav item except 🏨 Rooms, then jump to the rooms
-  // section. Also gate showSection() (see below) so any indirect link to
-  // another section is rejected.
+  // ── Special role: 'rooms_only' — restrict UI to ONLY the Rooms area ──
+  // Rooms now lives inside the Building & premises section, so we keep the
+  // 'Building & premises' nav item visible and force the Rooms sub-tab.
   if (CURRENT_ROLE === 'rooms_only') {
     document.querySelectorAll('.nav-item').forEach(el => {
       const onclick = el.getAttribute('onclick') || '';
-      if (!/showSection\('rooms'\)/.test(onclick)) {
+      if (!/showSection\('premises'\)/.test(onclick)) {
         el.style.display = 'none';
       } else {
         el.style.display = 'flex';
       }
     });
-    // Hide section dividers in sidebar so the lone Rooms item doesn't look orphaned under empty headings
+    // Hide section dividers in sidebar so the lone item doesn't look orphaned under empty headings
     document.querySelectorAll('.nav-section, .nav-divider').forEach(el => el.style.display = 'none');
-    // Force-jump to the rooms section (defensive — if the page just loaded
-    // on Overview, switch immediately)
+    // Force-jump to the premises section + Rooms tab
     setTimeout(() => {
       try {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        const sec = document.getElementById('section-rooms');
+        const sec = document.getElementById('section-premises');
         if (sec) sec.classList.add('active');
-        const navRooms = document.querySelector('.nav-item[onclick*="showSection(\'rooms\')"]');
-        if (navRooms) navRooms.classList.add('active');
-        if (typeof loadSection === 'function') loadSection('rooms');
+        const navPrem = document.querySelector('.nav-item[onclick*="showSection(\'premises\')"]');
+        if (navPrem) navPrem.classList.add('active');
+        if (typeof loadSection === 'function') loadSection('premises');
+        if (typeof switchPremiseTab === 'function') setTimeout(() => switchPremiseTab('rooms'), 80);
       } catch(e) { console.warn('rooms_only redirect:', e); }
     }, 0);
     return; // Skip admin-only unhiding for restricted users
@@ -3344,10 +3373,15 @@ async function sbInsert(t,d){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{metho
 async function sbDelete(t,id){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers});if(!r.ok)throw new Error(await r.text());}
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3000);}
 function showSection(id){
-  // Defensive: lock 'rooms_only' role to the Rooms section only.
-  if (CURRENT_ROLE === 'rooms_only' && id !== 'rooms') {
+  // Defensive: lock 'rooms_only' role to the Rooms area only.
+  if (CURRENT_ROLE === 'rooms_only' && id !== 'rooms' && id !== 'premises') {
     id = 'rooms';
   }
+  // 'rooms' now lives as the first sub-tab inside the 'premises' section.
+  // Any showSection('rooms') call opens premises and selects the Rooms tab.
+  let wantRoomsTab = false;
+  if (id === 'rooms') { id = 'premises'; wantRoomsTab = true; }
+
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const sec = document.getElementById('section-'+id);
@@ -3356,13 +3390,17 @@ function showSection(id){
     event.currentTarget.classList.add('active');
   }
   loadSection(id);
+  if (id === 'premises' && wantRoomsTab) {
+    // ensure Rooms tab is the active sub-tab
+    setTimeout(() => { if (typeof switchPremiseTab === 'function') switchPremiseTab('rooms'); }, 50);
+  }
 }
 const cache={};
 async function getData(t){cache[t]=await sbGet(t);return cache[t];}
 const fmt=n=>n?Number(n).toLocaleString('en-PK'):'0';
 const fmtDate=d=>d?d:'—';
 function statusBadge(s){const map={Completed:'green',Done:'green','On Track':'green',Received:'green',Installed:'green',Approved:'green',Delayed:'red','On Hold':'orange',Rejected:'red',Pending:'orange','Pending Approval':'orange','In Progress':'blue','Not Started':'gray',Ordered:'blue','Pending Order':'gray',Open:'red',High:'red',Medium:'orange',Low:'blue',Blocked:'red'};return`<span class="badge badge-${map[s]||'gray'}">${s}</span>`;}
-async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,approvals:loadApprovals,rooms:loadRooms,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
+async function loadSection(id){const map={overview:loadOverview,alerts:loadAlerts,vendors:loadVendors,tasks:loadTasks,bottlenecks:loadBottlenecks,workflow:loadWorkflow,inventory:loadInventory,store:loadStore,approvals:loadApprovals,rooms:loadRooms,premises:loadPremises,budget:loadBudget,cashflow:loadCashflow,draft_liability:loadDraftLiability,contacts:loadContacts,meetings:loadMeetings,punch:loadPunch,users:loadUsers};if(map[id])map[id]();}
 async function loadAll(){
   await Promise.all(['vendors','inventory','rooms','budget','cashflow','punch_list'].map(t=>getData(t)));
   // Also preload Supabase-backed collections that the old localStorage code
@@ -9270,6 +9308,490 @@ async function renderOverviewRoomsGrid(){
 // ============================================================
 // END ROOM CHECKLIST MODULE
 // ============================================================
+
+const PREMISE_TEMPLATES = {
+  viewing_deck: { name: "Viewing Deck", items: [
+    "PEB structure",
+  ]},
+  meditation_deck: { name: "Meditation Deck", items: [
+    "Flooring work",
+    "Railing work",
+    "Strair steps",
+    "Stone wall along the stair step",
+    "Coping work on the stone wall",
+  ]},
+  bar_deck: { name: "Bar Deck", items: [
+    "Flooring work",
+    "Kitchen counter top marble fixing",
+    "Kitchen counter wall marble fixing",
+    "Kitchen counter 2x2\" tile fixing",
+    "Wall store cladding at back side of counter",
+    "Railing structure & glass fixing",
+    "Sitting bench marble fixing work",
+    "Marble fixing work at planter wall",
+    "Stairs steps marble fixing work",
+    "Bar deck wooden shade",
+    "LPG gas pipe line",
+  ]},
+  pool_deck: { name: "Pool Deck", items: [
+    "Flooring",
+    "Planter wall and top lopinig",
+    "Pool deck wooden shade",
+    "Tile fixing work inside the swimming pool",
+    "Swimming pool wall tile fixing work",
+    "Swimming pool wall top marble coping work",
+    "Tile fixing work inside the pool scum drain",
+    "Pool scum drain wall top coping work",
+    "Pool dek PEB structure",
+  ]},
+  retail_shops: { name: "Retail Shops", items: [
+    "Floor tile fixing",
+    "Fire suppression piping",
+    "Ceiling cassette air conditioner installation",
+    "Electrical wiring",
+    "Ceiling framing",
+    "Electrical DB,s installation",
+    "HVAC ducting work",
+  ]},
+  lobby_reception: { name: "Lobby & Reception", items: [
+    "Floor marble installation work",
+    "Streps marble fixing work",
+    "Lobby ceilinng work",
+    "Reception ceiling work",
+    "HVAC ducting work",
+    "Fire suppression piping",
+    "Electrical wiring work",
+    "Lobby wall Armany marble fixing work",
+    "Lobby wall decorable panel fixing",
+  ]},
+  pool_changing_room: { name: "Pool Changing Room", items: [
+    "Floor tile fixing",
+    "Wall tile fixing",
+    "Ceiling work",
+    "Electrical work",
+    "Electrical DB,s installation",
+    "Electrical wiring work",
+    "External wooden shade",
+    "Changing room floorinng work",
+    "Changing room entrance stair steps",
+    "Changing room corridor wall stone cladding work",
+    "Changing room external stone masonnry work",
+  ]},
+  rock_bar: { name: "Rock Bar", items: [
+    "Electrical piping",
+    "Electrical surface conduiting",
+    "Wooden bridge structure",
+    "Rock bar deck wooden shad",
+    "Fire suppression piping",
+    "Windows framing and glass fixing",
+    "Air conditioner indoor unit installation",
+    "Ceiling wiring",
+  ]},
+  gym_children: { name: "Gym & Children Area", items: [
+    "Electrical wiring",
+    "Fire suppression piping",
+    "Gym changing room floor tile fixing work",
+    "Gym changing room wall fixing work",
+  ]},
+  restaurants: { name: "Restaurants", items: [
+    "Flooring Work",
+    "Lock Wooden Ceiling Work",
+    "HVAC Ducting Work",
+    "Fire Supression Piping Work",
+    "Kitchen Flooring",
+    "Wall Tile Fixing Work",
+    "LPG Gass Piping Work",
+    "Wiring for listing",
+    "Wiring for FA System",
+    "Wiring for Public adress",
+    "Wiring for CCTV Cameras",
+    "Kitchen Hood Fixing",
+    "CPVC Pinping",
+    "Electrical and Plumbing Work",
+  ]},
+};
+// ============================================================
+// BUILDING & PREMISES MODULE
+// Mirrors the Rooms checklist engine: tap-to-cycle items,
+// weighted % (1=Minor 3=Standard 10=Major 25=Critical).
+// Standalone — no vendor/bcc links. Backed by:
+//   premises (one row per area)  +  premise_checklist (line items)
+// ============================================================
+
+// Ordered list of premise areas (Rooms handled separately as first tab)
+const PREMISE_ORDER = [
+  'viewing_deck','meditation_deck','bar_deck','pool_deck','retail_shops',
+  'lobby_reception','pool_changing_room','rock_bar','gym_children','restaurants'
+];
+
+let _premCache = [];          // premises rows
+let _premItems = {};          // area_key -> checklist items[]
+let _premActiveTab = 'rooms'; // which sub-tab is showing
+let _premLoaded = false;
+
+// Weighted % for one area's items (same math as rooms)
+function computePremisePct(items, fallback){
+  if(!items || !items.length) return +fallback || 0;
+  let totalW = 0, earnedW = 0;
+  items.forEach(i => {
+    const w = +i.weight || 1;
+    totalW += w;
+    if(i.status === 'done') earnedW += w;
+    else if(i.status === 'in_progress') earnedW += w * 0.5;
+  });
+  return totalW ? (earnedW / totalW) * 100 : 0;
+}
+
+// Fetch all premises + their checklist items
+async function loadPremises(){
+  try{
+    const [prem, items] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/premises?select=*&order=sort_order.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${SB_URL}/rest/v1/premise_checklist?select=*&order=sort_order.asc`,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    _premCache = Array.isArray(prem) ? prem : [];
+    _premItems = {};
+    const byId = {};
+    _premCache.forEach(p => { byId[p.id] = p.area_key; _premItems[p.area_key] = []; });
+    (Array.isArray(items)?items:[]).forEach(it => {
+      const key = byId[it.premise_id];
+      if(key){ (_premItems[key] = _premItems[key] || []).push(it); }
+    });
+    _premLoaded = true;
+    renderPremiseTabs();
+    // Show whichever tab is active (default Rooms)
+    switchPremiseTab(_premActiveTab);
+  }catch(e){ console.error('loadPremises:', e); toast('Failed to load premises','error'); }
+}
+
+// Render the sub-tab bar (Rooms + each premise with its live %)
+function renderPremiseTabs(){
+  const bar = document.getElementById('prem-tabbar');
+  if(!bar) return;
+  // Rooms tab first
+  let html = `<button class="prem-tab ${_premActiveTab==='rooms'?'active':''}" data-tab="rooms" onclick="switchPremiseTab('rooms')">🏨 Rooms</button>`;
+  // Premise tabs in defined order, but only those that exist in DB
+  const present = {};
+  _premCache.forEach(p => present[p.area_key] = p);
+  PREMISE_ORDER.forEach(key => {
+    const p = present[key];
+    const tpl = PREMISE_TEMPLATES[key];
+    const name = p ? p.name : (tpl ? tpl.name : key);
+    const pct = p ? Math.round(computePremisePct(_premItems[key], p.percent_complete)) : null;
+    const pctCol = pct==null ? 'var(--text-muted)' : pct>=99.5 ? '#4caf7d' : pct>=50 ? '#b89558' : pct>0 ? '#e08a4c' : '#8a8a8a';
+    const pctTxt = pct==null ? '' : `<span class="prem-tab-pct" style="color:${pctCol};">${pct}%</span>`;
+    html += `<button class="prem-tab ${_premActiveTab===key?'active':''}" data-tab="${key}" onclick="switchPremiseTab('${key}')">${_esc(name)} ${pctTxt}</button>`;
+  });
+  bar.innerHTML = html;
+}
+
+function switchPremiseTab(tab){
+  _premActiveTab = tab;
+  // Toggle tab active styling
+  document.querySelectorAll('.prem-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  // Hide all panes
+  document.querySelectorAll('.prem-pane').forEach(p => p.classList.remove('active'));
+  if(tab === 'rooms'){
+    const rp = document.getElementById('prem-pane-rooms');
+    if(rp) rp.classList.add('active');
+    if(typeof loadRooms === 'function') loadRooms();
+    return;
+  }
+  // Premise pane — create on demand inside the container
+  const container = document.getElementById('prem-panes-container');
+  let pane = document.getElementById('prem-pane-' + tab);
+  if(!pane){
+    pane = document.createElement('div');
+    pane.className = 'prem-pane';
+    pane.id = 'prem-pane-' + tab;
+    container.appendChild(pane);
+  }
+  pane.classList.add('active');
+  renderPremisePane(tab);
+}
+
+// Render a single premise area's checklist + header
+function renderPremisePane(key){
+  const pane = document.getElementById('prem-pane-' + key);
+  if(!pane) return;
+  const p = _premCache.find(x => x.area_key === key);
+  const tpl = PREMISE_TEMPLATES[key];
+  const name = p ? p.name : (tpl ? tpl.name : key);
+
+  if(!p){
+    // Not seeded yet
+    pane.innerHTML = `<div style="padding:30px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;text-align:center;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px;">${_esc(name)}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">This area hasn't been created yet.</div>
+      ${isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="bulkCreatePremises()">⚡ Bulk Create Premises</button>` : ''}
+    </div>`;
+    return;
+  }
+
+  const items = _premItems[key] || [];
+  const doneCount = items.filter(i => i.status === 'done').length;
+  const pct = computePremisePct(items, p.percent_complete);
+  const pctColor = pct >= 99.5 ? '#4caf7d' : pct >= 50 ? '#b89558' : pct > 0 ? '#e08a4c' : '#8a8a8a';
+
+  let html = `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:600;">${_esc(name)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${items.length} items · ${doneCount} complete</div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px;max-width:420px;">
+            <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;background:${pctColor};width:${pct}%;border-radius:4px;transition:width .3s;"></div>
+            </div>
+            <span style="font-size:18px;font-weight:700;color:${pctColor};">${Math.round(pct)}%</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="printPremiseChecklist('${key}')" title="Print blank checklist">🖨 Print</button>
+      </div>
+    </div>`;
+
+  // Legend
+  html += `<div style="display:flex;align-items:center;gap:14px;padding:8px 12px;margin-bottom:14px;background:rgba(0,0,0,0.03);border-radius:6px;font-size:10px;color:var(--text-muted);flex-wrap:wrap;">
+    <span>Importance:</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#8a8a8a;"></span>Minor</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#4a9eff;"></span>Standard</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#c9a84c;"></span>Major</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#d04040;"></span>Critical</span>
+    <span style="margin-left:auto;">% is weighted by importance · tap an item to cycle pending → in progress → done</span>
+  </div>`;
+
+  if(!items.length){
+    html += `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface);border:1px dashed var(--border);border-radius:10px;">No checklist items yet for this area.</div>`;
+  } else {
+    html += `<div class="card"><div style="display:grid;gap:5px;">` + items.map(it => {
+      const s = it.status || 'pending';
+      const bg = s==='done' ? 'rgba(76,175,125,.10)' : s==='in_progress' ? 'rgba(184,149,88,.10)' : 'var(--surface2)';
+      const border = s==='done' ? '#4caf7d55' : s==='in_progress' ? '#b8955855' : 'var(--border)';
+      const ic = s==='done' ? '✓' : s==='in_progress' ? '◐' : '○';
+      const icColor = s==='done' ? '#4caf7d' : s==='in_progress' ? '#b89558' : '#888';
+      const tier = WEIGHT_TIER(it.weight);
+      const tierDot = `<span title="${tier.label} (weight ${it.weight||1})" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tier.color};flex-shrink:0;"></span>`;
+      const canEdit = canWrite() ? `onclick="cyclePremiseItem('${it.id}')"` : '';
+      // Weight selector + delete for admins (kept compact, stop propagation so it doesn't cycle)
+      const weightSel = isAdmin() ? `<select onclick="event.stopPropagation();" onchange="event.stopPropagation();setPremiseItemWeight('${it.id}',this.value)" title="Importance" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:10px;color:var(--text-muted);cursor:pointer;">
+          <option value="1" ${(+it.weight||3)===1?'selected':''}>Minor</option>
+          <option value="3" ${(+it.weight||3)===3?'selected':''}>Standard</option>
+          <option value="10" ${(+it.weight||3)===10?'selected':''}>Major</option>
+          <option value="25" ${(+it.weight||3)===25?'selected':''}>Critical</option>
+        </select>` : '';
+      const delBtn = isAdmin() ? `<button class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:10px;" onclick="event.stopPropagation();deletePremiseItem('${it.id}')">✕</button>` : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${bg};border:1px solid ${border};border-radius:7px;cursor:${canWrite()?'pointer':'default'};font-size:13px;transition:background .15s;" ${canEdit}>
+        <span style="color:${icColor};font-size:15px;width:16px;text-align:center;">${ic}</span>
+        ${tierDot}
+        <span style="flex:1;color:var(--text);${s==='done'?'text-decoration:line-through;opacity:0.6;':''}">${_esc(it.item_name)}</span>
+        ${weightSel}
+        ${delBtn}
+      </div>`;
+    }).join('') + `</div>`;
+
+    // Add-item form
+    if(canWrite()){
+      html += `<div style="display:flex;gap:6px;padding:10px 0 2px;margin-top:10px;flex-wrap:wrap;border-top:1px dashed var(--border);">
+        <input id="prem-newitem-${key}" placeholder="Add item…" style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();addPremiseItem('${key}');}">
+        <select id="prem-newweight-${key}" title="Importance" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--text);">
+          <option value="1">Minor</option><option value="3" selected>Standard</option><option value="10">Major</option><option value="25">Critical</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="addPremiseItem('${key}')">+ Add</button>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  pane.innerHTML = html;
+}
+
+// Tap-to-cycle an item: pending → in_progress → done → pending
+async function cyclePremiseItem(itemId){
+  if(!canWrite()) return;
+  let item = null, key = null;
+  for(const k in _premItems){
+    const f = _premItems[k].find(i => i.id === itemId);
+    if(f){ item = f; key = k; break; }
+  }
+  if(!item) return;
+  const cycle = {pending:'in_progress', in_progress:'done', done:'pending'};
+  const newStatus = cycle[item.status || 'pending'];
+  item.status = newStatus; // optimistic
+  renderPremisePane(key);
+  renderPremiseTabs();
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/premise_checklist?id=eq.${itemId}`,{
+      method:'PATCH', headers, body: JSON.stringify({ status:newStatus, updated_at:new Date().toISOString() })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    // Update cached % on the premise row
+    const p = _premCache.find(x => x.area_key === key);
+    if(p){
+      const pct = Math.round(computePremisePct(_premItems[key]));
+      p.percent_complete = pct;
+      fetch(`${SB_URL}/rest/v1/premises?id=eq.${p.id}`,{
+        method:'PATCH', headers, body: JSON.stringify({ percent_complete: pct, updated_at:new Date().toISOString() })
+      }).catch(()=>{});
+    }
+  }catch(e){ console.error(e); toast('Save failed','error'); }
+}
+
+async function setPremiseItemWeight(itemId, weight){
+  if(!isAdmin()) return;
+  let item=null,key=null;
+  for(const k in _premItems){ const f=_premItems[k].find(i=>i.id===itemId); if(f){item=f;key=k;break;} }
+  if(!item) return;
+  item.weight = +weight;
+  renderPremisePane(key); renderPremiseTabs();
+  try{
+    await fetch(`${SB_URL}/rest/v1/premise_checklist?id=eq.${itemId}`,{method:'PATCH',headers,body:JSON.stringify({weight:+weight})});
+  }catch(e){ toast('Save failed','error'); }
+}
+
+async function addPremiseItem(key){
+  if(!canWrite()) return;
+  const p = _premCache.find(x => x.area_key === key);
+  if(!p){ toast('Create this area first','error'); return; }
+  const input = document.getElementById('prem-newitem-' + key);
+  const name = (input?.value || '').trim();
+  if(!name){ toast('Item name required','error'); return; }
+  const weight = +(document.getElementById('prem-newweight-' + key)?.value || 3);
+  const existing = _premItems[key] || [];
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/premise_checklist`,{
+      method:'POST', headers:{...headers,'Prefer':'return=representation'},
+      body: JSON.stringify({ premise_id:p.id, item_name:name, status:'pending', weight, sort_order:existing.length })
+    });
+    if(!r.ok){
+      const err = await r.text();
+      if(/does not exist|relation/i.test(err)){ toast('Run premises migration first','error'); return; }
+      throw new Error(err);
+    }
+    const [created] = await r.json();
+    (_premItems[key] = _premItems[key] || []).push(created);
+    if(input) input.value = '';
+    renderPremisePane(key); renderPremiseTabs();
+    toast('Item added ✓');
+  }catch(e){ console.error(e); toast('Error adding item','error'); }
+}
+
+async function deletePremiseItem(itemId){
+  if(!isAdmin()) return;
+  let key=null;
+  for(const k in _premItems){ if(_premItems[k].some(i=>i.id===itemId)){ key=k; break; } }
+  if(!confirm('Remove this item?')) return;
+  try{
+    await fetch(`${SB_URL}/rest/v1/premise_checklist?id=eq.${itemId}`,{method:'DELETE',headers});
+    if(key) _premItems[key] = _premItems[key].filter(i=>i.id!==itemId);
+    renderPremisePane(key); renderPremiseTabs();
+    toast('Removed ✓');
+  }catch(e){ toast('Error','error'); }
+}
+
+// Bulk create all premise areas + seed their checklist items from the templates.
+// Idempotent: skips areas/items that already exist (unique indexes back this).
+async function bulkCreatePremises(){
+  if(!isAdmin()){ toast('Admin only','error'); return; }
+  const totalItems = Object.values(PREMISE_TEMPLATES).reduce((s,t)=>s+t.items.length,0);
+  if(!confirm(`Create ${PREMISE_ORDER.length} premise areas and seed ${totalItems} checklist items?\n\nExisting areas/items are skipped — safe to re-run.`)) return;
+
+  toast('Creating premise areas…');
+  // 1. Fetch existing premises so we don't duplicate
+  let existing = [];
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/premises?select=id,area_key`,{headers});
+    if(r.ok) existing = await r.json();
+    else {
+      const err = await r.text();
+      if(/does not exist|relation/i.test(err)){ toast('Run premises_migration.sql first','error'); return; }
+    }
+  }catch(e){ toast('Could not reach DB','error'); return; }
+  const byKey = {}; existing.forEach(p => byKey[p.area_key] = p);
+
+  // 2. Insert missing premises
+  const toCreate = PREMISE_ORDER.filter(k => !byKey[k]).map((k,idx) => ({
+    name: PREMISE_TEMPLATES[k].name,
+    area_key: k,
+    sort_order: PREMISE_ORDER.indexOf(k),
+    percent_complete: 0,
+    status: 'Not Started'
+  }));
+  let createdPremises = [];
+  if(toCreate.length){
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/premises`,{
+        method:'POST', headers:{...headers,'Prefer':'return=representation'},
+        body: JSON.stringify(toCreate)
+      });
+      if(!r.ok) throw new Error(await r.text());
+      createdPremises = await r.json();
+    }catch(e){ console.error(e); toast('Error creating areas: '+(e.message||e),'error'); return; }
+  }
+  // Merge into byKey
+  createdPremises.forEach(p => byKey[p.area_key] = p);
+
+  // 3. Seed checklist items for each area (default weight = Standard/3)
+  toast(`Seeding ${totalItems} items…`);
+  const itemsPayload = [];
+  PREMISE_ORDER.forEach(k => {
+    const p = byKey[k];
+    if(!p) return;
+    PREMISE_TEMPLATES[k].items.forEach((name, idx) => {
+      itemsPayload.push({ premise_id: p.id, item_name: name, status:'pending', weight:3, sort_order: idx });
+    });
+  });
+  let inserted = 0;
+  const CHUNK = 200;
+  for(let i=0; i<itemsPayload.length; i+=CHUNK){
+    const chunk = itemsPayload.slice(i, i+CHUNK);
+    try{
+      const r = await fetch(`${SB_URL}/rest/v1/premise_checklist`,{
+        method:'POST', headers:{...headers, Prefer:'return=minimal,resolution=ignore-duplicates'},
+        body: JSON.stringify(chunk)
+      });
+      if(r.ok) inserted += chunk.length;
+      else console.error('[premise seed] chunk', i, 'failed:', await r.text());
+    }catch(e){ console.error(e); }
+  }
+  toast(`✓ ${PREMISE_ORDER.length} areas ready · ${inserted} items seeded`);
+  loadPremises();
+}
+
+// Print a blank checklist for one premise (for site teams)
+function printPremiseChecklist(key){
+  const p = _premCache.find(x => x.area_key === key);
+  if(!p){ alert('Area not found.'); return; }
+  const items = _premItems[key] || [];
+  if(!items.length){ alert('No checklist items yet.'); return; }
+  const pct = computePremisePct(items, p.percent_complete);
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  let body = '<table class="checklist"><tbody>';
+  items.forEach(it => {
+    body += '<tr><td class="box">☐</td><td class="item">' + esc(it.item_name) + '</td><td class="notes-line"></td></tr>';
+  });
+  body += '</tbody></table>';
+  body += '<div class="signoff"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Inspected by</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Date</div></div></div>';
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Checklist — ' + esc(p.name) + '</title><style>'
+    + '@page { size: letter; margin: 0.6in; } body { font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; color:#111; margin:0; }'
+    + '.hdr { border-bottom:2px solid #111; padding-bottom:10px; margin-bottom:18px; } .hdr h1 { font-family:Georgia,serif; margin:0 0 6px 0; font-size:22px; }'
+    + '.hdr .meta { display:flex; gap:18px; font-size:11px; color:#444; } .hdr .meta b { color:#111; }'
+    + '.checklist { width:100%; border-collapse:collapse; } .checklist td { padding:6px 4px; border-bottom:1px dotted #ccc; vertical-align:top; }'
+    + '.box { width:18px; font-size:16px; padding-right:6px; line-height:1; } .item { font-size:12px; line-height:1.35; width:55%; } .notes-line { border-bottom:1px solid #ccc; }'
+    + '.signoff { display:flex; gap:40px; margin-top:30px; padding-top:16px; border-top:1px solid #aaa; } .sig-block { flex:1; } .sig-line { border-bottom:1px solid #111; height:28px; } .sig-label { font-size:10px; color:#666; margin-top:4px; text-transform:uppercase; }'
+    + '.print-btn { position:fixed; top:12px; right:12px; padding:8px 16px; background:#2d8a5e; color:#fff; border:0; border-radius:6px; font-size:13px; cursor:pointer; } @media print { .print-btn { display:none; } }'
+    + '</style></head><body>'
+    + '<button class="print-btn" onclick="window.print()">🖨 Print</button>'
+    + '<div class="hdr"><h1>' + esc(p.name) + '</h1><div class="meta"><span><b>Items:</b> ' + items.length + '</span><span><b>Current progress:</b> ' + Math.round(pct) + '%</span></div></div>'
+    + body
+    + '<script>setTimeout(function(){window.print();},350);</' + 'script></body></html>';
+  const w = window.open('', '_blank', 'width=820,height=1000');
+  if(!w){ alert('Popup blocked — allow popups to print.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+// ============================================================
+// END BUILDING & PREMISES MODULE
+// ============================================================
+
 
 async function addRoom(){
   if(!isAdmin()) return;
